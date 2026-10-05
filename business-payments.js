@@ -85,5 +85,5 @@
     const csv=['Payment ID,Payee,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,create,update,exportRegister,types:TYPES.slice(),methods:METHODS.slice()};
+  window.DalasiBusinessPayments={render,modal,create,update,exportRegister,summary:totals,types:TYPES.slice(),methods:METHODS.slice()};
 })();
