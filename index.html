@@ -1831,7 +1831,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   window.DalasiPilot={readiness};
 })();
 
-</script><!-- app.js -->
+</script><script src="./business-payments.js"></script><!-- app.js -->
 <script>
 (() => {
   const seedEmployees = window.DALASIPAY_SEED || [];
@@ -1921,6 +1921,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     corrections: [],
     opsConfig: Object.assign({}, window.DalasiOps.DEFAULT_CONFIG),
     paymentBatches: [],
+    businessPayments: [],
+    paymentOpen: false,
     settlements: [],
     backendCheck: null,
     toast: ''
@@ -2165,7 +2167,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     state.org=window.DalasiAuth.getActiveOrganization();
     state.role=state.org?window.DalasiAuth.roleFor(state.org.id):null;
     state.member=state.org?window.DalasiAuth.memberFor(state.org.id):null;
-    if(!state.org){state.company='DalasiPay Workspace';state.member=null;state.employees=[];state.rules=Object.assign({},window.DalasiPayroll.DEFAULT_RULES);state.payrollStatus='Ready';state.runs=[];state.periods=[];state.currentPeriod='2026-10';state.sent={};state.approvals={};state.branding={accent:'#0d3b35',logoData:'',logoText:'D',payslipNote:'Payroll, beautifully handled.'};state.notificationPrefs={leave:true,payroll:true,payslips:true};state.hrConfig=window.DalasiHR.normalizeConfig({});state.opsConfig=Object.assign({},window.DalasiOps.DEFAULT_CONFIG);state.controlConfig=window.DalasiControls.normalizeConfig({});state.corrections=[];state.paymentBatches=[];state.settlements=[];state.exceptionLedger=[];state.closeRecords=[];state.payrollNotes=[];state.payrollTasks=[];state.makerRecords={};state.v012Config=window.DalasiAdminV012.normalizeConfig({});return;}
+    if(!state.org){state.company='DalasiPay Workspace';state.member=null;state.employees=[];state.rules=Object.assign({},window.DalasiPayroll.DEFAULT_RULES);state.payrollStatus='Ready';state.runs=[];state.periods=[];state.currentPeriod='2026-10';state.sent={};state.approvals={};state.branding={accent:'#0d3b35',logoData:'',logoText:'D',payslipNote:'Payroll, beautifully handled.'};state.notificationPrefs={leave:true,payroll:true,payslips:true};state.hrConfig=window.DalasiHR.normalizeConfig({});state.opsConfig=Object.assign({},window.DalasiOps.DEFAULT_CONFIG);state.controlConfig=window.DalasiControls.normalizeConfig({});state.corrections=[];state.paymentBatches=[];state.businessPayments=[];state.paymentOpen=false;state.settlements=[];state.exceptionLedger=[];state.closeRecords=[];state.payrollNotes=[];state.payrollTasks=[];state.makerRecords={};state.v012Config=window.DalasiAdminV012.normalizeConfig({});return;}
     state.company=state.org.name;
     const migratedEmployees=window.DalasiAuth.getOrgValue(state.org.id,'employees',null);
     if(migratedEmployees===null){
@@ -2177,6 +2179,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     state.controlConfig=window.DalasiControls.normalizeConfig(window.DalasiAuth.getOrgValue(state.org.id,'control-config',{}));
     state.corrections=window.DalasiAuth.getOrgValue(state.org.id,'payroll-corrections',[])||[];
     state.paymentBatches=window.DalasiAuth.getOrgValue(state.org.id,'payment-batches',[])||[];
+    state.businessPayments=window.DalasiAuth.getOrgValue(state.org.id,'business-payments',[])||[];
     state.settlements=window.DalasiAuth.getOrgValue(state.org.id,'final-settlements',[])||[];
     state.exceptionLedger=window.DalasiAuth.getOrgValue(state.org.id,'payroll-exception-ledger',[])||[];
     state.closeRecords=window.DalasiAuth.getOrgValue(state.org.id,'payroll-close-records',[])||[];
@@ -2215,6 +2218,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     window.DalasiAuth.setOrgValue(state.org.id,'control-config',state.controlConfig);
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-corrections',state.corrections);
     window.DalasiAuth.setOrgValue(state.org.id,'payment-batches',state.paymentBatches);
+    window.DalasiAuth.setOrgValue(state.org.id,'business-payments',state.businessPayments);
     window.DalasiAuth.setOrgValue(state.org.id,'final-settlements',state.settlements);
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-exception-ledger',state.exceptionLedger);
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-close-records',state.closeRecords);
@@ -2398,11 +2402,11 @@ input,select,textarea{font-size:12.5px;min-height:44px}
 
   function shell(){
     document.documentElement.dataset.theme = state.dark ? 'dark':'light';
-    const nav = [['dashboard','Dashboard','dashboard'],['employees','Employees','employees'],['payroll','Payroll','payroll'],['payslips','Payslips','payslips'],['reports','Reports','reports'],['settings','Settings','settings']];
+    const nav = [['dashboard','Dashboard','dashboard'],['employees','Employees','employees'],['payroll','Payroll','payroll'],['payments','Payments','bank'],['payslips','Payslips','payslips'],['reports','Reports','reports'],['settings','Settings','settings']];
     const label = nav.find(n=>n[0]===state.page)?.[1] || 'Dashboard';
     return `<div class="app-shell">
       <aside class="sidebar ${state.mobileOpen?'mobile-open':''}">
-        <div class="brand" data-page="dashboard"><span class="brand-icon">D</span><div><b>dalasi<span>pay</span></b><small>PAYROLL OPERATIONS</small></div></div>
+        <div class="brand" data-page="dashboard"><span class="brand-icon">D</span><div><b>dalasi<span>pay</span></b><small>PAYMENTS & PAYROLL</small></div></div>
         <div class="workspace-wrap"><button class="workspace" data-action="toggle-workspace"><span class="workspace-avatar">${esc(state.company.slice(0,1).toUpperCase())}</span><span><b>${esc(state.company)}</b><small>${esc(state.role||'member')}</small></span><span>${icon('chevron',14)}</span></button>${state.workspaceOpen?workspaceMenu():''}</div>
         <div class="nav-label">WORKSPACE</div><nav>${nav.map(([id,l,ic])=>`<button data-page="${id}" class="${state.page===id?'active':''}">${icon(ic)}<span>${l}</span>${id==='payroll'&&state.payrollStatus==='Ready'?'<i></i>':''}</button>`).join('')}</nav>
         <div class="sidebar-spacer"></div>
@@ -2410,12 +2414,12 @@ input,select,textarea{font-size:12.5px;min-height:44px}
         <div class="profile"><span>${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span><div><b>${esc(state.session?.name||'User')}</b><small>${esc(state.role||'member')}</small></div>${icon('more',18)}</div>
       </aside>
       ${state.mobileOpen?'<div class="scrim" data-action="close-mobile"></div>':''}
-      <main class="main"><header class="topbar"><div class="crumb"><button class="menu-btn" data-action="open-mobile">${icon('menu',20)}</button><span>Workspace</span><b>/</b><strong>${label}</strong></div><div class="top-actions"><button class="search-btn" data-action="open-search">${icon('search',17)}<span>Search employees, payroll, reports...</span><kbd>Ctrl K</kbd></button><button class="icon-btn" data-action="toggle-dark">${icon(state.dark?'sun':'moon',19)}</button><div class="bell-wrap"><button class="icon-btn" data-action="toggle-notif">${icon('bell',19)}<i></i></button>${state.notifOpen?notifications():''}</div><span class="top-avatar">${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span></div></header>
+      <main class="main"><header class="topbar"><div class="crumb"><button class="menu-btn" data-action="open-mobile">${icon('menu',20)}</button><span>Workspace</span><b>/</b><strong>${label}</strong></div><div class="top-actions"><button class="search-btn" data-action="open-search">${icon('search',17)}<span>Search people, payroll, payments, reports...</span><kbd>Ctrl K</kbd></button><button class="icon-btn" data-action="toggle-dark">${icon(state.dark?'sun':'moon',19)}</button><div class="bell-wrap"><button class="icon-btn" data-action="toggle-notif">${icon('bell',19)}<i></i></button>${state.notifOpen?notifications():''}</div><span class="top-avatar">${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span></div></header>
         ${!state.online?`<div class="offline">${icon('wifi',15)} You are offline. Browsing works, but payroll approval is disabled.</div>`:''}
         <section class="content">${renderPage()}</section>
       </main>
       <nav class="mobile-nav">${nav.slice(0,5).map(([id,l,ic])=>`<button data-page="${id}" class="${state.page===id?'active':''}">${icon(ic,19)}<span>${l}</span></button>`).join('')}</nav>
-      ${state.selectedEmployee?employeeDrawer(state.selectedEmployee):''}${state.selectedPayslip?payslipModal(state.selectedPayslip):''}${state.attendanceEmployee?attendanceModal(state.attendanceEmployee):''}${state.portalEmployee?portalModal(state.portalEmployee):''}${state.leaveReviewOpen?leaveReviewModal():''}${state.addOpen?addEmployeeModal():''}${state.editEmployee?editEmployeeModal(state.editEmployee):''}${state.debtEmployee?debtModal(state.debtEmployee):''}${state.inputEmployee?payrollInputModal(state.inputEmployee):''}${state.leaveEmployee?leaveModal(state.leaveEmployee):''}${state.documentEmployee?documentsModal(state.documentEmployee):''}${state.onboardingEmployee?onboardingModal(state.onboardingEmployee):''}${state.offboardingEmployee?offboardingModal(state.offboardingEmployee):''}${state.structureOpen?structureModal(state.structureOpen):''}${state.delegationOpen?delegationModal():''}${state.recurringEmployee?recurringModal(state.recurringEmployee):''}${state.settlementEmployee?settlementModal(state.settlementEmployee):''}${state.movementEmployee?movementModal(state.movementEmployee):''}${state.correctionRun?correctionModal(state.correctionRun):''}${state.financeStructureOpen?financeStructureModal(state.financeStructureOpen):''}${state.paymentBatchOpen?paymentBatchModal():''}${state.bulkAdjustmentOpen?bulkAdjustmentModal():''}${state.varianceOpen?varianceModal():''}${state.exceptionOpen?exceptionsModal():''}${state.salaryLetterEmployee?salaryLetterModal(state.salaryLetterEmployee):''}${state.closeOpen?closePayrollModal():''}${state.spreadsheetOpen?spreadsheetInputsModal():''}${state.massUpdateOpen?massUpdateModal():''}${state.payrollNotesOpen?payrollNotesModal():''}${state.payrollTasksOpen?payrollTasksModal():''}${state.approvalCommentStep?approvalCommentModal(state.approvalCommentStep):''}${state.importOpen?importModal():''}${state.periodOpen?newPeriodModal():''}${state.selectedRun?runArchiveModal(state.selectedRun):''}${state.searchOpen?searchModal():''}${state.createCompanyOpen?createCompanyModal():''}${state.inviteOpen?inviteModal():''}${state.toast?`<div class="toast">${icon('check',17)}${esc(state.toast)}</div>`:''}
+      ${state.selectedEmployee?employeeDrawer(state.selectedEmployee):''}${state.selectedPayslip?payslipModal(state.selectedPayslip):''}${state.attendanceEmployee?attendanceModal(state.attendanceEmployee):''}${state.portalEmployee?portalModal(state.portalEmployee):''}${state.leaveReviewOpen?leaveReviewModal():''}${state.addOpen?addEmployeeModal():''}${state.editEmployee?editEmployeeModal(state.editEmployee):''}${state.debtEmployee?debtModal(state.debtEmployee):''}${state.inputEmployee?payrollInputModal(state.inputEmployee):''}${state.leaveEmployee?leaveModal(state.leaveEmployee):''}${state.documentEmployee?documentsModal(state.documentEmployee):''}${state.onboardingEmployee?onboardingModal(state.onboardingEmployee):''}${state.offboardingEmployee?offboardingModal(state.offboardingEmployee):''}${state.structureOpen?structureModal(state.structureOpen):''}${state.delegationOpen?delegationModal():''}${state.recurringEmployee?recurringModal(state.recurringEmployee):''}${state.settlementEmployee?settlementModal(state.settlementEmployee):''}${state.movementEmployee?movementModal(state.movementEmployee):''}${state.correctionRun?correctionModal(state.correctionRun):''}${state.financeStructureOpen?financeStructureModal(state.financeStructureOpen):''}${state.paymentBatchOpen?paymentBatchModal():''}${state.bulkAdjustmentOpen?bulkAdjustmentModal():''}${state.varianceOpen?varianceModal():''}${state.exceptionOpen?exceptionsModal():''}${state.salaryLetterEmployee?salaryLetterModal(state.salaryLetterEmployee):''}${state.closeOpen?closePayrollModal():''}${state.spreadsheetOpen?spreadsheetInputsModal():''}${state.massUpdateOpen?massUpdateModal():''}${state.payrollNotesOpen?payrollNotesModal():''}${state.payrollTasksOpen?payrollTasksModal():''}${state.approvalCommentStep?approvalCommentModal(state.approvalCommentStep):''}${state.importOpen?importModal():''}${state.periodOpen?newPeriodModal():''}${state.paymentOpen?window.DalasiBusinessPayments.modal(state,{field,icon,esc}):''}${state.selectedRun?runArchiveModal(state.selectedRun):''}${state.searchOpen?searchModal():''}${state.createCompanyOpen?createCompanyModal():''}${state.inviteOpen?inviteModal():''}${state.toast?`<div class="toast">${icon('check',17)}${esc(state.toast)}</div>`:''}
     </div>`;
   }
 
@@ -2611,6 +2615,18 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return `<div class="control-report-grid"><section class="surface control-report"><div class="card-head"><div><h3>Statutory schedule validation</h3><p>Checks GRA PAYE fields and SSHFC remittance data against the configured payroll rules.</p></div>${pill(v.ready?'READY':'REVIEW',v.ready?'ready':'approved')}</div><div class="validation-kpis"><div><span>Blocking issues</span><b>${v.errors.length}</b></div><div><span>Warnings</span><b>${v.warnings.length}</b></div><div><span>Scheme</span><b>${esc(v.scheme)}</b></div></div>${validation}</section><section class="surface control-report"><div class="card-head"><div><h3>Accounting journal</h3><p>Balanced accounting hand-off from the same payroll calculation used by payslips and reports.</p></div>${pill(j.balanced?'BALANCED':'OUT OF BALANCE',j.balanced?'ready':'approved')}</div><div class="journal-summary"><div><span>Debits</span><b>${money2(j.debit)}</b></div><div><span>Credits</span><b>${money2(j.credit)}</b></div><div><span>Difference</span><b>${money2(j.difference)}</b></div></div><div class="journal-mini">${j.entries.slice(0,6).map(x=>`<div><span>${esc(x.account)}</span><b>${x.debit?money2(x.debit):'Cr '+money2(x.credit)}</b></div>`).join('')}</div><button class="secondary" data-export="Accounting journal|CSV">Download journal CSV</button></section></div><div class="surface allocation-report"><div class="card-head"><div><h3>Cost allocation</h3><p>Employer payroll cost by effective cost centre and project assignment.</p></div><div class="inline-buttons"><button class="secondary" data-export="Cost centre payroll|CSV">Cost centres CSV</button><button class="secondary" data-export="Project payroll|CSV">Projects CSV</button></div></div><div class="allocation-columns"><div><h4>Cost centres</h4>${cc.slice(0,8).map(x=>`<div class="allocation-row"><span>${esc(x.costCentre)}</span><b>${money2(x.employerCost)}</b><small>${x.employees} employees</small></div>`).join('')}</div><div><h4>Projects</h4>${pr.slice(0,8).map(x=>`<div class="allocation-row"><span>${esc(x.project)}</span><b>${money2(x.employerCost)}</b><small>${x.employees} employees</small></div>`).join('')}</div></div></div><div class="surface corrections-report"><div class="card-head"><div><h3>Corrections & reversals ledger</h3><p>Approved payroll stays immutable. Adjustments remain separate and auditable.</p></div><button class="secondary" data-export="Corrections ledger|CSV">Export CSV</button></div>${corr.length?corr.map(x=>`<div class="correction-row"><div><b>${esc(x.type)} · ${money2(x.amount)}</b><span>${shortPeriod(x.sourcePeriod)} → settle ${shortPeriod(x.settlementPeriod)} · ${esc(x.reason||'No reason')}</span></div>${pill(x.status,x.status==='Approved'?'paid':'neutral')}</div>`).join(''):'<div class="empty-inline">No payroll corrections or reversals recorded.</div>'}</div>`;
   }
 
+  function paymentsPage(){
+    return window.DalasiBusinessPayments.render(state,{pageTitle,icon,money2,esc,pill});
+  }
+  function saveBusinessPayment(ev){
+    return window.DalasiBusinessPayments.create(ev,state,{can,audit,save,toast,render});
+  }
+  function updateBusinessPayment(id,status){
+    return window.DalasiBusinessPayments.update(id,status,state,{can,audit,save,toast,render});
+  }
+  function downloadBusinessPaymentRegister(){
+    return window.DalasiBusinessPayments.exportRegister(state,{csvEscape,downloadText,toast});
+  }
   function reportsPage(){
     const p=payrollCalc(),t=p.totals,ds=window.DalasiPayroll.departmentSummary(p.rows),netPct=t.gross?Math.round(t.net/t.gross*100):0,year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdRows(year),attendance=attendanceSummary(),avgNet=p.rows.length?t.net/p.rows.length:0,avgGross=p.rows.length?t.gross/p.rows.length:0;
     const reps=[['Payroll register','Complete employee payroll detail','file'],['PAYE schedule','Monthly GRA PAYE working schedule','bank'],['SSHFC remittance schedule',`${state.rules.scheme} remittance-ready employee schedule plus IICF`,'shield'],['Contribution schedule',`${state.rules.scheme} employee/employer contributions plus IICF`,'shield'],['Accounting journal','Balanced payroll journal for accounting hand-off','reports'],['Detailed accounting export','Line-level journal export for finance systems','reports'],['Statutory submission pack','Validated payroll/statutory submission cover pack','shield'],['Payroll exceptions','Exception workflow and review status','alert'],['Payroll close register','Month-end payroll close history','lock'],['Cost centre payroll','Employer cost by payroll cost centre','building'],['Project payroll','Employer cost by project assignment','building'],['Corrections ledger','Post-payroll corrections and reversals without rewriting archives','alert'],['Bank payment register','Generic payment-file register and references','bank'],['Recurring pay items','Recurring earnings, deductions and employer benefits','calendar'],['Compliance calendar','Payroll dates, remittance deadlines and verified holidays','calendar'],['Final settlements','Saved employee exit-settlement previews','employees'],['Department payroll','Cost by department and team','building'],['Deductions report','PAYE, staff loans, advances, leave and other deductions','payslips'],['Employer cost','Gross pay plus employer statutory costs and benefits','payroll'],['YTD employee earnings',`${year} totals from approved and paid payroll archives`,'reports']];
@@ -2653,7 +2669,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
 
 
-  function renderPage(){return ({dashboard,employees:employeesPage,payroll:payrollPage,payslips:payslipsPage,reports:reportsPage,settings:settingsPage}[state.page]||dashboard)()}
+  function renderPage(){return ({dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,reports:reportsPage,settings:settingsPage}[state.page]||dashboard)()}
   function render(){
     if(!state.session){app.innerHTML=authScreen();bindInputs();return;}
     if(!state.org){app.innerHTML=onboardingScreen(false);bindInputs();return;}
@@ -2678,6 +2694,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const pnf=document.getElementById('payroll-note-form');if(pnf)pnf.addEventListener('submit',savePayrollNote);
     const acf=document.getElementById('approval-comment-form');if(acf)acf.addEventListener('submit',saveApprovalComment);
     const epl=document.getElementById('employee-portal-leave-form');if(epl)epl.addEventListener('submit',submitPortalLeave);
+    const bpf=document.getElementById('business-payment-form');if(bpf)bpf.addEventListener('submit',saveBusinessPayment);
     const es=document.getElementById('employee-search'); if(es) es.addEventListener('input',e=>{state.filter=e.target.value;employeesTableOnly()});
     const df=document.getElementById('dept-filter'); if(df) df.addEventListener('change',e=>{state.department=e.target.value;render()});
     const sc=document.getElementById('settings-company'); if(sc) sc.addEventListener('input',e=>state.settingsCompany=e.target.value);
@@ -2850,7 +2867,13 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(target.dataset.org){switchOrganization(target.dataset.org);return;}
     if(target.dataset.run){state.selectedRun=state.runs.find(r=>r.id===target.dataset.run)||null;render();return;}
     const a=target.dataset.action;if(!a)return;
-    if(a==='toggle-dark'){state.dark=!state.dark;save();render()}
+    if(a==='open-business-payment'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to create business payments.');return}state.paymentOpen=true;render()}
+    else if(a==='close-business-payment'){state.paymentOpen=false;render()}
+    else if(a.startsWith('payment-submit:'))updateBusinessPayment(a.split(':')[1],'Pending approval')
+    else if(a.startsWith('payment-approve:'))updateBusinessPayment(a.split(':')[1],'Approved')
+    else if(a.startsWith('payment-paid:'))updateBusinessPayment(a.split(':')[1],'Paid')
+    else if(a==='download-payment-register')downloadBusinessPaymentRegister()
+    else if(a==='toggle-dark'){state.dark=!state.dark;save();render()}
     else if(a==='open-invite'){if(!requirePermission('team.manage','Only the workspace owner can invite members.'))return;state.inviteOpen=true;render()}
     else if(a==='close-invite'){state.inviteOpen=false;render()}
     else if(a.startsWith('copy-invite:')){const inv=window.DalasiAuth.listInvitations(state.org.id).find(x=>x.id===a.split(':')[1]);if(inv){const text=`DalasiPay preview invite for ${state.company}: ${inv.email} · ${roleLabel(inv.role)} · code ${inv.token}`;try{await navigator.clipboard.writeText(text);toast('Preview invitation code copied')}catch{toast(`Invite code: ${inv.token}`)}}}
@@ -2982,7 +3005,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a.startsWith('whatsapp:')){const em=byId(a.split(':')[1]);if(em)whatsappEmployee(em)}
     else if(a.startsWith('print:')){state.selectedPayslip=byId(a.split(':')[1]);render();setTimeout(()=>window.print(),180)}
   });
-  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();state.searchOpen=true;render()}if(e.key==='Escape'&&(state.searchOpen||state.selectedPayslip||state.selectedEmployee||state.addOpen||state.importOpen||state.inputEmployee||state.leaveEmployee||state.documentEmployee||state.onboardingEmployee||state.offboardingEmployee||state.structureOpen||state.delegationOpen||state.movementEmployee||state.correctionRun||state.financeStructureOpen||state.spreadsheetOpen||state.massUpdateOpen||state.payrollNotesOpen||state.payrollTasksOpen||state.approvalCommentStep)){state.searchOpen=false;state.selectedPayslip=null;state.selectedEmployee=null;state.addOpen=false;state.importOpen=false;state.importRows=[];state.editEmployee=null;state.debtEmployee=null;state.inputEmployee=null;state.leaveEmployee=null;state.documentEmployee=null;state.onboardingEmployee=null;state.offboardingEmployee=null;state.structureOpen=null;state.delegationOpen=false;state.movementEmployee=null;state.correctionRun=null;state.financeStructureOpen=null;state.bulkAdjustmentOpen=false;state.varianceOpen=false;state.exceptionOpen=false;state.salaryLetterEmployee=null;state.closeOpen=false;state.spreadsheetOpen=false;state.massUpdateOpen=false;state.payrollNotesOpen=false;state.payrollTasksOpen=false;state.approvalCommentStep=null;state.recurringEmployee=null;state.settlementEmployee=null;state.paymentBatchOpen=false;state.attendanceEmployee=null;state.portalEmployee=null;state.leaveReviewOpen=false;state.periodOpen=false;state.selectedRun=null;render()}});
+  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();state.searchOpen=true;render()}if(e.key==='Escape'&&(state.searchOpen||state.selectedPayslip||state.selectedEmployee||state.addOpen||state.importOpen||state.inputEmployee||state.leaveEmployee||state.documentEmployee||state.onboardingEmployee||state.offboardingEmployee||state.structureOpen||state.delegationOpen||state.movementEmployee||state.correctionRun||state.financeStructureOpen||state.spreadsheetOpen||state.massUpdateOpen||state.payrollNotesOpen||state.payrollTasksOpen||state.approvalCommentStep)){state.searchOpen=false;state.selectedPayslip=null;state.selectedEmployee=null;state.addOpen=false;state.importOpen=false;state.importRows=[];state.editEmployee=null;state.debtEmployee=null;state.inputEmployee=null;state.leaveEmployee=null;state.documentEmployee=null;state.onboardingEmployee=null;state.offboardingEmployee=null;state.structureOpen=null;state.delegationOpen=false;state.movementEmployee=null;state.correctionRun=null;state.financeStructureOpen=null;state.bulkAdjustmentOpen=false;state.varianceOpen=false;state.exceptionOpen=false;state.salaryLetterEmployee=null;state.closeOpen=false;state.spreadsheetOpen=false;state.massUpdateOpen=false;state.payrollNotesOpen=false;state.payrollTasksOpen=false;state.approvalCommentStep=null;state.recurringEmployee=null;state.settlementEmployee=null;state.paymentBatchOpen=false;state.attendanceEmployee=null;state.portalEmployee=null;state.leaveReviewOpen=false;state.periodOpen=false;state.paymentOpen=false;state.selectedRun=null;render()}});
   window.addEventListener('online',()=>{state.online=true;render()});window.addEventListener('offline',()=>{state.online=false;render()});
   if(state.session)loadOrgState();
   if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
