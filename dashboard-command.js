@@ -15,7 +15,7 @@
     const customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active').length;
     const greet='Good evening, '+esc((state.session?.name||'there').split(/\s+/)[0])+'.';
     const actions=periodControls(true)+'<button class="primary" data-page="payments">New payment '+icon('arrow',15)+'</button>';
-    const card=(cls,page,action,ic,label,value,copy)=>'<button class="surface command-card '+(cls||'')+'" data-page="'+page+'" '+(action?'data-action="'+action+'"':'')+'><span class="command-icon">'+icon(ic,17)+'</span><div><small>'+label+'</small><b>'+value+'</b><p>'+copy+'</p></div>'+icon('chevron',14)+'</button>';
+    const card=(cls,page,action,ic,label,value,copy)=>'<button class="surface command-card '+(cls||'')+'" '+(action?'data-action="'+action+'"':'data-page="'+page+'"')+'><span class="command-icon">'+icon(ic,17)+'</span><div><small>'+label+'</small><b>'+value+'</b><p>'+copy+'</p></div>'+icon('chevron',14)+'</button>';
     let html=pageTitle('DALASIPAY COMMAND CENTER',greet,'Payroll, money in, money out, customers and upcoming cash requirements in one view.',actions);
     html+='<div class="command-grid">';
     html+=card('payroll-command','payroll','','payroll','PAYROLL · '+shortPeriod(state.currentPeriod),money2(t.net),active+' employees · '+esc(state.payrollStatus));
