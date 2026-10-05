@@ -394,6 +394,54 @@ input::placeholder,textarea::placeholder{color:#9aa7a2}
 }
 
 /* readability typography pass v0.17.1 */
+
+/* sidebar-readability-pass v0.17.2 */
+.sidebar .brand small,
+.sidebar .workspace small,
+.sidebar .side-callout p,
+.sidebar .profile small{
+  color:color-mix(in srgb,var(--text) 58%,var(--muted));
+}
+.sidebar .workspace b,
+.sidebar .side-callout b,
+.sidebar .profile b{
+  color:var(--text);
+  font-weight:700;
+}
+.sidebar .nav-label{
+  color:color-mix(in srgb,var(--text) 54%,var(--muted));
+  font-weight:800;
+}
+.sidebar nav button{
+  color:color-mix(in srgb,var(--text) 76%,var(--muted));
+  font-weight:600;
+}
+.sidebar nav button svg{
+  color:currentColor;
+  opacity:.88;
+}
+.sidebar nav button:hover{
+  background:var(--soft-2);
+  color:var(--text);
+}
+.sidebar nav button.active{
+  background:var(--soft);
+  color:var(--primary);
+  font-weight:800;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 16%,var(--border));
+}
+.sidebar nav button.active svg{
+  opacity:1;
+}
+.sidebar .workspace{
+  border-color:color-mix(in srgb,var(--border) 82%,var(--text) 18%);
+}
+.sidebar .side-callout{
+  border-color:color-mix(in srgb,var(--border) 85%,var(--text) 15%);
+}
+.sidebar .profile{
+  border-top-color:color-mix(in srgb,var(--border) 82%,var(--text) 18%);
+}
 </style></head><body><div id="app"></div><!-- config.js -->
 <script>
 window.DALASIPAY_CONFIG = {
