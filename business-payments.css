@@ -96,6 +96,8 @@
 .cash-source.cash-payment,.cash-legend .cash-payment{background:#e7ecff;color:#364aa8}
 .cash-source.cash-bill,.cash-legend .cash-bill{background:#fff0dc;color:#975a11}
 .cash-source.cash-recurring,.cash-legend .cash-recurring{background:#efe8ff;color:#6d43a5}
+.cash-source.cash-expense,.cash-legend .cash-expense{background:#f5ece4;color:#82522f}
+.cash-source.cash-purchase,.cash-legend .cash-purchase{background:#e6f1f5;color:#2b6576}
 .cash-timeline{display:grid;gap:10px}
 .cash-day{border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
 .cash-day.overdue{border-color:color-mix(in srgb,var(--danger) 26%,var(--border))}
