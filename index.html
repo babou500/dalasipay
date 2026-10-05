@@ -1870,25 +1870,41 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(!e)return;
     const calc=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);
     const out=[];
-    const text=(x,y,size,value,bold=false,color='0.06 0.13 0.11')=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+pdfEscapeText(value)+') Tj ET');
+    const ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.91 0.96 0.94',line='0.84 0.88 0.86',paper='1 1 1',soft='0.965 0.978 0.972';
+    const text=(x,y,size,value,bold=false,color=ink)=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+pdfEscapeText(value)+') Tj ET');
     const fill=(x,y,w,h,color)=>out.push(color+' rg '+x+' '+y+' '+w+' '+h+' re f');
-    const stroke=(x1,y1,x2,y2,color='0.86 0.89 0.88',width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
-    const row=(x,y,label,value,width=220)=>{text(x,y,9,pdfClip(label,31),false,'0.34 0.41 0.38');text(x+130,y,9,pdfClip(value,19),true);stroke(x,y-7,x+width,y-7);};
-    fill(0,760,595,82,'0.04 0.29 0.24');
-    text(44,807,18,pdfClip(state.company,35),true,'1 1 1');
-    text(44,787,9,'PAYROLL STATEMENT',true,'0.72 0.91 0.85');
-    text(430,807,10,'DALASIPAY',true,'1 1 1');
-    text(430,789,8,'The Gambia',false,'0.76 0.89 0.85');
-    text(44,735,8,'PAYSLIP FOR',true,'0.38 0.47 0.44');
-    text(44,711,18,periodLabel(state.currentPeriod),true);
-    text(390,735,8,'REFERENCE',true,'0.38 0.47 0.44');
-    text(390,714,10,'PAY-'+state.currentPeriod+'-'+String(e.id).slice(-3),true);
-    fill(44,646,507,49,'0.95 0.97 0.96');
-    text(57,678,7,'EMPLOYEE',true,'0.42 0.50 0.47');text(57,662,10,pdfClip(e.name,30),true);
-    text(250,678,7,'EMPLOYEE ID',true,'0.42 0.50 0.47');text(250,662,10,pdfClip(e.id,18),true);
-    text(365,678,7,'PAYMENT',true,'0.42 0.50 0.47');text(365,662,9,pdfClip(e.bank||'Not recorded',27),true);
-    text(57,640,8,pdfClip((e.role||'')+' - '+(e.department||''),55),false,'0.38 0.46 0.43');
-    text(44,617,11,'EARNINGS',true,'0.04 0.35 0.28');text(315,617,11,'DEDUCTIONS',true,'0.04 0.35 0.28');
+    const stroke=(x1,y1,x2,y2,color=line,width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
+    const box=(x,y,w,h,fillColor=paper,strokeColor=line,width=.7)=>{fill(x,y,w,h,fillColor);out.push(strokeColor+' RG '+width+' w '+x+' '+y+' '+w+' '+h+' re S')};
+    const labelValue=(x,y,label,value,max=28)=>{text(x,y+15,7.5,label.toUpperCase(),true,'0.42 0.49 0.46');text(x,y,10,pdfClip(value,max),true,ink)};
+    const row=(x,y,w,label,value,isTotal=false)=>{
+      if(isTotal)fill(x,y-8,w,24,mint);
+      text(x+10,y,9,pdfClip(label,30),isTotal,muted);
+      text(x+w-96,y,9,pdfClip(value,18),true,isTotal?green:ink);
+      if(!isTotal)stroke(x+10,y-9,x+w-10,y-9,'0.90 0.92 0.91',.55);
+    };
+
+    fill(0,0,595,842,paper);
+    out.push('0.88 0.91 0.90 RG 0.8 w 28 28 539 786 re S');
+
+    fill(28,744,539,70,green);
+    fill(28,744,7,70,'0.34 0.78 0.65');
+    text(48,788,19,pdfClip(state.company,34),true,'1 1 1');
+    text(48,768,8.5,'PAYROLL STATEMENT',true,'0.73 0.91 0.86');
+    text(424,791,19,'PAYSLIP',true,'1 1 1');
+    text(425,770,8.5,'CONFIDENTIAL EMPLOYEE COPY',true,'0.73 0.91 0.86');
+
+    box(28,688,539,42,soft,line,.6);
+    labelValue(45,703,'Pay period',periodLabel(state.currentPeriod),26);
+    labelValue(241,703,'Reference','PAY-'+state.currentPeriod+'-'+String(e.id).slice(-3),22);
+    labelValue(428,703,'Generated',new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),18);
+
+    box(28,613,539,61,'0.94 0.97 0.96',line,.6);
+    text(45,653,7.5,'EMPLOYEE',true,'0.42 0.49 0.46');
+    text(45,635,12.5,pdfClip(e.name,34),true,ink);
+    text(45,621,8.5,pdfClip((e.role||'')+' - '+(e.department||''),48),false,muted);
+    labelValue(330,637,'Employee ID',e.id,17);
+    labelValue(431,637,'Payment',e.bank||'Not recorded',23);
+
     const earnings=[['Basic salary',money2(calc.basic)],['Fixed allowance',money2(calc.allowance)]];
     if(calc.overtime)earnings.push(['Overtime',money2(calc.overtime)]);
     if(calc.bonus)earnings.push(['Bonus',money2(calc.bonus)]);
@@ -1896,27 +1912,51 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(calc.arrears-calc.retroArrears)earnings.push(['Arrears / back pay',money2(calc.arrears-calc.retroArrears)]);
     if(calc.retroArrears)earnings.push(['Retroactive adjustment',money2(calc.retroArrears)]);
     earnings.push(['Gross pay',money2(calc.gross)]);
-    const deductions=[['PAYE','- '+money2(calc.paye)],[state.rules.scheme+' employee contribution','- '+money2(calc.employeeContribution)]];
+
+    const deductions=[['PAYE', '- '+money2(calc.paye)],[state.rules.scheme+' employee contribution','- '+money2(calc.employeeContribution)]];
     if(calc.loanDeduction)deductions.push(['Loan repayment','- '+money2(calc.loanDeduction)]);
     if(calc.advanceDeduction)deductions.push(['Salary advance','- '+money2(calc.advanceDeduction)]);
     if(calc.absenceDeduction)deductions.push(['Absence deduction','- '+money2(calc.absenceDeduction)]);
     if(calc.customDeduction)deductions.push(['Other deduction','- '+money2(calc.customDeduction)]);
     deductions.push(['Total deductions','- '+money2(calc.totalDeductions)]);
-    earnings.forEach((r,i)=>row(44,594-i*22,r[0],r[1],225));
-    deductions.forEach((r,i)=>row(315,594-i*22,r[0],r[1],236));
-    fill(44,352,507,62,'0.95 0.97 0.96');
-    text(58,393,7,year+' YTD GROSS',true,'0.39 0.47 0.44');text(58,373,11,money2(ytd.gross),true);
-    text(220,393,7,year+' YTD PAYE',true,'0.39 0.47 0.44');text(220,373,11,money2(ytd.paye),true);
-    text(376,393,7,year+' YTD NET',true,'0.39 0.47 0.44');text(376,373,11,money2(ytd.net),true);
-    text(58,359,7,ytd.months+' archived payroll month'+(ytd.months===1?'':'s')+' included',false,'0.44 0.51 0.48');
-    fill(44,256,507,72,'0.06 0.31 0.26');
-    text(60,303,9,'NET PAY',true,'0.72 0.91 0.85');text(60,276,23,money2(calc.net),true,'1 1 1');
-    text(345,290,8,'EMPLOYER COST',true,'0.72 0.91 0.85');text(345,273,11,money2(calc.employerCost),true,'1 1 1');
-    stroke(44,222,551,222);
-    text(44,202,8,pdfClip(state.branding.payslipNote||'Payroll, beautifully handled.',58),false,'0.43 0.50 0.47');
-    text(44,186,7,'Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',22)+'.',false,'0.48 0.54 0.52');
-    text(391,202,8,'Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),false,'0.43 0.50 0.47');
-    text(44,52,7,'Confidential payroll document - generated by DalasiPay',false,'0.52 0.57 0.55');
+
+    const leftX=28,rightX=307,cardY=337,cardW=260,cardH=258;
+    box(leftX,cardY,cardW,cardH,paper,line,.65);
+    box(rightX,cardY,cardW,cardH,paper,line,.65);
+    fill(leftX,561,cardW,34,'0.93 0.97 0.95');fill(rightX,561,cardW,34,'0.965 0.972 0.969');
+    text(leftX+14,574,10.5,'EARNINGS',true,green);text(leftX+14,563,7.5,'CURRENT PERIOD',false,muted);
+    text(rightX+14,574,10.5,'DEDUCTIONS',true,green);text(rightX+14,563,7.5,'CURRENT PERIOD',false,muted);
+
+    const maxRows=Math.max(earnings.length,deductions.length),topY=535,bottomY=366;
+    const gap=maxRows<=1?0:(topY-bottomY)/(maxRows-1);
+    earnings.forEach((r,i)=>row(leftX+8,topY-i*gap,cardW-16,r[0],r[1],i===earnings.length-1));
+    deductions.forEach((r,i)=>row(rightX+8,topY-i*gap,cardW-16,r[0],r[1],i===deductions.length-1));
+
+    box(28,256,539,64,'0.95 0.97 0.96',line,.6);
+    text(45,303,7.5,'GROSS PAY',true,muted);text(45,278,15,money2(calc.gross),true,ink);
+    stroke(198,269,198,307,'0.84 0.88 0.86',.6);
+    text(218,303,7.5,'TOTAL DEDUCTIONS',true,muted);text(218,278,15,money2(calc.totalDeductions),true,ink);
+    stroke(384,269,384,307,'0.84 0.88 0.86',.6);
+    text(405,303,7.5,'NET PAY',true,green);text(405,276,18,money2(calc.net),true,green);
+
+    box(28,184,539,57,paper,line,.6);
+    text(45,224,7.5,year+' YTD GROSS',true,muted);text(45,202,11.5,money2(ytd.gross),true,ink);
+    text(205,224,7.5,year+' YTD PAYE',true,muted);text(205,202,11.5,money2(ytd.paye),true,ink);
+    text(359,224,7.5,year+' YTD NET',true,muted);text(359,202,11.5,money2(ytd.net),true,ink);
+    text(471,202,8,pdfClip(ytd.months+' month'+(ytd.months===1?'':'s'),12),true,muted);
+
+    box(28,103,539,65,'0.975 0.982 0.979',line,.6);
+    text(45,149,7.5,'PAYROLL DETAILS',true,green);
+    text(45,132,8.5,'Employer cost',false,muted);text(126,132,9.5,money2(calc.employerCost),true,ink);
+    text(250,132,8.5,'Statutory scheme',false,muted);text(341,132,9.5,pdfClip(state.rules.scheme,16),true,ink);
+    text(45,115,8.2,pdfClip(state.branding.payslipNote||'Payroll, beautifully handled.',67),false,muted);
+    text(45,104,7.2,'Figures are generated from the approved payroll record for this period.',false,'0.48 0.54 0.52');
+
+    stroke(28,80,567,80,line,.65);
+    text(28,62,7.5,'CONFIDENTIAL - For the named employee only',true,'0.45 0.51 0.49');
+    text(386,62,7.5,'Generated by DalasiPay',true,green);
+    text(28,45,7,'Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',22)+'.',false,'0.51 0.57 0.54');
+
     const filename=(pdfSafeText(e.name).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Employee')+'_Payslip_'+state.currentPeriod+'.pdf';
     pdfDownload(filename,out.join('\n'));
     toast('Payslip PDF downloaded: '+filename);
