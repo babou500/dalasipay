@@ -3,6 +3,7 @@
   const TYPES=['Supplier / vendor','Contractor / freelancer','Expense reimbursement','Rent / utilities','Government / statutory','Other payment'];
   const BENEFICIARY_TYPES=['Supplier / vendor','Contractor / freelancer','Landlord / utility','Government / statutory','Other beneficiary'];
   const METHODS=['Bank transfer','Mobile money','Cash','Cheque','Other'];
+  const FREQUENCIES=['Weekly','Monthly','Quarterly','Yearly'];
 
   function statusClass(status){return status==='Paid'?'paid':status==='Approved'?'approved':status==='Pending approval'?'neutral':'ready';}
   function totals(rows){
@@ -17,6 +18,46 @@
   function billById(state,id){return (state.businessBills||[]).find(x=>x.id===id)||null;}
   function billStatusClass(status){return status==='Paid'?'paid':status==='Approved'?'approved':status==='Pending approval'?'neutral':'ready';}
   function todayIso(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+  function isoDate(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+  function addDaysIso(iso,days){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+Number(days||0));return isoDate(d);}
+  function advanceRecurringDate(iso,frequency){
+    const d=new Date(iso+'T12:00:00'),day=d.getDate();
+    if(frequency==='Weekly'){d.setDate(d.getDate()+7);return isoDate(d);}
+    const months=frequency==='Quarterly'?3:frequency==='Yearly'?12:1;
+    d.setDate(1);d.setMonth(d.getMonth()+months);
+    const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return isoDate(d);
+  }
+  function recurringById(state,id){return (state.recurringBusinessPayments||[]).find(x=>x.id===id)||null;}
+  function monthlyEquivalent(r){
+    const amount=Number(r.amount)||0;
+    return r.frequency==='Weekly'?amount*52/12:r.frequency==='Quarterly'?amount/3:r.frequency==='Yearly'?amount/12:amount;
+  }
+  function recurringMetrics(state){
+    const rows=state.recurringBusinessPayments||[],active=rows.filter(x=>(x.status||'Active')==='Active'),today=todayIso(),soon=addDaysIso(today,30);
+    return {count:rows.length,active:active.length,monthly:active.reduce((a,x)=>a+monthlyEquivalent(x),0),dueNow:active.filter(x=>x.nextDueDate&&x.nextDueDate<=addDaysIso(today,Number(x.leadDays||0))).reduce((a,x)=>a+(Number(x.amount)||0),0),next30:active.filter(x=>x.nextDueDate&&x.nextDueDate>=today&&x.nextDueDate<=soon).reduce((a,x)=>a+(Number(x.amount)||0),0)};
+  }
+  function materializeRecurring(state){
+    state.recurringBusinessPayments=state.recurringBusinessPayments||[];
+    state.businessPayments=state.businessPayments||[];
+    const today=todayIso();let created=0;
+    for(const r of state.recurringBusinessPayments){
+      if((r.status||'Active')!=='Active'||!r.nextDueDate)continue;
+      let guard=0;
+      while(r.nextDueDate<=addDaysIso(today,Number(r.leadDays||0))&&guard<24){
+        if(r.endDate&&r.nextDueDate>r.endDate){r.status='Completed';break;}
+        const scheduledDate=r.nextDueDate;
+        const exists=state.businessPayments.some(p=>p.recurringId===r.id&&p.recurringDueDate===scheduledDate);
+        if(!exists){
+          const ben=beneficiaryById(state,r.beneficiaryId),id='BP-'+Date.now().toString(36).toUpperCase()+'-'+String(created+1);
+          state.businessPayments.unshift({id,recurringId:r.id,recurringDueDate:scheduledDate,beneficiaryId:r.beneficiaryId||null,payee:ben?.name||r.payee||r.name,type:r.type||paymentTypeForBeneficiary(ben?.kind),amount:Number(r.amount)||0,method:r.method||ben?.preferredMethod||'Bank transfer',dueDate:scheduledDate,reference:r.reference||'',description:r.description||r.name,status:'Draft',createdAt:new Date().toISOString(),createdBy:'Recurring schedule',updatedAt:new Date().toISOString()});
+          created++;
+        }
+        r.lastGeneratedDueDate=scheduledDate;r.nextDueDate=advanceRecurringDate(scheduledDate,r.frequency||'Monthly');r.updatedAt=new Date().toISOString();guard++;
+      }
+    }
+    return created;
+  }
+
   function billMetrics(state){
     const rows=state.businessBills||[],today=todayIso(),week=new Date();week.setDate(week.getDate()+7);const w=week.toISOString().slice(0,10);
     const open=rows.filter(x=>x.status!=='Paid'),sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
@@ -124,7 +165,7 @@
   }
 
   function tabs(state){
-    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
+    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
   }
   function paymentPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
@@ -209,11 +250,39 @@
     '</div>';
   }
 
+
+  function recurringPanel(state,h){
+    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,rows=(state.recurringBusinessPayments||[]).slice().sort((a,b)=>String(a.nextDueDate||'9999').localeCompare(String(b.nextDueDate||'9999'))),m=recurringMetrics(state);
+    const tableRows=rows.length?rows.map(r=>{
+      const ben=beneficiaryById(state,r.beneficiaryId),active=(r.status||'Active')==='Active';
+      return '<tr>'+
+        '<td><div class="payment-payee"><b>'+esc(r.name)+'</b><small>'+esc(ben?.name||r.payee||'No beneficiary linked')+'</small></div></td>'+
+        '<td>'+esc(r.frequency)+'</td>'+
+        '<td class="payment-amount">'+money2(r.amount)+'</td>'+
+        '<td>'+dueDate(r.nextDueDate)+'</td>'+
+        '<td><div class="payment-destination"><b>'+esc(r.method||ben?.preferredMethod||'Bank transfer')+'</b><small>'+esc(r.reference||'No reference')+'</small></div></td>'+
+        '<td>'+pill(r.status||'Active',active?'ready':'neutral')+'</td>'+
+        '<td><div class="payment-status-actions">'+(active?'<button class="secondary" data-action="recurring-generate:'+r.id+'">Generate now</button><button class="secondary" data-action="recurring-status:'+r.id+':Paused">Pause</button>':'<button class="secondary" data-action="recurring-status:'+r.id+':Active">Resume</button>')+'</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7"><div class="empty-inline">No recurring obligations yet. Add rent, subscriptions, retainers, utilities or another repeating payment.</div></td></tr>';
+    return '<div class="recurring-summary">'+
+      '<div class="surface"><span>Active schedules</span><b>'+m.active+'</b><small>'+m.count+' total recurring records</small></div>'+
+      '<div class="surface"><span>Monthly equivalent</span><b>'+money2(m.monthly)+'</b><small>estimated recurring commitment</small></div>'+
+      '<div class="surface"><span>Due within 30 days</span><b>'+money2(m.next30)+'</b><small>upcoming scheduled obligations</small></div>'+
+      '<div class="surface"><span>Ready to generate</span><b>'+money2(m.dueNow)+'</b><small>based on due date and lead time</small></div>'+
+    '</div>'+
+    '<div class="payment-notice"><span>'+icon('calendar',17)+'</span><div><b>Recurring obligations create draft payments</b><p>Active schedules create one draft payment per due cycle. DalasiPay never duplicates the same scheduled date and does not move funds automatically.</p></div></div>'+
+    '<div class="surface employee-card">'+
+      '<div class="table-tools"><div><h3>Recurring payments & standing obligations</h3><p>Rent, utilities, subscriptions, retainers and regular supplier commitments</p></div><button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>OBLIGATION</th><th>FREQUENCY</th><th>AMOUNT</th><th>NEXT DUE</th><th>PAYMENT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+    '</div>';
+  }
+
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
-    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
-    const body=tab==='bills'?billsPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
-    return pageTitle('BUSINESS PAYMENTS','Payments','Manage business payments, supplier bills, beneficiaries and approval controls in one place.',actions)+tabs(state)+body;
+    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
+    const body=tab==='bills'?billsPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
+    return pageTitle('BUSINESS PAYMENTS','Payments','Manage business payments, bills, recurring obligations, beneficiaries and approval controls in one place.',actions)+tabs(state)+body;
   }
   function modal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc;
@@ -266,6 +335,56 @@
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-beneficiary">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save beneficiary</button></div>'+
     '</form></div>';
   }
+
+  function recurringModal(state,h){
+    const field=h.field,icon=h.icon,esc=h.esc,beneficiaries=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
+    const beneficiaryOptions=['<option value="">Manual / one-off payee</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
+    const frequencyOptions=FREQUENCIES.map(x=>'<option>'+x+'</option>').join('');
+    const methodOptions=METHODS.map(x=>'<option>'+x+'</option>').join('');
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-recurring-payment"></div><form id="recurring-payment-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">RECURRING OBLIGATION</div><h2>Add recurring payment</h2><p>Create a standing schedule for a regular business obligation.</p></div><button type="button" class="close" data-action="close-recurring-payment">×</button></div>'+
+      '<div class="payment-modal-note">DalasiPay creates draft payment records from the schedule. It will not automatically transfer money.</div>'+
+      '<div class="form-grid">'+
+        field('Obligation name','<input name="name" placeholder="e.g. Office rent" required>')+
+        field('Saved beneficiary','<select name="beneficiaryId">'+beneficiaryOptions+'</select>')+
+        field('Payee if not saved','<input name="payee" placeholder="Optional manual payee">')+
+        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Frequency','<select name="frequency">'+frequencyOptions+'</select>')+
+        field('Next due date','<input name="nextDueDate" type="date" required>')+
+        field('Create draft before due','<select name="leadDays"><option value="0">On due date</option><option value="3">3 days before</option><option value="5" selected>5 days before</option><option value="7">7 days before</option><option value="14">14 days before</option></select>')+
+        field('End date','<input name="endDate" type="date">')+
+        field('Payment method','<select name="method">'+methodOptions+'</select>')+
+        field('Reference','<input name="reference" placeholder="Contract, account or subscription reference">')+
+      '</div>'+
+      field('Description / purpose','<input name="description" placeholder="What is this recurring payment for?">')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-recurring-payment">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save recurring payment</button></div>'+
+    '</form></div>';
+  }
+  function createRecurring(ev,state,ctx){
+    ev.preventDefault();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add recurring payments.');return;}
+    const fd=new FormData(ev.target),beneficiaryId=String(fd.get('beneficiaryId')||''),ben=beneficiaryById(state,beneficiaryId),name=String(fd.get('name')||'').trim(),payee=String(fd.get('payee')||'').trim(),amount=Number(fd.get('amount')||0),nextDueDate=String(fd.get('nextDueDate')||'');
+    if(!name||amount<=0||!nextDueDate||(!beneficiaryId&&!payee)){ctx.toast('Name, payee or beneficiary, amount and next due date are required.');return;}
+    const id='REC-'+Date.now().toString(36).toUpperCase();state.recurringBusinessPayments=state.recurringBusinessPayments||[];
+    state.recurringBusinessPayments.push({id,name,beneficiaryId:beneficiaryId||null,payee:ben?.name||payee,type:paymentTypeForBeneficiary(ben?.kind),amount,frequency:String(fd.get('frequency')||'Monthly'),nextDueDate,leadDays:Number(fd.get('leadDays')||0),endDate:String(fd.get('endDate')||''),method:String(fd.get('method')||ben?.preferredMethod||'Bank transfer'),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.recurringOpen=false;ctx.audit('payment.recurring_created',{recurringId:id,name,amount,frequency:String(fd.get('frequency')||'Monthly'),nextDueDate});ctx.save();ctx.toast(name+' recurring payment added');ctx.render();
+  }
+  function updateRecurring(id,status,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update recurring payments.');return;}
+    const r=recurringById(state,id);if(!r)return;r.status=status;r.updatedAt=new Date().toISOString();r.updatedBy=state.session?.name||'User';ctx.audit('payment.recurring_status_updated',{recurringId:id,status});ctx.save();ctx.toast(r.name+': '+status);ctx.render();
+  }
+  function generateRecurringNow(id,state,ctx){
+    const r=recurringById(state,id);if(!r)return;
+    if((r.status||'Active')!=='Active'){ctx.toast('Resume this recurring payment before generating it.');return;}
+    const ben=beneficiaryById(state,r.beneficiaryId),scheduledDate=r.nextDueDate;
+    if(!scheduledDate){ctx.toast('No next due date is set.');return;}
+    const exists=(state.businessPayments||[]).some(p=>p.recurringId===r.id&&p.recurringDueDate===scheduledDate);
+    if(exists){ctx.toast('A payment already exists for '+dueDate(scheduledDate)+'.');return;}
+    const pid='BP-'+Date.now().toString(36).toUpperCase();
+    state.businessPayments.unshift({id:pid,recurringId:r.id,recurringDueDate:scheduledDate,beneficiaryId:r.beneficiaryId||null,payee:ben?.name||r.payee||r.name,type:r.type||paymentTypeForBeneficiary(ben?.kind),amount:Number(r.amount)||0,method:r.method||ben?.preferredMethod||'Bank transfer',dueDate:scheduledDate,reference:r.reference||'',description:r.description||r.name,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    r.lastGeneratedDueDate=scheduledDate;r.nextDueDate=advanceRecurringDate(scheduledDate,r.frequency||'Monthly');r.updatedAt=new Date().toISOString();ctx.audit('payment.recurring_generated',{recurringId:r.id,paymentId:pid,dueDate:scheduledDate,amount:r.amount});ctx.save();ctx.toast('Draft payment generated for '+r.name);ctx.render();
+  }
+
   function billModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,beneficiaries=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
     const beneficiaryOptions=['<option value="">One-off supplier</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
@@ -339,5 +458,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,create,createBeneficiary,createBill,update,updateBeneficiary,updateBill,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice()};
+  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,create,createBeneficiary,createBill,createRecurring,update,updateBeneficiary,updateBill,updateRecurring,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,recurringSummary:recurringMetrics,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
