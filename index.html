@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d3b35" />
   <meta name="description" content="DalasiPay - modern Gambian payroll with configurable statutory rules" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20512%20512%22%3E%0A%20%20%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%22116%22%20fill%3D%22%230d3b35%22/%3E%0A%20%20%3Crect%20x%3D%2276%22%20y%3D%2276%22%20width%3D%22360%22%20height%3D%22360%22%20rx%3D%2294%22%20fill%3D%22%23176657%22/%3E%0A%20%20%3Cpath%20d%3D%22M174%20170h76c62%200%20108%2038%20108%2094%200%2058-46%2098-108%2098h-76V170Zm72%20148c38%200%2062-19%2062-54%200-33-24-50-62-50h-24v104h24Z%22%20fill%3D%22%23d8f6e9%22/%3E%0A%3C/svg%3E%0A" type="image/svg+xml" />
-  <title>DalasiPay v0.16</title>
+  <title>DalasiPay v0.17</title>
   <style>
 :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17211f;background:#f5f7f4;font-synthesis:none;--bg:#f5f7f4;--panel:#ffffff;--panel-2:#f8faf8;--text:#17211f;--muted:#71807b;--border:#dfe6e1;--primary:#0f5e50;--primary-2:#17493f;--soft:#e8f3ef;--soft-2:#f0f6f3;--warn:#a66313;--warn-bg:#fff5e5;--danger:#a84242;--good:#1e7a5f;--shadow:0 8px 30px rgba(28,48,42,.06)}
 :root[data-theme="dark"]{--bg:#111816;--panel:#18211e;--panel-2:#1d2824;--text:#edf4f1;--muted:#9aaba4;--border:#2b3934;--primary:#62c5aa;--primary-2:#a9e8d6;--soft:#1d332c;--soft-2:#21362f;--warn:#e3ab60;--warn-bg:#352b1e;--danger:#ec8d8d;--good:#80d9bd;--shadow:0 10px 32px rgba(0,0,0,.18)}
@@ -107,6 +107,401 @@
 
 .auth-links{display:flex;justify-content:space-between;gap:12px;margin-top:13px}.auth-links button{border:0;background:transparent;color:var(--primary);font-size:10px;font-weight:800;cursor:pointer;padding:3px 0}.auth-links button:hover{text-decoration:underline}@media(max-width:520px){.auth-links{flex-direction:column;align-items:center;gap:7px}}
 
+/* DalasiPay v0.17 — Premium interface refresh
+   Visual-only release: preserves payroll logic and workflows. */
+
+:root{
+  --background:#f4f6f4;
+  --foreground:#17211f;
+  --card:#ffffff;
+  --surface:#ffffff;
+  --surface-2:#f7f9f7;
+  --muted-foreground:#66736e;
+  --accent:#13705f;
+  --accent-strong:#0a4e43;
+  --accent-soft:#e8f4f0;
+  --warning:#fff2df;
+  --warning-foreground:#8f5d15;
+  --success:#e8f6ef;
+  --success-foreground:#17664f;
+  --danger-soft:#fff0ef;
+  --sidebar:#0d2f2a;
+  --sidebar-2:#123d36;
+  --sidebar-text:#ecf8f4;
+  --sidebar-muted:#a8c3ba;
+  --ring:rgba(19,112,95,.16);
+  --shadow-sm:0 1px 2px rgba(12,39,33,.05),0 4px 14px rgba(12,39,33,.04);
+  --shadow-md:0 10px 34px rgba(12,39,33,.08);
+  --shadow-lg:0 24px 70px rgba(7,28,24,.16);
+  --radius-sm:10px;
+  --radius-md:14px;
+  --radius-lg:20px;
+
+  /* backwards-compatible aliases */
+  --bg:var(--background);
+  --panel:var(--card);
+  --panel-2:var(--surface-2);
+  --text:var(--foreground);
+  --muted:var(--muted-foreground);
+  --primary:var(--accent);
+  --primary-2:var(--accent-strong);
+  --soft:var(--accent-soft);
+  --soft-2:#f0f6f3;
+  --warn:#a86b17;
+  --warn-bg:var(--warning);
+  --danger:#b64b49;
+  --good:#1d7b60;
+  --shadow:var(--shadow-sm);
+}
+
+:root[data-theme="dark"]{
+  --background:#0f1715;
+  --foreground:#eef6f3;
+  --card:#17211e;
+  --surface:#17211e;
+  --surface-2:#1d2925;
+  --muted-foreground:#9fb0aa;
+  --accent:#66ceb1;
+  --accent-strong:#b4eedc;
+  --accent-soft:#1e3931;
+  --warning:#352b1e;
+  --warning-foreground:#e7b168;
+  --success:#18352d;
+  --success-foreground:#88ddc0;
+  --danger-soft:#3a2423;
+  --sidebar:#09110f;
+  --sidebar-2:#13211d;
+  --sidebar-text:#eff8f5;
+  --sidebar-muted:#93aaa2;
+  --ring:rgba(102,206,177,.17);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.24),0 4px 16px rgba(0,0,0,.16);
+  --shadow-md:0 14px 36px rgba(0,0,0,.25);
+  --shadow-lg:0 28px 80px rgba(0,0,0,.4);
+
+  --bg:var(--background);
+  --panel:var(--card);
+  --panel-2:var(--surface-2);
+  --text:var(--foreground);
+  --muted:var(--muted-foreground);
+  --primary:var(--accent);
+  --primary-2:var(--accent-strong);
+  --soft:var(--accent-soft);
+  --soft-2:#1b3029;
+  --warn:#e3ab60;
+  --warn-bg:var(--warning);
+  --danger:#ed8b88;
+  --good:#83d9bd;
+  --shadow:var(--shadow-sm);
+}
+
+html{background:var(--background);scroll-behavior:smooth}
+body{
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 88% -4%,rgba(19,112,95,.045),transparent 28%),
+    var(--background);
+  color:var(--foreground);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit}
+button{transition:background-color .18s ease,border-color .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease}
+button:not(:disabled):active{transform:translateY(1px)}
+input,select,textarea{outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 4px var(--ring)!important}
+::selection{background:rgba(19,112,95,.18)}
+
+/* App frame */
+.sidebar{
+  width:268px;
+  padding:25px 18px 20px;
+  background:linear-gradient(180deg,var(--sidebar) 0%,#0c332d 66%,#092722 100%);
+  border-right:0;
+  color:var(--sidebar-text);
+  box-shadow:8px 0 30px rgba(9,42,35,.07);
+}
+.main{margin-left:268px}
+.brand{padding:0 7px 1px;color:var(--sidebar-text)}
+.brand-icon{
+  width:40px;height:40px;border-radius:13px;
+  background:linear-gradient(145deg,#24a889,#0f6656);
+  color:#fff;
+  box-shadow:0 10px 24px rgba(0,0,0,.17),inset 0 1px rgba(255,255,255,.18);
+  font-size:17px;
+}
+.brand b{font-size:20px;letter-spacing:-.7px;color:#fff}
+.brand b span{color:#75d9bb}
+.brand small{font-size:9px;letter-spacing:1.7px;color:var(--sidebar-muted);margin-top:2px}
+
+.workspace{
+  margin:26px 0 25px;
+  padding:11px 12px;
+  min-height:58px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:rgba(255,255,255,.065);
+  color:#fff;
+}
+.workspace:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.15)}
+.workspace-avatar{width:34px;height:34px;border-radius:10px;background:#dff6ee;color:#0d5d4f;font-size:13px}
+.workspace b{font-size:12px;color:#fff}
+.workspace small{font-size:10px;color:var(--sidebar-muted)}
+.workspace>span:last-child{color:var(--sidebar-muted)}
+.nav-label{padding:0 11px;font-size:9px;letter-spacing:1.65px;color:#78998e}
+.sidebar nav{gap:5px;margin-top:10px}
+.sidebar nav button{
+  min-height:44px;
+  padding:0 12px;
+  border-radius:11px;
+  gap:12px;
+  color:#a7c0b8;
+  font-size:12.5px;
+  font-weight:600;
+}
+.sidebar nav button svg{opacity:.88}
+.sidebar nav button:hover{background:rgba(255,255,255,.055);color:#fff}
+.sidebar nav button.active{
+  background:linear-gradient(90deg,rgba(79,202,166,.18),rgba(255,255,255,.055));
+  color:#fff;
+  font-weight:750;
+  box-shadow:inset 3px 0 #56c7a5;
+}
+.sidebar nav button.active svg{color:#7be0c0}
+.side-callout{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.055);
+  border-radius:14px;
+  padding:15px;
+  box-shadow:none;
+}
+.side-callout>span{width:31px;height:31px;background:rgba(99,220,183,.13);color:#78ddbf}
+.side-callout b{font-size:11px;color:#f5fbf8}
+.side-callout p{font-size:10px;color:#97b5ab;margin:6px 0 11px}
+.side-callout button{font-size:10px;color:#75d9bb}
+.profile{border-top:1px solid rgba(255,255,255,.09);padding:17px 6px 0;margin-top:18px}
+.profile>span{background:#1c574b;color:#e9fff8;width:34px;height:34px;font-size:10px}
+.profile b{font-size:11px;color:#f2f9f6}.profile small{font-size:9px;color:#8fa9a0}.profile svg{color:#77978c}
+
+.topbar{
+  height:72px;
+  padding:0 34px;
+  background:color-mix(in srgb,var(--card) 92%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--border) 80%,transparent);
+  box-shadow:0 1px 0 rgba(255,255,255,.5);
+}
+.crumb{font-size:11px;gap:10px}.crumb span,.crumb b{color:#8a9692}.crumb strong{font-size:12px;font-weight:750;color:var(--foreground)}
+.top-actions{gap:8px}.search-btn{
+  width:335px;height:40px;padding:0 12px;border-radius:11px;
+  background:var(--surface-2);border-color:var(--border);font-size:11px;
+}
+.search-btn:hover{background:var(--card);border-color:#cfd8d3;box-shadow:var(--shadow-sm)}
+.search-btn kbd{font-size:9px;padding:3px 6px;border-radius:6px;background:var(--card)}
+.icon-btn{width:40px;height:40px;border-radius:11px;background:var(--card);box-shadow:none}
+.icon-btn:hover{border-color:#cbd6d1;background:var(--surface-2)}
+.top-avatar{width:36px;height:36px;background:linear-gradient(145deg,#173f37,#245e51);font-size:10px}
+
+.content{padding:38px 38px 92px;max-width:1540px}
+.page-title{align-items:center;margin-bottom:28px}
+.page-title .eyebrow,.eyebrow{font-size:9.5px;letter-spacing:1.45px;font-weight:800;color:#83908b}
+.page-title h1{font-size:32px;line-height:1.15;letter-spacing:-1.25px;margin:7px 0 6px;font-weight:760}
+.page-title p{font-size:13px;line-height:1.6;max-width:720px;color:var(--muted-foreground)}
+.page-actions{gap:9px}
+.primary,.secondary{
+  min-height:40px;
+  padding:0 15px;
+  border-radius:10px;
+  font-size:11px;
+  letter-spacing:.01em;
+  font-weight:750;
+}
+.primary{background:linear-gradient(180deg,#177a67,#116655);border-color:#116655;box-shadow:0 5px 14px rgba(17,102,85,.14)}
+.primary:hover{background:linear-gradient(180deg,#16836d,#0d5e4e);box-shadow:0 8px 18px rgba(17,102,85,.2);transform:translateY(-1px)}
+.secondary{background:var(--card);border-color:var(--border);color:var(--foreground);box-shadow:0 1px 1px rgba(10,30,25,.025)}
+.secondary:hover{background:var(--surface-2);border-color:#c9d3ce}
+.text-btn{font-size:10.5px}
+.surface{
+  border:1px solid #e2e8e4;
+  border-radius:17px;
+  background:var(--card);
+  box-shadow:var(--shadow-sm);
+}
+:root[data-theme="dark"] .surface{border-color:#2b3833}
+
+/* Dashboard */
+.hero-payroll{
+  padding:27px 29px;
+  grid-template-columns:1.35fr .78fr auto;
+  gap:32px;
+  border-radius:19px;
+  background:
+    radial-gradient(circle at 86% 16%,rgba(67,184,151,.13),transparent 24%),
+    linear-gradient(135deg,var(--card),#f2f8f5);
+  overflow:hidden;
+}
+:root[data-theme="dark"] .hero-payroll{background:linear-gradient(135deg,#17211e,#1c2c27)}
+.hero-line h2{font-size:24px;letter-spacing:-.8px;margin:7px 0 6px}
+.hero-payroll p{font-size:12px;line-height:1.55}
+.hero-total{padding-left:30px}.hero-total span{font-size:9px}.hero-total strong{font-size:29px;letter-spacing:-.8px;margin:6px 0}.hero-total small{font-size:10px}
+.kpi-grid{gap:14px;margin:16px 0}
+.kpi{padding:20px 20px 18px;border-radius:16px;position:relative;overflow:hidden}
+.kpi:after{content:"";position:absolute;inset:auto -18px -28px auto;width:90px;height:90px;border-radius:50%;background:rgba(19,112,95,.035)}
+.kpi-icon{width:36px;height:36px;border-radius:10px;margin-bottom:16px;background:#edf7f3}
+:root[data-theme="dark"] .kpi-icon{background:#20372f}
+.kpi>span{font-size:10px}.kpi>strong{font-size:24px;letter-spacing:-.65px;margin:5px 0 12px}.kpi>div:last-child b{font-size:10px}.kpi>div:last-child small{font-size:9px}
+.dashboard-grid,.bottom-grid{gap:16px}.chart-card,.attention,.dept,.activity{padding:23px}
+.card-head h3{font-size:14px;margin:0 0 4px}.card-head p{font-size:10.5px;line-height:1.5}
+.count{width:27px;height:27px;font-size:10px}
+.attention-row{grid-template-columns:36px 1fr auto;padding:15px 0;gap:11px}.attention-icon{width:32px;height:32px;border-radius:9px}.attention-row b{font-size:10.5px}.attention-row p{font-size:9.5px;line-height:1.45}.attention-row button{font-size:9.5px}
+.activity-row{grid-template-columns:36px 1fr auto;padding:14px 0}.activity-avatar{width:34px;height:34px}
+
+/* Dense cards / operational widgets */
+.operations-overview,.ops-report-grid,.control-report-grid,.finance-structure-grid,.evidence-pack-grid,.executive-kpis,.analytics-grid{gap:12px}
+.ops-card,.control-item,.exec-kpi,.analytics-card,.mini-kpi{border-radius:14px!important}
+.ops-card{padding:16px!important}.ops-card b,.control-item b{font-size:11px!important}.ops-card p,.control-item small{font-size:9.5px!important;line-height:1.45}
+.pilot-readiness{border-radius:18px;padding:24px}.pilot-readiness-head h3{font-size:21px}.pilot-readiness-head p{font-size:12px}.pilot-check{border-radius:13px;padding:13px}.pilot-check b{font-size:12px}.pilot-check small{font-size:10px}
+
+/* Tables */
+.table-card,.report-table,.bands-table,.mini-input-table,.sheet-scroll{border-radius:15px!important;overflow:hidden}
+table{font-size:11.5px}
+th{
+  background:#f7f9f7!important;
+  color:#6d7a75!important;
+  font-size:9px!important;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+  font-weight:800!important;
+  padding:12px 14px!important;
+  border-bottom:1px solid #e3e8e5!important;
+}
+:root[data-theme="dark"] th{background:#1b2824!important;color:#9badA6!important;border-color:#2b3833!important}
+td{padding:13px 14px!important;border-bottom:1px solid #edf0ee!important;font-size:11px}
+:root[data-theme="dark"] td{border-color:#26332f!important}
+tbody tr:hover{background:#fafcfb}
+:root[data-theme="dark"] tbody tr:hover{background:#1d2925}
+.table-tools{gap:10px!important;margin-bottom:14px!important}.inline-search{min-height:40px!important;border-radius:10px!important;background:var(--surface-2)!important}.table-tools select{min-height:40px!important;border-radius:10px!important}
+
+/* Forms */
+.field{gap:7px!important}.field>label,.field>span:first-child{font-size:10px!important;font-weight:750!important;color:#5f6d68!important}
+:root[data-theme="dark"] .field>label,:root[data-theme="dark"] .field>span:first-child{color:#a8b7b1!important}
+.field input,.field select,.field textarea,.form-grid input,.form-grid select,.form-grid textarea,.two-fields input,.two-fields select,.two-fields textarea{
+  min-height:42px;
+  border-radius:10px!important;
+  border:1px solid #dce3df!important;
+  background:var(--card)!important;
+  color:var(--foreground)!important;
+  padding:10px 12px!important;
+  font-size:11.5px!important;
+}
+.field textarea,.form-grid textarea,.two-fields textarea{min-height:88px;resize:vertical}
+:root[data-theme="dark"] .field input,:root[data-theme="dark"] .field select,:root[data-theme="dark"] .field textarea,:root[data-theme="dark"] .form-grid input,:root[data-theme="dark"] .form-grid select,:root[data-theme="dark"] .form-grid textarea{border-color:#33423d!important;background:#18231f!important}
+.form-grid,.two-fields{gap:15px!important}
+.modal-note,.calc-note,.aside-note{font-size:10px!important;line-height:1.55!important;border-radius:11px!important}
+
+/* Payroll workflow */
+.payroll-layout{gap:18px!important}.payroll-main{border-radius:18px!important}.steps{gap:7px!important}.steps button{min-height:43px!important;border-radius:10px!important;font-size:10.5px!important}.steps button.active{box-shadow:0 6px 18px rgba(19,112,95,.12)}
+.payroll-head{padding:24px 25px!important}.payroll-head h2{font-size:22px!important;letter-spacing:-.6px}.payroll-head p{font-size:11px!important}.payroll-body{padding:24px 25px!important}.payroll-footer{padding:18px 25px!important}
+.approval{padding:28px!important}.approval h3{font-size:19px!important}.approval>p{font-size:11px!important;line-height:1.55}.approval-grid>div{border-radius:12px!important;padding:14px!important}.approval-grid span{font-size:9px!important}.approval-grid b{font-size:15px!important}
+.approval-step-row{padding:14px!important;border-radius:12px!important}.approval-step-row b{font-size:11px!important}.approval-step-row small{font-size:9px!important}
+
+/* Reports & settings */
+.report-card{border-radius:15px!important;padding:17px!important}.report-card b{font-size:11.5px!important}.report-card p{font-size:9.5px!important;line-height:1.45}.settings-layout{gap:18px!important}.settings-nav{border-radius:15px!important;padding:8px!important}.settings-nav button{min-height:40px!important;border-radius:9px!important;font-size:10.5px!important}.setting-section{padding:24px!important}.setting-section h3{font-size:16px!important}.setting-section p{font-size:10.5px!important;line-height:1.5}.backend-status{border-radius:13px!important;padding:15px!important}.backend-status b{font-size:11px!important}.backend-status p{font-size:9.5px!important}.security-grid>div{border-radius:12px!important;padding:14px!important}.security-grid b{font-size:10px!important}.security-grid span{font-size:9px!important}
+
+/* Pills, status, banners */
+.pill{min-height:25px;padding:0 9px;border-radius:999px;font-size:8.5px;letter-spacing:.025em}
+.notice,.success-banner,.warn-box,.backend-check{border-radius:12px!important}
+.success-banner,.warn-box{padding:14px 15px!important}.success-banner b,.warn-box b{font-size:11px!important}.success-banner p,.warn-box p{font-size:9.5px!important}
+
+/* Drawers and modals */
+.modal-scrim{background:rgba(8,24,20,.52)!important;backdrop-filter:blur(4px)}
+.modal-box{
+  border-radius:20px!important;
+  border:1px solid rgba(220,229,224,.9)!important;
+  box-shadow:var(--shadow-lg)!important;
+  background:var(--card)!important;
+}
+.modal-box.wide,.modal-box.xwide{border-radius:20px!important}
+.modal-head{padding-bottom:17px!important;border-bottom:1px solid #edf0ee!important;margin-bottom:19px!important}.modal-head h2{font-size:21px!important;letter-spacing:-.55px!important}.modal-head p{font-size:10.5px!important;line-height:1.5!important}.close{width:36px!important;height:36px!important;border-radius:10px!important;background:var(--surface-2)!important}
+.modal-actions{padding-top:18px!important;border-top:1px solid #edf0ee!important;margin-top:20px!important;gap:9px!important}
+.drawer{box-shadow:-22px 0 70px rgba(5,25,20,.18)!important}.drawer-profile{padding:25px!important}.drawer-profile h2{font-size:22px!important}.drawer-profile p{font-size:10.5px!important}.drawer-actions{gap:8px!important}
+
+/* Authentication / onboarding */
+.auth-shell{
+  background:#f5f7f5;
+  min-height:100dvh;
+  grid-template-columns:minmax(520px,1.15fr) minmax(440px,.85fr);
+}
+.auth-brand-panel{
+  padding:48px clamp(42px,6vw,92px);
+  background:
+    radial-gradient(circle at 82% 18%,rgba(96,222,185,.20),transparent 25%),
+    radial-gradient(circle at 20% 76%,rgba(255,255,255,.05),transparent 30%),
+    linear-gradient(145deg,#082a26 0%,#0c3d35 52%,#105449 100%);
+}
+.auth-brand-panel:after{opacity:.85}
+.auth-brand b{font-size:24px}.auth-brand .brand-icon{width:42px;height:42px}
+.auth-copy{max-width:680px}.auth-copy .eyebrow{font-size:10px;color:#85dec1}
+.auth-copy h1{font-size:clamp(46px,5.15vw,76px);line-height:.99;letter-spacing:-3.1px;font-weight:760;margin:17px 0 22px}
+.auth-copy>p{font-size:15px;line-height:1.75;color:rgba(255,255,255,.72);max-width:590px}
+.auth-points{gap:12px;margin-top:36px}.auth-points div{font-size:12px;color:rgba(255,255,255,.88)}
+.auth-card-wrap{padding:54px;place-items:center;background:linear-gradient(180deg,#fbfcfb,#f4f7f5)}
+.auth-card{
+  width:min(100%,460px);
+  padding:38px 38px 34px;
+  border:1px solid #e1e7e3;
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 26px 70px rgba(14,43,36,.10);
+}
+.auth-card .eyebrow{font-size:9.5px;color:#71807b}.auth-card h2{font-size:32px;letter-spacing:-1px;margin:4px 0 10px}.auth-card>p{font-size:12.5px;line-height:1.65;margin-bottom:28px;color:#687670}.auth-card form{gap:17px}.auth-card .field input{height:47px!important;font-size:12px!important;background:#fbfcfb!important}.auth-submit{height:47px!important;border-radius:11px!important;font-size:11.5px!important}.auth-links button,.auth-switch,.auth-switch button{font-size:10.5px!important}.auth-divider{margin:23px 0;font-size:10px}.demo-login{height:44px;border-radius:11px}.local-warning{border-radius:11px;padding:12px 13px;font-size:9.5px;background:#f8faf9}.auth-error,.auth-notice{border-radius:11px;padding:12px 13px;font-size:10px}
+.onboarding-shell{background:radial-gradient(circle at 50% 0%,rgba(19,112,95,.09),transparent 34%),#f5f7f5}
+.onboarding-card{width:min(100%,650px);border-radius:22px;padding:42px;box-shadow:var(--shadow-lg)}.onboarding-card h1{font-size:32px;letter-spacing:-1px}.onboarding-card>p{font-size:12.5px}.sample-check{border-radius:12px;padding:15px}.sample-check b{font-size:11px}.sample-check small{font-size:9.5px}
+
+/* Employee self-service */
+.employee-app{background:var(--background)!important}.employee-app-top{height:70px!important;padding:0 30px!important;box-shadow:0 1px 0 var(--border)!important}.employee-app-main{max-width:1200px!important;padding:38px 28px 80px!important}.employee-welcome h1{font-size:31px!important;letter-spacing:-1px!important}.employee-welcome p{font-size:12px!important}.employee-kpis{gap:14px!important}.employee-kpis>.surface{padding:20px!important}.employee-kpis span{font-size:10px!important}.employee-kpis b{font-size:22px!important}.employee-kpis small{font-size:9px!important}.employee-self-section{padding:23px!important}
+
+/* Mobile */
+@media(max-width:1120px){
+  .content{padding-left:28px;padding-right:28px}
+  .search-btn{width:230px}
+  .hero-payroll{grid-template-columns:1fr .8fr auto}
+}
+@media(max-width:900px){
+  .auth-shell{grid-template-columns:1fr;background:#f4f7f5}
+  .auth-brand-panel{display:none}
+  .auth-card-wrap{padding:24px;min-height:100dvh;align-items:center}
+  .auth-card{padding:32px 28px;border-radius:18px}
+  .auth-logo-mobile{display:flex;margin-bottom:38px}
+}
+@media(max-width:780px){
+  .sidebar{width:275px}
+  .main{margin-left:0}
+  .topbar{height:62px;padding:0 16px}
+  .content{padding:25px 16px 92px}
+  .page-title h1{font-size:27px}
+  .page-title p{font-size:12px}
+  .hero-payroll{padding:22px;border-radius:16px}
+  .kpi{padding:16px}.kpi>strong{font-size:21px}
+  .mobile-nav{height:70px;background:color-mix(in srgb,var(--card) 96%,transparent)}
+  .modal-box,.modal-box.wide,.modal-box.xwide{border-radius:18px 18px 0 0!important}
+  .setting-section{padding:18px!important}
+}
+@media(max-width:520px){
+  body{font-size:13px}
+  .auth-card-wrap{padding:18px 16px;align-items:start}
+  .auth-card{padding:26px 20px;border-radius:16px;margin-top:7px}
+  .auth-logo-mobile{margin-bottom:31px}.auth-card h2{font-size:27px}
+  .page-title{gap:13px}.page-title h1{font-size:25px}.page-actions{gap:6px}
+  .primary,.secondary{min-height:39px;padding:0 12px}
+  .kpi-grid{gap:9px}.kpi{padding:14px}.kpi-icon{width:32px;height:32px;margin-bottom:12px}.kpi>span{font-size:9px}.kpi>strong{font-size:18px}
+  .chart-card,.attention,.dept,.activity{padding:17px}
+}
+
+@media print{
+  .sidebar,.topbar,.mobile-nav{display:none!important}
+  .main{margin-left:0!important}
+}
+
   </style>
 </head>
 <body>
@@ -117,7 +512,7 @@ window.DALASIPAY_CONFIG = {
   mode: 'supabase',
   supabaseUrl: 'https://zdpmlzmljozcmqndyfog.supabase.co',
   supabasePublishableKey: 'sb_publishable_h2LiLL6oMPS_4KpTVNDNiA_TWA0jDdH',
-  appVersion: '0.16.0',
+  appVersion: '0.17.0',
   supabaseClientCdn: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2'
 };
 
@@ -602,8 +997,7 @@ window.DALASIPAY_SEED = [
 <script>
 (() => {
   const DEFAULT_CONFIG = {
-    varianceReviewRequired: true,
-    requireBankDetails: true,
+    varianceReviewRequired: true,    requireBankDetails: true,
     requireTIN: true,
     requireSSHFC: true,
     costCentres: [
@@ -997,7 +1391,8 @@ window.DALASIPAY_SEED = [
     const items=[
       {id:'paid',label:'Payroll marked paid',pass:status==='Paid'||status==='Closed',detail:status==='Paid'||status==='Closed'?'Payment status completed':'Payroll must be Paid before close'},
       {id:'batch',label:'Payment batch reconciled',pass:!!batchReconciliation?.matched,detail:batchReconciliation?.matched?'Payment batch matches net payroll':'Prepare and reconcile payment batch'},
-      {id:'journal',label:'Accounting journal balanced',pass:!!journal?.balanced,detail:journal?.balanced?'Debits equal credits':`Journal difference ${round2(journal?.difference||0)}`},      {id:'statutory',label:'Statutory validation clean',pass:!!statutory?.ready,detail:statutory?.ready?'PAYE/SSHFC/IICF checks passed':`${statutory?.errors?.length||0} blocking statutory issue(s)`},
+      {id:'journal',label:'Accounting journal balanced',pass:!!journal?.balanced,detail:journal?.balanced?'Debits equal credits':`Journal difference ${round2(journal?.difference||0)}`},
+      {id:'statutory',label:'Statutory validation clean',pass:!!statutory?.ready,detail:statutory?.ready?'PAYE/SSHFC/IICF checks passed':`${statutory?.errors?.length||0} blocking statutory issue(s)`},
       {id:'exceptions',label:'Payroll exceptions reviewed',pass:blocking.length===0&&unresolvedReview.length===0,detail:blocking.length?`${blocking.length} blocking exception(s) remain`:unresolvedReview.length?`${unresolvedReview.length} review exception(s) remain`:'All payroll exceptions reviewed'},
       {id:'payslips',label:'Payslip issue status recorded',pass:true,detail:`${issued} payslip(s) marked issued; delivery does not block accounting close`}
     ];
@@ -1601,8 +1996,7 @@ window.DALASIPAY_SEED = [
   function varianceRows(){return window.DalasiAdmin.varianceDrilldown(payrollCalc(),previousArchivedRun(),state.hrConfig?.varianceThreshold||10);}
   function currentExceptions(){
     const candidates=window.DalasiAdmin.exceptionCandidates({payroll:payrollCalc(),statutory:statutoryCheck(),varianceRows:varianceRows(),employees:state.employees});
-    return window.DalasiAdmin.mergeExceptionLedger(candidates,state.exceptionLedger,state.currentPeriod);
-  }
+    return window.DalasiAdmin.mergeExceptionLedger(candidates,state.exceptionLedger,state.currentPeriod);  }
   function closeRecord(period=state.currentPeriod){return (state.closeRecords||[]).find(x=>x.period===period)||null;}
   function payrollCloseChecklist(){return window.DalasiAdmin.closeChecklist({status:state.payrollStatus,batchReconciliation:reconciliationForPeriod(),journal:accountingJournal(),statutory:statutoryCheck(),exceptions:currentExceptions(),payslipStatuses:state.sent});}
   function notesForPeriod(period=state.currentPeriod){return (state.payrollNotes||[]).filter(x=>x.period===period).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));}
@@ -1653,7 +2047,7 @@ window.DALASIPAY_SEED = [
       : forgot
         ? '<p class="auth-switch">Remembered your password? <button data-action="back-signin">Sign in</button></p>'
         : `<div class="auth-links">${!signup&&production?'<button data-action="forgot-password">Forgot password?</button>':''}${state.authPendingEmail&&production?'<button data-action="resend-confirmation">Resend confirmation</button>':''}</div><p class="auth-switch">${signup?'Already have an account?':'New to DalasiPay?'} <button data-action="toggle-auth">${signup?'Sign in':'Create account'}</button></p>`;
-    return `<div class="auth-shell"><div class="auth-brand-panel"><div class="auth-brand"><span class="brand-icon">D</span><b>dalasi<span>pay</span></b></div><div class="auth-copy"><span class="eyebrow">PAYROLL FOR THE GAMBIA</span><h1>Payroll that feels calm, modern and trustworthy.</h1><p>Manage employees, calculate payroll, generate payslips and keep each company securely separated.</p><div class="auth-points"><div>${icon('shield',18)} Source-backed payroll defaults</div><div>${icon('building',18)} Multi-company workspaces</div><div>${icon('lock',18)} Role-based access & private document model</div></div></div><small>v0.16 · Live auth & pilot readiness</small></div><div class="auth-card-wrap"><div class="auth-card"><div class="auth-logo-mobile"><span class="brand-icon">D</span><b>dalasi<span>pay</span></b></div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${esc(intro)}</p>${state.authNotice?`<div class="auth-notice">${icon('check',15)} ${esc(state.authNotice)}</div>`:''}${state.authError?`<div class="auth-error">${icon('alert',15)} ${esc(state.authError)}</div>`:''}<form id="auth-form">${form}</form>${!production&&!forgot&&!recovery?`<div class="auth-divider"><span>or</span></div><button class="secondary demo-login" data-action="demo-login">Open demo workspace</button>`:''}${links}<div class="local-warning">${icon('lock',14)} ${production?'Production Auth is connected. Confirmation and recovery links must be allowed in Supabase Auth URL Configuration.':'Local preview only. Passwords are hashed in this browser, but this mode is not production authentication.'}</div></div></div></div>`;
+    return `<div class="auth-shell"><div class="auth-brand-panel"><div class="auth-brand"><span class="brand-icon">D</span><b>dalasi<span>pay</span></b></div><div class="auth-copy"><span class="eyebrow">PAYROLL FOR THE GAMBIA</span><h1>Payroll that feels calm, modern and trustworthy.</h1><p>Manage employees, calculate payroll, generate payslips and keep each company securely separated.</p><div class="auth-points"><div>${icon('shield',18)} Source-backed payroll defaults</div><div>${icon('building',18)} Multi-company workspaces</div><div>${icon('lock',18)} Role-based access & private document model</div></div></div><small>v0.17 · Premium interface refresh</small></div><div class="auth-card-wrap"><div class="auth-card"><div class="auth-logo-mobile"><span class="brand-icon">D</span><b>dalasi<span>pay</span></b></div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${esc(intro)}</p>${state.authNotice?`<div class="auth-notice">${icon('check',15)} ${esc(state.authNotice)}</div>`:''}${state.authError?`<div class="auth-error">${icon('alert',15)} ${esc(state.authError)}</div>`:''}<form id="auth-form">${form}</form>${!production&&!forgot&&!recovery?`<div class="auth-divider"><span>or</span></div><button class="secondary demo-login" data-action="demo-login">Open demo workspace</button>`:''}${links}<div class="local-warning">${icon('lock',14)} ${production?'Production Auth is connected. Confirmation and recovery links must be allowed in Supabase Auth URL Configuration.':'Local preview only. Passwords are hashed in this browser, but this mode is not production authentication.'}</div></div></div></div>`;
   }
   function onboardingScreen(extra=false){
     return `<div class="onboarding-shell"><div class="onboarding-card"><div class="auth-brand compact"><span class="brand-icon">D</span><b>dalasi<span>pay</span></b></div><span class="eyebrow">${extra?'NEW WORKSPACE':'STEP 1 OF 1'}</span><h1>${extra?'Create another company':'Set up your company'}</h1><p>Each company gets its own employees, payroll settings, runs and audit history.</p><form id="company-form">${field('Company name','<input name="company" required placeholder="e.g. Kaira Trading Ltd">')}<div class="two-fields">${field('Industry','<select name="industry"><option>Professional services</option><option>Retail</option><option>Hospitality</option><option>NGO</option><option>Education</option><option>Construction</option><option>Other</option></select>')}${field('Team size','<select name="size"><option>1-10</option><option>11-50</option><option>51-200</option><option>201+</option></select>')}</div><label class="sample-check"><input type="checkbox" name="sample"> <span><b>Load sample employees</b><small>Add 32 Gambian demo employees so you can explore immediately.</small></span></label><button class="primary auth-submit">Create workspace ${icon('arrow',14)}</button>${extra?'<button type="button" class="secondary auth-submit" data-action="cancel-company">Cancel</button>':''}</form></div></div>`;
@@ -1996,7 +2390,8 @@ window.DALASIPAY_SEED = [
   }
   async function handleCompany(ev){
     ev.preventDefault();const fd=new FormData(ev.target);
-    try{      const org=await window.DalasiAuth.createOrganization({name:fd.get('company'),industry:fd.get('industry'),size:fd.get('size')});
+    try{
+      const org=await window.DalasiAuth.createOrganization({name:fd.get('company'),industry:fd.get('industry'),size:fd.get('size')});
       if(fd.get('sample')&&!window.DalasiProduction?.configured?.())window.DalasiAuth.setOrgValue(org.id,'employees',seedEmployees);
       state.createCompanyOpen=false;loadOrgState();audit('workspace.onboarding.completed',{sampleEmployees:Boolean(fd.get('sample'))});save();
       if(window.DalasiProduction?.configured?.()){
