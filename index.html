@@ -1844,6 +1844,84 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function downloadText(filename, text, type='text/csv;charset=utf-8'){
     const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);
   }
+  function pdfSafeText(value){
+    return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/\u00B7/g,'-').replace(/[^\x20-\x7E]/g,'?');
+  }
+  function pdfEscapeText(value){return pdfSafeText(value).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
+  function pdfClip(value,max=44){const s=pdfSafeText(value);return s.length>max?s.slice(0,Math.max(1,max-3))+'...':s}
+  function pdfDownload(filename,content){
+    const objects=[
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+      '<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream'
+    ];
+    let pdf='%PDF-1.4\n% DalasiPay PDF\n',offsets=[0];
+    objects.forEach((obj,i)=>{offsets[i+1]=pdf.length;pdf+=(i+1)+' 0 obj\n'+obj+'\nendobj\n'});
+    const xref=pdf.length;pdf+='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n';
+    for(let i=1;i<=objects.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+    pdf+='trailer\n<< /Size '+(objects.length+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+    const blob=new Blob([pdf],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
+  }
+  function downloadPayslipPdf(e){
+    if(!e)return;
+    const calc=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);
+    const out=[];
+    const text=(x,y,size,value,bold=false,color='0.06 0.13 0.11')=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+pdfEscapeText(value)+') Tj ET');
+    const fill=(x,y,w,h,color)=>out.push(color+' rg '+x+' '+y+' '+w+' '+h+' re f');
+    const stroke=(x1,y1,x2,y2,color='0.86 0.89 0.88',width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
+    const row=(x,y,label,value,width=220)=>{text(x,y,9,pdfClip(label,31),false,'0.34 0.41 0.38');text(x+130,y,9,pdfClip(value,19),true);stroke(x,y-7,x+width,y-7);};
+    fill(0,760,595,82,'0.04 0.29 0.24');
+    text(44,807,18,pdfClip(state.company,35),true,'1 1 1');
+    text(44,787,9,'PAYROLL STATEMENT',true,'0.72 0.91 0.85');
+    text(430,807,10,'DALASIPAY',true,'1 1 1');
+    text(430,789,8,'The Gambia',false,'0.76 0.89 0.85');
+    text(44,735,8,'PAYSLIP FOR',true,'0.38 0.47 0.44');
+    text(44,711,18,periodLabel(state.currentPeriod),true);
+    text(390,735,8,'REFERENCE',true,'0.38 0.47 0.44');
+    text(390,714,10,'PAY-'+state.currentPeriod+'-'+String(e.id).slice(-3),true);
+    fill(44,646,507,49,'0.95 0.97 0.96');
+    text(57,678,7,'EMPLOYEE',true,'0.42 0.50 0.47');text(57,662,10,pdfClip(e.name,30),true);
+    text(250,678,7,'EMPLOYEE ID',true,'0.42 0.50 0.47');text(250,662,10,pdfClip(e.id,18),true);
+    text(365,678,7,'PAYMENT',true,'0.42 0.50 0.47');text(365,662,9,pdfClip(e.bank||'Not recorded',27),true);
+    text(57,640,8,pdfClip((e.role||'')+' - '+(e.department||''),55),false,'0.38 0.46 0.43');
+    text(44,617,11,'EARNINGS',true,'0.04 0.35 0.28');text(315,617,11,'DEDUCTIONS',true,'0.04 0.35 0.28');
+    const earnings=[['Basic salary',money2(calc.basic)],['Fixed allowance',money2(calc.allowance)]];
+    if(calc.overtime)earnings.push(['Overtime',money2(calc.overtime)]);
+    if(calc.bonus)earnings.push(['Bonus',money2(calc.bonus)]);
+    if(calc.commission)earnings.push(['Commission',money2(calc.commission)]);
+    if(calc.arrears-calc.retroArrears)earnings.push(['Arrears / back pay',money2(calc.arrears-calc.retroArrears)]);
+    if(calc.retroArrears)earnings.push(['Retroactive adjustment',money2(calc.retroArrears)]);
+    earnings.push(['Gross pay',money2(calc.gross)]);
+    const deductions=[['PAYE','- '+money2(calc.paye)],[state.rules.scheme+' employee contribution','- '+money2(calc.employeeContribution)]];
+    if(calc.loanDeduction)deductions.push(['Loan repayment','- '+money2(calc.loanDeduction)]);
+    if(calc.advanceDeduction)deductions.push(['Salary advance','- '+money2(calc.advanceDeduction)]);
+    if(calc.absenceDeduction)deductions.push(['Absence deduction','- '+money2(calc.absenceDeduction)]);
+    if(calc.customDeduction)deductions.push(['Other deduction','- '+money2(calc.customDeduction)]);
+    deductions.push(['Total deductions','- '+money2(calc.totalDeductions)]);
+    earnings.forEach((r,i)=>row(44,594-i*22,r[0],r[1],225));
+    deductions.forEach((r,i)=>row(315,594-i*22,r[0],r[1],236));
+    fill(44,352,507,62,'0.95 0.97 0.96');
+    text(58,393,7,year+' YTD GROSS',true,'0.39 0.47 0.44');text(58,373,11,money2(ytd.gross),true);
+    text(220,393,7,year+' YTD PAYE',true,'0.39 0.47 0.44');text(220,373,11,money2(ytd.paye),true);
+    text(376,393,7,year+' YTD NET',true,'0.39 0.47 0.44');text(376,373,11,money2(ytd.net),true);
+    text(58,359,7,ytd.months+' archived payroll month'+(ytd.months===1?'':'s')+' included',false,'0.44 0.51 0.48');
+    fill(44,256,507,72,'0.06 0.31 0.26');
+    text(60,303,9,'NET PAY',true,'0.72 0.91 0.85');text(60,276,23,money2(calc.net),true,'1 1 1');
+    text(345,290,8,'EMPLOYER COST',true,'0.72 0.91 0.85');text(345,273,11,money2(calc.employerCost),true,'1 1 1');
+    stroke(44,222,551,222);
+    text(44,202,8,pdfClip(state.branding.payslipNote||'Payroll, beautifully handled.',58),false,'0.43 0.50 0.47');
+    text(44,186,7,'Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',22)+'.',false,'0.48 0.54 0.52');
+    text(391,202,8,'Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),false,'0.43 0.50 0.47');
+    text(44,52,7,'Confidential payroll document - generated by DalasiPay',false,'0.52 0.57 0.55');
+    const filename=(pdfSafeText(e.name).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Employee')+'_Payslip_'+state.currentPeriod+'.pdf';
+    pdfDownload(filename,out.join('\n'));
+    toast('Payslip PDF downloaded: '+filename);
+  }
+
   function exportReport(name, format){
     const {rows,totals}=payrollCalc();
     if(format==='PDF'){toast(`${name}: opening print view. Choose “Save as PDF”.`);setTimeout(()=>window.print(),180);return;}
@@ -2305,7 +2383,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return `${pageTitle(periodLabel(state.currentPeriod).toUpperCase(),'Payslips','Preview, issue and hand off employee payslips while preserving period history.',`${periodControls(false)}<button class="primary" data-action="bulk-send">${icon('arrow',15)} Prepare all ready</button>`)}
       <div class="notice">${icon('shield',17)}<div><b>Privacy first</b><p>Each employee only receives their own payslip. Email and WhatsApp currently open device apps; automatic delivery is not connected.</p></div><label class="toggle-label"><span>Password protect PDFs</span><button class="toggle ${state.payslipPassword?'on':''}" data-action="toggle-password"><i></i></button></label></div>
       <div class="payslip-head-grid"><div class="surface mini-kpi"><span>${p.rows.length}</span><small>Total payslips</small></div><div class="surface mini-kpi"><span>${ready}</span><small>Ready</small></div><div class="surface mini-kpi"><span>${statusEntries.filter(([,v])=>v?.status==='Prepared').length}</span><small>Prepared</small></div><div class="surface mini-kpi"><span>${statusEntries.filter(([,v])=>v?.status==='Issued').length}</span><small>Issued</small></div></div>
-      <div class="surface employee-card"><div class="table-tools"><div><h3>Payslip distribution</h3><p>${periodLabel(state.currentPeriod)} · ${state.rules.scheme} · ${state.payrollStatus}</p></div><select id="delivery-filter"><option>All</option><option>Ready</option><option>Prepared</option><option>Issued</option></select></div><div class="table-scroll"><table><thead><tr><th>EMPLOYEE</th><th>GROSS</th><th>NET PAY</th><th>PREFERENCE</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${matches.map(r=>{const st=state.sent[r.employee.id]||{status:'Ready'};return `<tr><td>${person(r.employee)}</td><td>${money2(r.gross)}</td><td><b>${money2(r.net)}</b></td><td>${r.employee.delivery}</td><td>${pill(st.status||'Ready',(st.status||'ready').toLowerCase()==='issued'?'paid':(st.status||'').toLowerCase()==='prepared'?'approved':'ready')}</td><td><div class="row-actions">${rowAction('eye',`preview:${r.employee.id}`,'Preview')}${rowAction('mail',`email:${r.employee.id}`,'Email')}${rowAction('whatsapp',`whatsapp:${r.employee.id}`,'WhatsApp')}${rowAction('check',`issue:${r.employee.id}`,'Mark issued')}</div></td></tr>`}).join('')}</tbody></table></div></div>`;
+      <div class="surface employee-card"><div class="table-tools"><div><h3>Payslip distribution</h3><p>${periodLabel(state.currentPeriod)} · ${state.rules.scheme} · ${state.payrollStatus}</p></div><select id="delivery-filter"><option>All</option><option>Ready</option><option>Prepared</option><option>Issued</option></select></div><div class="table-scroll"><table><thead><tr><th>EMPLOYEE</th><th>GROSS</th><th>NET PAY</th><th>PREFERENCE</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${matches.map(r=>{const st=state.sent[r.employee.id]||{status:'Ready'};return `<tr><td>${person(r.employee)}</td><td>${money2(r.gross)}</td><td><b>${money2(r.net)}</b></td><td>${r.employee.delivery}</td><td>${pill(st.status||'Ready',(st.status||'ready').toLowerCase()==='issued'?'paid':(st.status||'').toLowerCase()==='prepared'?'approved':'ready')}</td><td><div class="row-actions">${rowAction('eye',`preview:${r.employee.id}`,'Preview')}${rowAction('download',`download-payslip:${r.employee.id}`,'Download PDF')}${rowAction('mail',`email:${r.employee.id}`,'Email')}${rowAction('whatsapp',`whatsapp:${r.employee.id}`,'WhatsApp')}${rowAction('check',`issue:${r.employee.id}`,'Mark issued')}</div></td></tr>`}).join('')}</tbody></table></div></div>`;
   }
 
   function payslipModal(e){const c=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);return `<div class="center-modal payslip-modal"><div class="modal-scrim" data-action="close-payslip"></div><div class="modal-box wide"><div class="modal-head no-print"><div><div class="eyebrow">PAYSLIP PREVIEW · ${state.rules.scheme}</div><h2>${esc(e.name)}</h2></div><button class="close" data-action="close-payslip">×</button></div><div class="payslip-sheet"><div class="payslip-brand" style="--brand:${brandColor()}"><div class="brand">${state.branding.logoData?`<img class="payslip-logo-img" src="${esc(state.branding.logoData)}" alt="${esc(state.company)} logo">`:`<span class="brand-icon custom-brand">${esc(state.branding.logoText||state.company.slice(0,1))}</span>`}<div><b>${esc(state.company)}</b><small>Payroll statement</small></div></div><div><b>${esc(state.company)}</b><p>The Gambia</p></div></div><div class="payslip-period"><div><small>PAYSLIP FOR</small><h2>${periodLabel(state.currentPeriod)}</h2></div><div><small>REFERENCE</small><b>PAY-${state.currentPeriod}-${e.id.slice(-3)}</b></div></div><div class="payslip-employee"><div><small>EMPLOYEE</small><b>${esc(e.name)}</b><span>${esc(e.role)} · ${esc(e.department)}</span></div><div><small>EMPLOYEE ID</small><b>${e.id}</b></div><div><small>PAYMENT</small><b>${esc(e.bank)}</b></div></div><div class="payslip-columns"><div><h4>Earnings</h4>${amount('Basic salary',money2(c.basic))}${amount('Fixed allowance',money2(c.allowance))}${c.overtime?amount('Overtime',money2(c.overtime)):''}${c.bonus?amount('Bonus',money2(c.bonus)):''}${c.commission?amount('Commission',money2(c.commission)):''}${(c.arrears-c.retroArrears)?amount('Arrears / back pay',money2(c.arrears-c.retroArrears)):''}${c.retroArrears?amount('Retroactive salary adjustment',money2(c.retroArrears)):''}${amount('Gross pay',money2(c.gross),'',true)}</div><div><h4>Deductions</h4>${amount('PAYE',`− ${money2(c.paye)}`,'GRA bands')}${amount(`${state.rules.scheme} employee contribution`,`− ${money2(c.employeeContribution)}`,state.rules.scheme==='NPF'?'5% basic':'Employer funded')}${c.loanDeduction?amount('Loan repayment',`− ${money2(c.loanDeduction)}`):''}${c.advanceDeduction?amount('Salary advance',`− ${money2(c.advanceDeduction)}`):''}${c.absenceDeduction?amount('Absence deduction',`− ${money2(c.absenceDeduction)}`):''}${c.customDeduction?amount('Other deduction',`− ${money2(c.customDeduction)}`):''}${amount('Total deductions',`− ${money2(c.totalDeductions)}`,'',true)}</div></div><div class="ytd-strip"><div><span>${year} YTD GROSS</span><b>${money2(ytd.gross)}</b></div><div><span>${year} YTD PAYE</span><b>${money2(ytd.paye)}</b></div><div><span>${year} YTD NET</span><b>${money2(ytd.net)}</b></div><small>${ytd.months} archived payroll month${ytd.months===1?'':'s'} included</small></div><div class="net-pay"><span>NET PAY</span><strong>${money2(c.net)}</strong><small>Employer cost this month: ${money2(c.employerCost)}</small></div><div class="payslip-foot"><span>${esc(state.branding.payslipNote||'Payroll, beautifully handled.')} · Statutory defaults verified ${state.rules.verifiedOn}.</span><span>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div></div><div class="modal-actions no-print"><button class="secondary" data-action="save-pdf">${icon('download',14)} Save PDF</button><button class="secondary" data-action="email:${e.id}">${icon('mail',14)} Email</button><button class="secondary" data-action="whatsapp:${e.id}">${icon('whatsapp',14)} WhatsApp</button><button class="primary" data-action="print-current">${icon('print',14)} Print</button></div></div></div>`}
@@ -2678,7 +2756,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a==='save-settings'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Your role cannot change workspace settings.');return}const newName=(state.settingsCompany||state.company).trim();if(newName&&newName!==state.company){state.org=await window.DalasiAuth.updateOrganization(state.org.id,{name:newName});state.company=newName;state.organizations=window.DalasiAuth.listOrganizations()}if(state.settingsScheme)state.rules.scheme=state.settingsScheme;state.rules.overtimeMultiplier=Math.max(1,Number(document.getElementById('overtime-multiplier')?.value)||1.5);state.hrConfig.varianceThreshold=Math.max(1,Number(document.getElementById('variance-threshold')?.value)||10);state.branding.accent=document.getElementById('brand-accent')?.value||state.branding.accent;state.branding.logoText=String(document.getElementById('brand-logo-text')?.value||state.branding.logoText||'D').slice(0,3).toUpperCase();state.branding.payslipNote=String(document.getElementById('brand-note')?.value||state.branding.payslipNote||'Payroll, beautifully handled.');state.notificationPrefs={leave:!!document.getElementById('pref-leave')?.checked,payroll:!!document.getElementById('pref-payroll')?.checked,payslips:!!document.getElementById('pref-payslips')?.checked};state.opsConfig.paydayDay=Math.min(31,Math.max(1,Number(document.getElementById('ops-payday')?.value)||28));state.opsConfig.payrollPrepLeadDays=Math.min(15,Math.max(0,Number(document.getElementById('ops-prep-days')?.value)||5));state.opsConfig.bankFileFormat=String(document.getElementById('ops-bank-format')?.value||'Generic CSV');state.opsConfig.paymentReferencePrefix=String(document.getElementById('ops-ref-prefix')?.value||'SAL').replace(/[^A-Za-z0-9]/g,'').slice(0,8).toUpperCase()||'SAL';state.v012Config.makerCheckerMode=String(document.getElementById('maker-checker-mode')?.value||state.v012Config.makerCheckerMode||'warn');state.v012Config.evidenceRetentionMonths=Math.max(12,Number(document.getElementById('evidence-retention')?.value)||84);state.settingsCompany=null;state.settingsScheme=null;audit('settings.updated',{scheme:state.rules.scheme,branding:true,notifications:true,payrollOperations:true});save();toast('Workspace settings, branding and notifications saved')}
     else if(a==='reset-settings'){state.settingsCompany=state.company;state.settingsScheme=state.rules.scheme;render()}
     else if(a==='demo-rule')toast('Verified defaults are protected in this preview. Editable statutory-rule versions will be enabled after a dedicated DalasiPay backend is connected')
-    else if(a==='save-pdf'){toast('Print dialog opened. Choose “Save as PDF”.');setTimeout(()=>window.print(),150)}
+    else if(a==='save-pdf'){downloadPayslipPdf(state.selectedPayslip)}
+    else if(a.startsWith('download-payslip:')){const em=byId(a.split(':')[1]);if(em)downloadPayslipPdf(em)}
     else if(a==='print-current'){window.print()}
     else if(a.startsWith('preview:')){state.selectedPayslip=byId(a.split(':')[1]);render()}
     else if(a.startsWith('email:')){const em=byId(a.split(':')[1]);if(em)emailEmployee(em)}
