@@ -814,7 +814,7 @@
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
     const id='BILL-'+Date.now().toString(36).toUpperCase();state.businessBills=state.businessBills||[];
     state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,invoiceDate:String(fd.get('invoiceDate')||''),dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.billOpen=false;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
+    state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update bills.');return;}
@@ -839,8 +839,9 @@
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter the beneficiary name.');return;}
     const id='BEN-'+Date.now().toString(36).toUpperCase();
     state.paymentBeneficiaries=state.paymentBeneficiaries||[];
-    state.paymentBeneficiaries.push({id,name,kind:String(fd.get('kind')||'Other beneficiary'),contact:String(fd.get('contact')||'').trim(),phone:String(fd.get('phone')||'').trim(),email:String(fd.get('email')||'').trim(),preferredMethod:String(fd.get('preferredMethod')||'Bank transfer'),bankName:String(fd.get('bankName')||'').trim(),accountName:String(fd.get('accountName')||'').trim(),accountNumber:String(fd.get('accountNumber')||'').trim(),mobileProvider:String(fd.get('mobileProvider')||'').trim(),mobileNumber:String(fd.get('mobileNumber')||'').trim(),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.beneficiaryOpen=false;ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name});ctx.save();ctx.toast(name+' added as a beneficiary');ctx.render();
+    const kind=String(fd.get('kind')||'Other beneficiary');
+    state.paymentBeneficiaries.push({id,name,kind,contact:String(fd.get('contact')||'').trim(),phone:String(fd.get('phone')||'').trim(),email:String(fd.get('email')||'').trim(),preferredMethod:String(fd.get('preferredMethod')||'Bank transfer'),bankName:String(fd.get('bankName')||'').trim(),accountName:String(fd.get('accountName')||'').trim(),accountNumber:String(fd.get('accountNumber')||'').trim(),mobileProvider:String(fd.get('mobileProvider')||'').trim(),mobileNumber:String(fd.get('mobileNumber')||'').trim(),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.beneficiaryOpen=false;state.beneficiaryDefaultKind='';ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind});ctx.save();ctx.toast(name+(kind==='Supplier / vendor'?' added as a supplier':' added as a beneficiary'));ctx.render();
   }
   function update(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
