@@ -29,3 +29,18 @@
 .payment-dashboard-stat b{display:block;margin-top:4px;font-size:14px}
 @media(max-width:1050px){.payment-dashboard{grid-template-columns:1fr 1fr 1fr}.payment-dashboard-intro{grid-column:1/-1}.payment-dashboard .primary{grid-column:1/-1;justify-self:start}.payment-dashboard-stat:first-of-type{border-left:0;padding-left:0}}
 @media(max-width:620px){.payment-dashboard{grid-template-columns:1fr}.payment-dashboard-stat{border-left:0;border-top:1px solid var(--border);padding:10px 0 0}.payment-dashboard .primary{width:100%}}
+
+.payment-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 14px;border:1px solid var(--border);border-radius:11px;background:var(--panel-2)}
+.payment-tabs button{min-height:34px;padding:0 13px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:10.5px;font-weight:800}
+.payment-tabs button.active{background:var(--panel);color:var(--primary);box-shadow:0 2px 7px rgba(20,48,39,.07)}
+.beneficiary-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.beneficiary-summary>div{padding:16px}
+.beneficiary-summary span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.beneficiary-summary b{display:block;font-size:18px;margin:6px 0 3px}
+.beneficiary-summary small{font-size:9.5px;color:var(--muted)}
+.payment-destination{display:grid;gap:2px}
+.payment-destination b{font-size:10.5px}.payment-destination small{font-size:9.5px;color:var(--muted)}
+.beneficiary-paid{display:block;margin-top:3px;color:var(--muted);font-size:9px}
+.selected-beneficiary{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 11px;margin:-4px 0 12px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));background:var(--soft);border-radius:9px}
+.selected-beneficiary b{font-size:10.5px}.selected-beneficiary span{font-size:9.5px;color:var(--muted);text-align:right}
+@media(max-width:800px){.beneficiary-summary{grid-template-columns:1fr}.selected-beneficiary{align-items:flex-start;flex-direction:column}.selected-beneficiary span{text-align:left}}
