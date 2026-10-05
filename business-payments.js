@@ -52,9 +52,76 @@
   function action(p){
     if(p.status==='Draft')return '<button class="secondary" data-action="payment-submit:'+p.id+'">Submit</button>';
     if(p.status==='Pending approval')return '<button class="secondary" data-action="payment-approve:'+p.id+'">Approve</button>';
-    if(p.status==='Approved')return '<button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button>';
-    return '<span class="payment-complete">Paid</span>';
+    if(p.status==='Approved')return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button>';
+    return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-doc:receipt:'+p.id+'">Receipt PDF</button>';
   }
+
+  function nextDocumentNumber(prefix,state){
+    const year=new Date().getFullYear(),rows=state.businessPayments||[];
+    const count=rows.filter(x=>prefix==='PV'?x.voucherNumber:x.receiptNumber).length+1;
+    return prefix+'-'+year+'-'+String(count).padStart(5,'0');
+  }
+  function numWords(n){
+    n=Math.round(Math.abs(Number(n)||0));
+    if(n===0)return 'Zero';
+    const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const under1000=x=>{let s='';if(x>=100){s+=ones[Math.floor(x/100)]+' Hundred';x%=100;if(x)s+=' and ';}if(x>=20){s+=tens[Math.floor(x/10)];if(x%10)s+=' '+ones[x%10];}else if(x)s+=ones[x];return s;};
+    const parts=[];if(n>=1000000){parts.push(under1000(Math.floor(n/1000000))+' Million');n%=1000000;}if(n>=1000){parts.push(under1000(Math.floor(n/1000))+' Thousand');n%=1000;}if(n)parts.push(under1000(n));return parts.join(' ');
+  }
+  function paymentDocumentPdf(id,type,state,ctx){
+    const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p){ctx.toast('Payment record not found');return}
+    if(type==='receipt'&&p.status!=='Paid'){ctx.toast('A receipt is available only after the payment is marked Paid.');return}
+    if(type==='voucher'&&!['Approved','Paid'].includes(p.status)){ctx.toast('Approve the payment before generating a voucher.');return}
+    const isReceipt=type==='receipt',bill=billById(state,p.billId),ben=beneficiaryById(state,p.beneficiaryId);
+    const number=isReceipt?p.receiptNumber:p.voucherNumber,title=isReceipt?'PAYMENT RECEIPT':'PAYMENT VOUCHER',subtitle=isReceipt?'Recorded payment confirmation':'Approved payment instruction';
+    const out=[],ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.92 0.97 0.95',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
+    const escText=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+    const clip=(v,max=44)=>{const s=String(v??'');return s.length>max?s.slice(0,max-3)+'...':s};
+    const text=(x,y,size,value,bold=false,color=ink)=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+escText(value)+') Tj ET');
+    const fill=(x,y,w,h,color)=>out.push(color+' rg '+x+' '+y+' '+w+' '+h+' re f');
+    const stroke=(x1,y1,x2,y2,color=line,width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
+    const rect=(x,y,w,h,fillColor=white,strokeColor=line,width=.65)=>{fill(x,y,w,h,fillColor);out.push(strokeColor+' RG '+width+' w '+x+' '+y+' '+w+' '+h+' re S')};
+    const label=(x,y,value)=>text(x,y,7.2,String(value).toUpperCase(),true,'0.42 0.49 0.46');
+    const dateVal=isReceipt?(p.paidAt||p.updatedAt):(p.approvedAt||p.updatedAt);
+    fill(0,0,595,842,white);out.push('0.88 0.91 0.90 RG 0.75 w 24 24 547 794 re S');
+    fill(24,746,547,72,green);fill(24,746,5,72,'0.37 0.82 0.68');
+    if(state.branding?.logoData){out.push('q 42 0 0 42 43 765 cm /Im1 Do Q')}else{fill(43,765,42,42,'0.88 0.97 0.94');text(57,780,14,clip(state.branding?.logoText||state.company.slice(0,1),3),true,green)}
+    text(99,790,17,clip(state.company,29),true,white);text(99,771,8.2,'DALASIPAY BUSINESS PAYMENTS',true,'0.74 0.91 0.86');
+    text(388,791,17,title,true,white);text(388,772,7.6,subtitle.toUpperCase(),true,'0.74 0.91 0.86');
+    rect(24,695,547,38,soft,line,.55);
+    label(40,718,'Document no.');text(40,703,10,number||'Pending',true);
+    stroke(218,701,218,726,line,.55);label(235,718,isReceipt?'Paid date':'Approval date');text(235,703,9.4,dateVal?new Date(dateVal).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'Not recorded',true);
+    stroke(391,701,391,726,line,.55);label(408,718,'Payment ID');text(408,703,9.4,p.id,true);
+    rect(24,607,547,73,'0.945 0.97 0.96',line,.55);
+    label(40,662,'Payee / beneficiary');text(40,644,13,clip(p.payee,42),true);text(40,628,8.4,clip(ben?destinationSummary(ben):(p.method||''),56),false,muted);
+    label(385,662,'Amount');text(385,638,19,ctx.money2(p.amount),true,green);
+    rect(24,459,547,133,white,line,.55);
+    label(40,570,'Payment details');
+    const rows=[
+      ['Payment type',p.type||'Other payment'],
+      ['Payment method',p.method||'Not recorded'],
+      ['Reference / invoice',p.reference||bill?.invoiceNo||'Not recorded'],
+      ['Linked bill',bill?(bill.invoiceNo+' · '+bill.supplier):'No linked bill'],
+      ['Purpose',p.description||bill?.description||'Business payment']
+    ];
+    rows.forEach((r,i)=>{const y=545-i*23;text(40,y,8.8,r[0],false,muted);text(190,y,9,clip(r[1],50),true,ink);if(i<rows.length-1)stroke(40,y-8,555,y-8,'0.91 0.93 0.92',.45)});
+    rect(24,380,547,64,mint,line,.55);label(40,423,'Amount in words');text(40,401,10,clip(numWords(p.amount)+' Dalasis only',76),true,green);
+    rect(24,269,547,95,soft,line,.55);
+    label(40,344,isReceipt?'Payment record':'Approval record');
+    text(40,324,8.6,isReceipt?'Recorded as paid by':'Approved by',false,muted);text(170,324,9.2,clip(isReceipt?(p.updatedBy||'Workspace user'):(p.approvedBy||p.updatedBy||'Workspace user'),38),true);
+    text(40,302,8.6,'Prepared by',false,muted);text(170,302,9.2,clip(p.createdBy||'Workspace user',38),true);
+    text(40,280,8.6,'Created',false,muted);text(170,280,9.2,p.createdAt?new Date(p.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Not recorded',true);
+    fill(24,190,547,59,green);text(42,226,8.2,isReceipt?'PAYMENT RECORDED AS PAID':'APPROVED FOR PAYMENT',true,'0.74 0.91 0.86');text(42,203,20,ctx.money2(p.amount),true,white);text(362,210,8,clip(p.method||'',24),true,'0.84 0.95 0.91');
+    stroke(24,82,571,82,line,.55);
+    text(24,63,7.3,isReceipt?'This receipt confirms DalasiPay recorded the payment as paid.':'This voucher records an approved payment instruction.',true,'0.45 0.51 0.49');
+    text(24,48,6.9,'It is not independent bank or mobile-money settlement confirmation unless a payment-provider integration verifies it.',false,'0.53 0.58 0.56');
+    text(421,63,7.3,'Generated by DalasiPay',true,green);
+    const safe=(String(p.payee||'Payee').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Payee');
+    const filename=(isReceipt?'Payment_Receipt_':'Payment_Voucher_')+safe+'_'+(number||p.id)+'.pdf';
+    ctx.pdfDownload(filename,out.join('\n'),state.branding?.logoData||'');ctx.toast((isReceipt?'Payment receipt':'Payment voucher')+' downloaded');
+  }
+
   function tabs(state){
     return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
   }
@@ -258,7 +325,7 @@
   function update(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
-    p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Paid'){p.paidAt=new Date().toISOString();if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
+    p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
     ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee});ctx.save();ctx.toast(p.payee+': '+status);ctx.render();
   }
   function updateBeneficiary(id,status,state,ctx){
@@ -268,8 +335,8 @@
   }
   function exportRegister(state,ctx){
     const rows=(state.businessPayments||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-    const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
+    const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,create,createBeneficiary,createBill,update,updateBeneficiary,updateBill,exportRegister,summary:totals,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice()};
+  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,create,createBeneficiary,createBill,update,updateBeneficiary,updateBill,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice()};
 })();
