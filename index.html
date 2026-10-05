@@ -1404,7 +1404,68 @@ window.DALASIPAY_SEED = [
     const tasks=(pack.tasks||[]).map(x=>`<tr><td>${esc(x.title)}</td><td>${esc(x.owner)}</td><td>${esc(x.dueDate||'')}</td><td>${esc(x.status)}</td></tr>`).join('');
     const notes=(pack.notes||[]).map(x=>`<li><b>${esc(x.category)}</b> · ${esc(x.userName)} · ${esc(x.createdAt)}<br>${esc(x.text)}</li>`).join('')||'<li>No payroll notes recorded.</li>';
     const ex=(pack.exceptions||[]).map(x=>`<li>${esc(x.severity)} · ${esc(x.title)} · ${esc(x.status)}</li>`).join('')||'<li>No exceptions.</li>';
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(pack.company)} ${esc(pack.period)} payroll pack</title><style>body{font:14px/1.5 Arial,sans-serif;color:#18302c;margin:40px;max-width:1000px}h1,h2{color:#0d3b35}small{color:#60736f}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{padding:14px;border:1px solid #dce5e2;border-radius:10px}.card span{display:block;color:#60736f;font-size:11px}.card b{font-size:18px}table{border-collapse:collapse;width:100%;margin:12px 0 24px}th,td{border:1px solid #dce5e2;padding:8px;text-align:left}th{background:#f3f7f5}section{margin:28px 0}.ok{color:#08785f}.warn{color:#a05b00}@media print{body{margin:16px}}</style></head><body><h1>${esc(pack.company)} · ${esc(pack.period)} payroll pack</h1><small>Generated ${esc(pack.generatedAt)} · Status ${esc(pack.status)}</small><section class="grid"><div class="card"><span>Employees</span><b>${pack.employeeCount||0}</b></div><div class="card"><span>Gross</span><b>${money(pack.payrollTotals?.gross)}</b></div><div class="card"><span>Net</span><b>${money(pack.payrollTotals?.net)}</b></div><div class="card"><span>Employer cost</span><b>${money(pack.payrollTotals?.employerCost)}</b></div></section><section><h2>Approvals</h2><table><tr><th>Step</th><th>Status</th><th>Actor</th><th>Comment</th></tr>${rows}</table></section><section><h2>Scheduled tasks</h2><table><tr><th>Task</th><th>Owner</th><th>Due</th><th>Status</th></tr>${tasks}</table></section><section><h2>Control evidence</h2><p>Payment reconciliation: <b class="${pack.paymentReconciliation?.matched?'ok':'warn'}">${pack.paymentReconciliation?.matched?'Matched':'Not matched / not available'}</b></p><p>Accounting journal: <b class="${pack.journal?.balanced?'ok':'warn'}">${pack.journal?.balanced?'Balanced':'Review'}</b></p><p>Statutory validation: <b class="${pack.statutory?.ready?'ok':'warn'}">${pack.statutory?.ready?'Ready':'Review'}</b></p></section><section><h2>Payroll notes</h2><ul>${notes}</ul></section><section><h2>Exceptions</h2><ul>${ex}</ul></section><section><h2>Audit evidence</h2><p>${(pack.audit||[]).length} recent audit event(s) included in the accompanying JSON evidence pack.</p></section></body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(pack.company)} ${esc(pack.period)} payroll pack</title><style>body{font:14px/1.5 Arial,sans-serif;color:#18302c;margin:40px;max-width:1000px}h1,h2{color:#0d3b35}small{color:#60736f}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{padding:14px;border:1px solid #dce5e2;border-radius:10px}.card span{display:block;color:#60736f;font-size:11px}.card b{font-size:18px}table{border-collapse:collapse;width:100%;margin:12px 0 24px}th,td{border:1px solid #dce5e2;padding:8px;text-align:left}th{background:#f3f7f5}section{margin:28px 0}.ok{color:#08785f}.warn{color:#a05b00}@media print{body{margin:16px}}
+/* =========================================================
+   v0.17 readability pass — larger operational typography
+   ========================================================= */
+body{font-size:15px}
+.sidebar .brand small{font-size:9.5px}
+.sidebar .nav-label{font-size:10px}
+.sidebar nav button{font-size:13.5px;min-height:45px}
+.workspace b{font-size:12.5px}.workspace small{font-size:10.5px}
+.side-callout b{font-size:12.5px}.side-callout p{font-size:11px}.side-callout button{font-size:11.5px}
+.profile b{font-size:12px}.profile small{font-size:10px}
+.crumb{font-size:12px}.crumb strong{font-size:13px}
+.search-btn{font-size:12px}.search-btn kbd{font-size:10px}
+.eyebrow{font-size:10px}
+.page-title p{font-size:13.5px;line-height:1.62}
+.primary,.secondary{font-size:12.5px;min-height:42px}.text-btn{font-size:11.5px}
+.card-head h3{font-size:15.5px}.card-head p{font-size:11.5px;line-height:1.5}
+.pill{font-size:9.5px;min-height:27px;padding:0 10px}
+.hero-payroll .hero-line h2{font-size:26px}.hero-payroll p{font-size:12.5px}
+.hero-total span{font-size:9.5px}.hero-total small{font-size:10.5px}
+.kpi>span{font-size:10.5px}.kpi>strong{font-size:23px}.kpi>div:last-child b{font-size:10.5px}.kpi>div:last-child small{font-size:9.5px}
+.table-tools>div:first-child h3{font-size:14px}.table-tools>div:first-child p{font-size:10.5px}
+.inline-search input{font-size:12px}
+.table-tools select,.field input,.field select{font-size:12px;min-height:40px}
+.employee-card th,.report-table th{font-size:9.5px;letter-spacing:.65px}
+.employee-card td,.report-table td{font-size:11.5px;padding:14px 15px}
+.person>span{font-size:10px}.person b{font-size:11.5px}.person small{font-size:9.5px}
+.table-footer{font-size:10px}
+.field>span,.field>label{font-size:11px}
+input,select,textarea{font-size:12.5px;min-height:44px}
+.notice b{font-size:11px}.notice p{font-size:10.5px}.toggle-label{font-size:10.5px}
+.steps button{font-size:11px}.steps button span{font-size:9.5px}
+.payroll-head h2{font-size:20px}.payroll-head p{font-size:11px}
+.payroll-step-head{font-size:12px}.payroll-step-body{font-size:12px}
+.section-head h3{font-size:14.5px}.section-head p{font-size:10.5px;line-height:1.5}
+.settings-nav button{font-size:11px}
+.rule-row b,.integration-row b,.role-row b,.audit-row b{font-size:11px}
+.rule-row p,.integration-row p,.role-row p,.audit-row p{font-size:10px;line-height:1.45}
+.audit-row small{font-size:9.5px}
+.mini-list>div{font-size:10.5px}
+.success-banner b,.warn-box b{font-size:11px}.success-banner p,.warn-box p{font-size:10px}
+.approval>p{font-size:11.5px}.approval-grid{font-size:11px}
+.report-card b{font-size:11.5px}.report-card p{font-size:10px}.report-actions button{font-size:10px}
+.report-summary h3{font-size:14.5px}.report-summary>p{font-size:10px}.report-number{font-size:10px}
+.settings-card p{font-size:11.5px}.security-grid>div{font-size:11px}
+.workspace-menu>button{font-size:11.5px}
+.notification-panel>button b{font-size:10.5px}.notification-panel>button p{font-size:9.5px}.toast{font-size:11px}
+.modal-note{font-size:10.5px}.debt-summary span,.archive-kpis span{font-size:10px}.empty-inline{font-size:10.5px}
+.drawer h4{font-size:12px}.info{font-size:10.5px}.history p{font-size:10px}
+.auth-card>p{font-size:12.5px}.auth-card .eyebrow{font-size:9.5px}.auth-links button,.auth-switch button{font-size:11.5px}.local-warning{font-size:10px}
+.preview-top b{font-size:11.5px}.preview-top em{font-size:9px}.preview-grid small{font-size:8.5px}.preview-grid span{font-size:9.5px}.preview-progress b{font-size:9.5px}.auth-points div{font-size:11px}
+@media(max-width:560px){
+  body{font-size:14.5px}
+  .page-title p{font-size:12.5px}
+  .primary,.secondary{font-size:12px}
+  .sidebar nav button{font-size:13px}
+  .employee-card td,.report-table td{font-size:11px}
+  .employee-card th,.report-table th{font-size:9px}
+  .mobile-nav button{font-size:9.5px}
+}
+
+</style></head><body><h1>${esc(pack.company)} · ${esc(pack.period)} payroll pack</h1><small>Generated ${esc(pack.generatedAt)} · Status ${esc(pack.status)}</small><section class="grid"><div class="card"><span>Employees</span><b>${pack.employeeCount||0}</b></div><div class="card"><span>Gross</span><b>${money(pack.payrollTotals?.gross)}</b></div><div class="card"><span>Net</span><b>${money(pack.payrollTotals?.net)}</b></div><div class="card"><span>Employer cost</span><b>${money(pack.payrollTotals?.employerCost)}</b></div></section><section><h2>Approvals</h2><table><tr><th>Step</th><th>Status</th><th>Actor</th><th>Comment</th></tr>${rows}</table></section><section><h2>Scheduled tasks</h2><table><tr><th>Task</th><th>Owner</th><th>Due</th><th>Status</th></tr>${tasks}</table></section><section><h2>Control evidence</h2><p>Payment reconciliation: <b class="${pack.paymentReconciliation?.matched?'ok':'warn'}">${pack.paymentReconciliation?.matched?'Matched':'Not matched / not available'}</b></p><p>Accounting journal: <b class="${pack.journal?.balanced?'ok':'warn'}">${pack.journal?.balanced?'Balanced':'Review'}</b></p><p>Statutory validation: <b class="${pack.statutory?.ready?'ok':'warn'}">${pack.statutory?.ready?'Ready':'Review'}</b></p></section><section><h2>Payroll notes</h2><ul>${notes}</ul></section><section><h2>Exceptions</h2><ul>${ex}</ul></section><section><h2>Audit evidence</h2><p>${(pack.audit||[]).length} recent audit event(s) included in the accompanying JSON evidence pack.</p></section></body></html>`;
   }
 
   window.DalasiAdminV012={normalizeConfig,periodInput,applyGridInputs,massUpdateEmployees,payrollTasks,taskSummary,makerCheckerStatus,noteRecord,evidencePack,packHtml};
@@ -1935,8 +1996,7 @@ window.DALASIPAY_SEED = [
     const roleOptions=[['viewer','Viewer'],['hr','HR'],['payroll_admin','Payroll Admin'],['employee','Employee self-service']],production=!!window.DalasiProduction?.configured?.();
     return `<div class="center-modal"><div class="modal-scrim" data-action="close-invite"></div><form id="invite-form" class="modal-box wide"><div class="modal-head"><div><div class="eyebrow">TEAM ACCESS</div><h2>Invite a workspace member</h2><p>${production?'Production invitations are sent through the authenticated server-side invitation function.':'Preview invitations are accepted when the invited email creates or signs into a local account.'}</p></div><button type="button" class="close" data-action="close-invite">×</button></div><div class="form-grid">${field('Email','<input name="email" type="email" required placeholder="person@company.com">')}${field('Role',`<select name="role" id="invite-role">${roleOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>`)}${field('Linked employee (employee role only)',`<select name="employeeId" id="invite-employee"><option value="">Select employee</option>${state.employees.filter(e=>e.status!=='Exited').map(e=>`<option value="${e.id}">${esc(e.name)} · ${esc(e.id)}</option>`).join('')}</select>`)}</div><div class="modal-note">Production invitations should be sent by an authenticated backend/Edge Function. The included database schema stores only hashed invite tokens.</div><div class="modal-actions"><button type="button" class="secondary" data-action="close-invite">Cancel</button><button class="primary">${icon('mail',14)} Create invitation</button></div></form></div>`;
   }
-  function employeeWorkspace(){
-    document.documentElement.dataset.theme=state.dark?'dark':'light';
+  function employeeWorkspace(){    document.documentElement.dataset.theme=state.dark?'dark':'light';
     const e=byId(state.member?.employeeId), brand=brandColor();
     if(!e)return `<div class="employee-login-shell"><div class="employee-access-error"><span class="brand-icon">D</span><h1>Employee access is not linked</h1><p>Your workspace membership is active, but it is not linked to an employee record yet. Ask HR or the workspace owner to link your account.</p><button class="secondary" data-action="sign-out">Sign out</button></div></div>`;
     const c=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year),leaves=(e.leaveRecords||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,5),runs=state.runs.filter(r=>['Approved','Paid','Closed'].includes(r.status)&&r.rows?.some(x=>x.employee?.id===e.id)).slice().sort((a,b)=>String(b.period).localeCompare(String(a.period))).slice(0,6),docs=(e.documents||[]).slice(-6).reverse();
@@ -1996,7 +2056,8 @@ window.DALASIPAY_SEED = [
     const fallback=[{actorName:state.session?.name||'Owner',action:'workspace.ready',createdAt:new Date().toISOString()},{actorName:'System',action:'payroll.calculated',createdAt:new Date().toISOString()}];
     const rows=items.length?items:fallback;
     const labels={'workspace.created':'Workspace created','workspace.onboarding.completed':'Company setup completed','employee.created':'Employee added','payroll.approved':'Payroll approved','payroll.marked_paid':'Payroll marked paid','workspace.ready':'Workspace ready','payroll.calculated':'Payroll calculations ready'};
-    return `<div class="surface activity"><div class="card-head"><div><h3>Recent activity</h3><p>Changes in ${esc(state.company)}</p></div><button class="text-btn" data-page="settings">Audit log</button></div>${rows.map(x=>`<div class="activity-row"><span class="activity-avatar">${esc(String(x.actorName||'S').split(/\s+/).map(n=>n[0]).join('').slice(0,2).toUpperCase())}</span><div><b>${esc(labels[x.action]||x.action)}</b><p>${esc(x.metadata?.name||x.metadata?.period||state.company)}</p></div><small>${new Date(x.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</small></div>`).join('')}</div>`  }
+    return `<div class="surface activity"><div class="card-head"><div><h3>Recent activity</h3><p>Changes in ${esc(state.company)}</p></div><button class="text-btn" data-page="settings">Audit log</button></div>${rows.map(x=>`<div class="activity-row"><span class="activity-avatar">${esc(String(x.actorName||'S').split(/\s+/).map(n=>n[0]).join('').slice(0,2).toUpperCase())}</span><div><b>${esc(labels[x.action]||x.action)}</b><p>${esc(x.metadata?.name||x.metadata?.period||state.company)}</p></div><small>${new Date(x.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</small></div>`).join('')}</div>`
+  }
 
   function employeesPage(){
     const list=state.employees.filter(e=>(state.department==='All'||e.department===state.department)&&(`${e.name} ${e.role} ${e.id} ${e.jobGrade||''}`.toLowerCase().includes(state.filter.toLowerCase()))),active=state.employees.filter(e=>e.status==='Active').length,onboarding=onboardingQueue(),offboarding=offboardingQueue(),expiring=expiryItems(60),outOfBand=state.employees.filter(e=>e.status!=='Exited'&&!salaryBand(e).ok),pendingLeave=pendingLeaveRequests();
