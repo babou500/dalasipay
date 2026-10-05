@@ -2763,7 +2763,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const bnf=document.getElementById('beneficiary-form');if(bnf)bnf.addEventListener('submit',savePaymentBeneficiary);
     const blf2=document.getElementById('business-bill-form');if(blf2)blf2.addEventListener('submit',saveBusinessBill);
     const rpf=document.getElementById('recurring-payment-form');if(rpf)rpf.addEventListener('submit',saveRecurringBusinessPayment);
-    const rif=document.getElementById('receivable-form');if(rif)rif.addEventListener('submit',saveCustomerInvoice);
+    const arvf=document.getElementById('receivable-form');if(arvf)arvf.addEventListener('submit',saveCustomerInvoice);
     const ipf=document.getElementById('incoming-payment-form');if(ipf)ipf.addEventListener('submit',saveIncomingPayment);
     const pbs=document.getElementById('payment-beneficiary-select');if(pbs)pbs.addEventListener('change',e=>{state.paymentBeneficiaryId=e.target.value||null;render()});
     const es=document.getElementById('employee-search'); if(es) es.addEventListener('input',e=>{state.filter=e.target.value;employeesTableOnly()});
