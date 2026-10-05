@@ -611,6 +611,12 @@
     '</div>';
   }
 
+  function renderCustomers(state,h){
+    const icon=h.icon,pageTitle=h.pageTitle;
+    const actions='<button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button>';
+    return pageTitle('CLIENT ACCOUNTS','Customers','Manage repeat customers, payment terms, invoice history, collections and outstanding balances.',actions)+customersPanel(state,h);
+  }
+
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
     const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='receivables'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='customers'?'<button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
@@ -792,5 +798,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={render,renderCustomers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
