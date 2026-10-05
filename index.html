@@ -1922,7 +1922,11 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     opsConfig: Object.assign({}, window.DalasiOps.DEFAULT_CONFIG),
     paymentBatches: [],
     businessPayments: [],
+    paymentBeneficiaries: [],
     paymentOpen: false,
+    beneficiaryOpen: false,
+    paymentBeneficiaryId: null,
+    paymentTab: 'payments',
     settlements: [],
     backendCheck: null,
     toast: ''
@@ -2167,7 +2171,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     state.org=window.DalasiAuth.getActiveOrganization();
     state.role=state.org?window.DalasiAuth.roleFor(state.org.id):null;
     state.member=state.org?window.DalasiAuth.memberFor(state.org.id):null;
-    if(!state.org){state.company='DalasiPay Workspace';state.member=null;state.employees=[];state.rules=Object.assign({},window.DalasiPayroll.DEFAULT_RULES);state.payrollStatus='Ready';state.runs=[];state.periods=[];state.currentPeriod='2026-10';state.sent={};state.approvals={};state.branding={accent:'#0d3b35',logoData:'',logoText:'D',payslipNote:'Payroll, beautifully handled.'};state.notificationPrefs={leave:true,payroll:true,payslips:true};state.hrConfig=window.DalasiHR.normalizeConfig({});state.opsConfig=Object.assign({},window.DalasiOps.DEFAULT_CONFIG);state.controlConfig=window.DalasiControls.normalizeConfig({});state.corrections=[];state.paymentBatches=[];state.businessPayments=[];state.paymentOpen=false;state.settlements=[];state.exceptionLedger=[];state.closeRecords=[];state.payrollNotes=[];state.payrollTasks=[];state.makerRecords={};state.v012Config=window.DalasiAdminV012.normalizeConfig({});return;}
+    if(!state.org){state.company='DalasiPay Workspace';state.member=null;state.employees=[];state.rules=Object.assign({},window.DalasiPayroll.DEFAULT_RULES);state.payrollStatus='Ready';state.runs=[];state.periods=[];state.currentPeriod='2026-10';state.sent={};state.approvals={};state.branding={accent:'#0d3b35',logoData:'',logoText:'D',payslipNote:'Payroll, beautifully handled.'};state.notificationPrefs={leave:true,payroll:true,payslips:true};state.hrConfig=window.DalasiHR.normalizeConfig({});state.opsConfig=Object.assign({},window.DalasiOps.DEFAULT_CONFIG);state.controlConfig=window.DalasiControls.normalizeConfig({});state.corrections=[];state.paymentBatches=[];state.businessPayments=[];state.paymentBeneficiaries=[];state.paymentOpen=false;state.beneficiaryOpen=false;state.paymentBeneficiaryId=null;state.paymentTab='payments';state.settlements=[];state.exceptionLedger=[];state.closeRecords=[];state.payrollNotes=[];state.payrollTasks=[];state.makerRecords={};state.v012Config=window.DalasiAdminV012.normalizeConfig({});return;}
     state.company=state.org.name;
     const migratedEmployees=window.DalasiAuth.getOrgValue(state.org.id,'employees',null);
     if(migratedEmployees===null){
@@ -2180,6 +2184,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     state.corrections=window.DalasiAuth.getOrgValue(state.org.id,'payroll-corrections',[])||[];
     state.paymentBatches=window.DalasiAuth.getOrgValue(state.org.id,'payment-batches',[])||[];
     state.businessPayments=window.DalasiAuth.getOrgValue(state.org.id,'business-payments',[])||[];
+    state.paymentBeneficiaries=window.DalasiAuth.getOrgValue(state.org.id,'payment-beneficiaries',[])||[];
     state.settlements=window.DalasiAuth.getOrgValue(state.org.id,'final-settlements',[])||[];
     state.exceptionLedger=window.DalasiAuth.getOrgValue(state.org.id,'payroll-exception-ledger',[])||[];
     state.closeRecords=window.DalasiAuth.getOrgValue(state.org.id,'payroll-close-records',[])||[];
@@ -2219,6 +2224,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-corrections',state.corrections);
     window.DalasiAuth.setOrgValue(state.org.id,'payment-batches',state.paymentBatches);
     window.DalasiAuth.setOrgValue(state.org.id,'business-payments',state.businessPayments);
+    window.DalasiAuth.setOrgValue(state.org.id,'payment-beneficiaries',state.paymentBeneficiaries);
     window.DalasiAuth.setOrgValue(state.org.id,'final-settlements',state.settlements);
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-exception-ledger',state.exceptionLedger);
     window.DalasiAuth.setOrgValue(state.org.id,'payroll-close-records',state.closeRecords);
