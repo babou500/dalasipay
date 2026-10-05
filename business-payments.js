@@ -166,6 +166,18 @@
 
 
 
+
+  function customerById(state,id){return (state.customers||[]).find(x=>x.id===id)||null;}
+  function customerInvoicesFor(state,id){return (state.customerInvoices||[]).filter(x=>x.customerId===id);}
+  function customerAccount(state,id){
+    const customer=customerById(state,id),invoices=customerInvoicesFor(state,id),today=todayIso();
+    let invoiced=0,collected=0,outstanding=0,overdue=0;
+    invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=Math.max(0,(Number(inv.amount)||0)-paid);invoiced+=Number(inv.amount)||0;collected+=paid;outstanding+=bal;if(bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
+    return {customer,invoices,invoiced,collected,outstanding,overdue};
+  }
+  function paymentTermsLabel(days){const n=Number(days)||0;return n<=0?'Due on receipt':'Net '+n+' days';}
+  function customerDueDate(issueDate,days){return addDaysIso(issueDate||todayIso(),Math.max(0,Number(days)||0));}
+  function customerStatusClass(status){return status==='Inactive'?'neutral':'ready';}
   function receivableById(state,id){return (state.customerInvoices||[]).find(x=>x.id===id)||null;}
   function incomingPaymentById(state,id){return (state.incomingPayments||[]).find(x=>x.id===id)||null;}
   function incomingForInvoice(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id);}
@@ -197,6 +209,35 @@
     if(status==='Draft')return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><button class="primary" data-action="receivable-send:'+invoice.id+'">Mark sent</button>';
     if(status==='Paid')return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><span class="payment-complete">Paid</span>';
     return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><button class="primary" data-action="record-incoming:'+invoice.id+'">Record payment</button>';
+  }
+
+  function customersPanel(state,h){
+    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,rows=(state.customers||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    const active=rows.filter(x=>(x.status||'Active')==='Active').length;
+    const totals=rows.reduce((a,cust)=>{const m=customerAccount(state,cust.id);a.invoiced+=m.invoiced;a.collected+=m.collected;a.outstanding+=m.outstanding;a.overdue+=m.overdue;return a;},{invoiced:0,collected:0,outstanding:0,overdue:0});
+    const tableRows=rows.length?rows.map(cust=>{
+      const m=customerAccount(state,cust.id),status=cust.status||'Active';
+      return '<tr>'+
+        '<td><div class="payment-payee"><b>'+esc(cust.name)+'</b><small>'+esc(cust.contact||cust.email||cust.phone||cust.id)+'</small></div></td>'+
+        '<td><div class="customer-terms"><b>'+esc(paymentTermsLabel(cust.termDays))+'</b><small>'+esc(cust.reference||'No account reference')+'</small></div></td>'+
+        '<td class="payment-amount">'+money2(m.invoiced)+'</td>'+
+        '<td class="customer-collected">'+money2(m.collected)+'</td>'+
+        '<td><div class="receivable-balance"><b>'+money2(m.outstanding)+'</b><small>'+(m.overdue?money2(m.overdue)+' overdue':'No overdue balance')+'</small></div></td>'+
+        '<td>'+pill(status,customerStatusClass(status))+'</td>'+
+        '<td><div class="payment-status-actions"><button class="secondary" data-action="customer-view:'+cust.id+'">View</button>'+(status==='Active'?'<button class="primary" data-action="invoice-customer:'+cust.id+'">Invoice</button>':'<button class="secondary" data-action="customer-status:'+cust.id+':Active">Activate</button>')+(status==='Active'?'<button class="secondary" data-action="customer-status:'+cust.id+':Inactive">Deactivate</button>':'')+'</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7"><div class="empty-inline">No customer accounts yet. Add a customer to reuse contact details and payment terms on future invoices.</div></td></tr>';
+    return '<div class="customer-summary">'+
+      '<div class="surface"><span>Active customers</span><b>'+active+'</b><small>'+rows.length+' total accounts</small></div>'+
+      '<div class="surface"><span>Lifetime invoiced</span><b>'+money2(totals.invoiced)+'</b><small>across saved customers</small></div>'+
+      '<div class="surface"><span>Outstanding</span><b>'+money2(totals.outstanding)+'</b><small>customer balances due</small></div>'+
+      '<div class="surface '+(totals.overdue?'cash-alert':'')+'"><span>Overdue</span><b>'+money2(totals.overdue)+'</b><small>past due customer balances</small></div>'+
+    '</div>'+
+    '<div class="payment-notice"><span>'+icon('user',17)+'</span><div><b>Reusable customer accounts</b><p>Save a client once, keep their contact details and payment terms, and create future invoices without retyping the customer profile.</p></div></div>'+
+    '<div class="surface employee-card">'+
+      '<div class="table-tools"><div><h3>Customers / client accounts</h3><p>Customer terms, invoice history, collections and balances</p></div><button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER</th><th>PAYMENT TERMS</th><th>INVOICED</th><th>COLLECTED</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+    '</div>';
   }
   function receivablesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,rows=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),m=receivableMetrics(state),today=todayIso();
@@ -230,23 +271,70 @@
     '</div>';
   }
   function receivableModal(state,h){
-    const field=h.field,icon=h.icon;
+    const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),selected=customerById(state,state.receivableCustomerId);
+    const issue=todayIso(),due=selected?customerDueDate(issue,selected.termDays):'';
+    const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'" '+(selected&&selected.id===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(paymentTermsLabel(c.termDays))+'</option>')).join('');
+    const selectedInfo=selected?'<div class="selected-customer"><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div>':'';
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create receivable</h2><p>Record money the business expects to receive.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
+      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
       '<div class="form-grid">'+
-        field('Customer / client name','<input name="customerName" placeholder="e.g. Kaira Trading Ltd" required>')+
+        field('Customer / client name','<input name="customerName" value="'+esc(selected?.name||'')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
         field('Invoice number','<input name="invoiceNo" placeholder="Leave blank for automatic number">')+
-        field('Customer email','<input name="customerEmail" type="email" placeholder="accounts@example.com">')+
-        field('Customer phone','<input name="customerPhone" placeholder="+220 ...">')+
+        field('Customer email','<input name="customerEmail" type="email" value="'+esc(selected?.email||'')+'" placeholder="accounts@example.com">')+
+        field('Customer phone','<input name="customerPhone" value="'+esc(selected?.phone||'')+'" placeholder="+220 ...">')+
         field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
-        field('Issue date','<input name="issueDate" type="date" value="'+todayIso()+'" required>')+
-        field('Due date','<input name="dueDate" type="date" required>')+
-        field('Customer reference','<input name="reference" placeholder="PO, contract or customer reference">')+
+        field('Issue date','<input name="issueDate" type="date" value="'+issue+'" required>')+
+        field('Due date','<input name="dueDate" type="date" value="'+due+'" required>')+
+        field('Customer reference','<input name="reference" value="'+esc(selected?.reference||'')+'" placeholder="PO, contract or customer reference">')+
       '</div>'+
       field('Description / service','<input name="description" placeholder="What is the customer being invoiced for?" required>')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div>'+
     '</form></div>';
   }
+
+  function customerModal(state,h){
+    const field=h.field,icon=h.icon;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-customer"></div><form id="customer-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER ACCOUNT</div><h2>Add customer</h2><p>Save a repeat customer for faster invoicing and account tracking.</p></div><button type="button" class="close" data-action="close-customer">×</button></div>'+
+      '<div class="form-grid">'+
+        field('Customer / business name','<input name="name" placeholder="e.g. Kaira Trading Ltd" required>')+
+        field('Contact person','<input name="contact" placeholder="Optional contact name">')+
+        field('Email','<input name="email" type="email" placeholder="accounts@example.com">')+
+        field('Phone','<input name="phone" placeholder="+220 ...">')+
+        field('Payment terms','<select name="termDays"><option value="0">Due on receipt</option><option value="7">Net 7 days</option><option value="14">Net 14 days</option><option value="30" selected>Net 30 days</option><option value="60">Net 60 days</option></select>')+
+        field('Account / customer reference','<input name="reference" placeholder="Customer code, contract or account ref">')+
+      '</div>'+
+      field('Address','<input name="address" placeholder="Business or billing address">')+
+      field('Notes','<input name="notes" placeholder="Optional internal customer note">')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-customer">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save customer</button></div>'+
+    '</form></div>';
+  }
+  function customerAccountModal(state,h){
+    const esc=h.esc,money2=h.money2,icon=h.icon,m=customerAccount(state,state.customerAccountId),cust=m.customer;if(!cust)return '';
+    const invoices=m.invoices.slice().sort((a,b)=>String(b.issueDate||'').localeCompare(String(a.issueDate||'')));
+    const rows=invoices.length?invoices.map(inv=>'<tr><td><b>'+esc(inv.invoiceNo)+'</b></td><td>'+dueDate(inv.issueDate)+'</td><td>'+dueDate(inv.dueDate)+'</td><td>'+money2(inv.amount)+'</td><td>'+money2(receivableBalance(state,inv))+'</td><td>'+esc(receivableStatus(state,inv))+'</td></tr>').join(''):'<tr><td colspan="6"><div class="empty-inline">No invoices for this customer yet.</div></td></tr>';
+    return '<div class="center-modal payment-modal customer-account-modal"><div class="modal-scrim" data-action="close-customer-account"></div><div class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">CLIENT ACCOUNT</div><h2>'+esc(cust.name)+'</h2><p>'+esc(cust.contact||cust.email||cust.phone||paymentTermsLabel(cust.termDays))+'</p></div><button type="button" class="close" data-action="close-customer-account">×</button></div>'+
+      '<div class="customer-account-summary"><div><span>Invoiced</span><b>'+money2(m.invoiced)+'</b></div><div><span>Collected</span><b>'+money2(m.collected)+'</b></div><div><span>Outstanding</span><b>'+money2(m.outstanding)+'</b></div><div><span>Overdue</span><b>'+money2(m.overdue)+'</b></div></div>'+
+      '<div class="customer-account-details"><div><span>Payment terms</span><b>'+esc(paymentTermsLabel(cust.termDays))+'</b></div><div><span>Email</span><b>'+esc(cust.email||'—')+'</b></div><div><span>Phone</span><b>'+esc(cust.phone||'—')+'</b></div><div><span>Reference</span><b>'+esc(cust.reference||'—')+'</b></div></div>'+
+      '<div class="table-scroll customer-history"><table><thead><tr><th>INVOICE</th><th>ISSUED</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-customer-account">Close</button><button class="primary" data-action="invoice-customer:'+cust.id+'">'+icon('plus',14)+' New invoice</button></div>'+
+    '</div></div>';
+  }
+  function createCustomer(ev,state,ctx){
+    ev.preventDefault();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add customers.');return;}
+    const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter the customer name.');return;}
+    const id='CUS-'+Date.now().toString(36).toUpperCase();state.customers=state.customers||[];
+    state.customers.push({id,name,contact:String(fd.get('contact')||'').trim(),email:String(fd.get('email')||'').trim(),phone:String(fd.get('phone')||'').trim(),termDays:Number(fd.get('termDays')||0),reference:String(fd.get('reference')||'').trim(),address:String(fd.get('address')||'').trim(),notes:String(fd.get('notes')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.customerOpen=false;ctx.audit('customer.created',{customerId:id,name,termDays:Number(fd.get('termDays')||0)});ctx.save();ctx.toast(name+' added as a customer');ctx.render();
+  }
+  function updateCustomer(id,status,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customers.');return;}
+    const cust=customerById(state,id);if(!cust)return;cust.status=status;cust.updatedAt=new Date().toISOString();cust.updatedBy=state.session?.name||'User';ctx.audit('customer.status_updated',{customerId:id,status});ctx.save();ctx.toast(cust.name+': '+status);ctx.render();
+  }
+
   function incomingPaymentModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,money2=h.money2,inv=receivableById(state,state.incomingPaymentInvoiceId);
     if(!inv)return '';
@@ -268,13 +356,13 @@
   function createReceivable(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
-    const fd=new FormData(ev.target),customerName=String(fd.get('customerName')||'').trim(),amount=Number(fd.get('amount')||0),issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||'');
+    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',amount=Number(fd.get('amount')||0),issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||'');
     if(!customerName||amount<=0||!issueDate||!dueDate){ctx.toast('Customer, amount, issue date and due date are required.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase();state.customerInvoices=state.customerInvoices||[];
-    state.customerInvoices.unshift({id,invoiceNo,customerName,customerEmail:String(fd.get('customerEmail')||'').trim(),customerPhone:String(fd.get('customerPhone')||'').trim(),amount,issueDate,dueDate,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.receivableOpen=false;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),amount,issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.receivableOpen=false;state.receivableCustomerId=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
@@ -410,7 +498,7 @@
   }
 
   function tabs(state){
-    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='receivables'?'active':'')+'" data-action="payment-tab:receivables">Money In</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='cashflow'?'active':'')+'" data-action="payment-tab:cashflow">Cash Flow</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
+    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='receivables'?'active':'')+'" data-action="payment-tab:receivables">Money In</button><button class="'+(state.paymentTab==='customers'?'active':'')+'" data-action="payment-tab:customers">Customers</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='cashflow'?'active':'')+'" data-action="payment-tab:cashflow">Cash Flow</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
   }
   function paymentPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
@@ -525,9 +613,9 @@
 
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
-    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='receivables'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
-    const body=tab==='bills'?billsPanel(state,h):tab==='receivables'?receivablesPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='cashflow'?cashFlowPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
-    return pageTitle('BUSINESS PAYMENTS','Payments','Manage money out, money in, bills, recurring obligations, cash requirements and beneficiaries in one place.',actions)+tabs(state)+body;
+    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='receivables'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='customers'?'<button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
+    const body=tab==='bills'?billsPanel(state,h):tab==='receivables'?receivablesPanel(state,h):tab==='customers'?customersPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='cashflow'?cashFlowPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
+    return pageTitle('BUSINESS PAYMENTS','Payments','Manage money out, money in, customers, bills, recurring obligations, cash requirements and beneficiaries in one place.',actions)+tabs(state)+body;
   }
   function modal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc;
@@ -704,5 +792,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,create,createBeneficiary,createBill,createRecurring,createReceivable,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
