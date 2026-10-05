@@ -44,3 +44,21 @@
 .selected-beneficiary{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 11px;margin:-4px 0 12px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));background:var(--soft);border-radius:9px}
 .selected-beneficiary b{font-size:10.5px}.selected-beneficiary span{font-size:9.5px;color:var(--muted);text-align:right}
 @media(max-width:800px){.beneficiary-summary{grid-template-columns:1fr}.selected-beneficiary{align-items:flex-start;flex-direction:column}.selected-beneficiary span{text-align:left}}
+
+.bill-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.bill-summary>div{padding:16px}
+.bill-summary span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.bill-summary b{display:block;font-size:18px;margin:6px 0 3px}
+.bill-summary small{font-size:9.5px;color:var(--muted)}
+.bill-summary .bill-alert{border-color:color-mix(in srgb,var(--danger) 28%,var(--border));background:color-mix(in srgb,var(--panel) 94%,#fff0f0)}
+.bill-summary .bill-alert b{color:var(--danger)}
+.bill-date{display:grid;gap:2px}
+.bill-date b{font-size:10.5px}
+.bill-date small{font-size:9px;color:var(--muted)}
+.bill-overdue td{background:color-mix(in srgb,var(--panel) 96%,#fff1f1)}
+.bill-overdue .bill-date b{color:var(--danger)}
+.bill-no-file{font-size:9.5px;color:var(--muted)}
+.selected-bill{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 11px;margin:-4px 0 12px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));background:color-mix(in srgb,var(--soft) 72%,var(--panel));border-radius:9px}
+.selected-bill b{font-size:10.5px}.selected-bill span{font-size:9.5px;color:var(--muted);text-align:right}
+@media(max-width:900px){.bill-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.bill-summary{grid-template-columns:1fr}.selected-bill{flex-direction:column;align-items:flex-start}.selected-bill span{text-align:left}}
