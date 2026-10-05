@@ -1987,21 +1987,33 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
   function pdfEscapeText(value){return pdfSafeText(value).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
   function pdfClip(value,max=44){const s=pdfSafeText(value);return s.length>max?s.slice(0,Math.max(1,max-3))+'...':s}
-  function pdfDownload(filename,content){
+  function pdfDownload(filename,content,logoData=''){
+    const asciiBytes=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&255;return a};
+    const concat=parts=>{const len=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(len);let off=0;parts.forEach(p=>{out.set(p,off);off+=p.length});return out};
+    let imageBytes=null;
+    if(/^data:image\/jpeg;base64,/i.test(logoData||'')){
+      try{const bin=atob(String(logoData).split(',')[1]||''),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);imageBytes=arr}catch(_){imageBytes=null}
+    }
+    const hasLogo=!!imageBytes;
+    const resources='<< /Font << /F1 4 0 R /F2 5 0 R >>'+(hasLogo?' /XObject << /Im1 7 0 R >>':'')+' >>';
     const objects=[
-      '<< /Type /Catalog /Pages 2 0 R >>',
-      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-      '<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream'
+      asciiBytes('<< /Type /Catalog /Pages 2 0 R >>'),
+      asciiBytes('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+      asciiBytes('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources '+resources+' /Contents 6 0 R >>'),
+      asciiBytes('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
+      asciiBytes('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'),
+      concat([asciiBytes('<< /Length '+content.length+' >>\nstream\n'),asciiBytes(content),asciiBytes('\nendstream')])
     ];
-    let pdf='%PDF-1.4\n% DalasiPay PDF\n',offsets=[0];
-    objects.forEach((obj,i)=>{offsets[i+1]=pdf.length;pdf+=(i+1)+' 0 obj\n'+obj+'\nendobj\n'});
-    const xref=pdf.length;pdf+='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n';
-    for(let i=1;i<=objects.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
-    pdf+='trailer\n<< /Size '+(objects.length+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
-    const blob=new Blob([pdf],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    if(hasLogo)objects.push(concat([asciiBytes('<< /Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+imageBytes.length+' >>\nstream\n'),imageBytes,asciiBytes('\nendstream')]));
+    const parts=[asciiBytes('%PDF-1.4\n% DalasiPay PDF\n')],offsets=[0];
+    let cursor=parts[0].length;
+    objects.forEach((obj,i)=>{offsets[i+1]=cursor;const head=asciiBytes((i+1)+' 0 obj\n'),tail=asciiBytes('\nendobj\n');parts.push(head,obj,tail);cursor+=head.length+obj.length+tail.length});
+    const xref=cursor;
+    let x='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n';
+    for(let i=1;i<=objects.length;i++)x+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+    x+='trailer\n<< /Size '+(objects.length+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+    parts.push(asciiBytes(x));
+    const blob=new Blob([concat(parts)],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
   }
   function downloadPayslipPdf(e){
@@ -2019,8 +2031,9 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     out.push('0.88 0.91 0.90 RG 0.75 w 24 24 547 794 re S');
     fill(24,746,547,72,green);
     fill(24,746,5,72,'0.37 0.82 0.68');
-    text(44,790,18,pdfClip(state.company,35),true,white);
-    text(44,771,8.2,'PAYROLL STATEMENT - THE GAMBIA',true,'0.74 0.91 0.86');
+    if(state.branding.logoData){out.push('q 42 0 0 42 43 765 cm /Im1 Do Q')}else{fill(43,765,42,42,'0.88 0.97 0.94');text(57,780,14,pdfClip(state.branding.logoText||state.company.slice(0,1),3),true,green)}
+    text(99,790,17,pdfClip(state.company,29),true,white);
+    text(99,771,8.2,'PAYROLL STATEMENT - THE GAMBIA',true,'0.74 0.91 0.86');
     text(445,791,20,'PAYSLIP',true,white);
     text(414,771,7.6,'CONFIDENTIAL EMPLOYEE COPY',true,'0.74 0.91 0.86');
 
@@ -2096,7 +2109,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     text(24,36,6.8,'Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' - Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',20),false,'0.53 0.58 0.56');
 
     const filename=(pdfSafeText(e.name).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Employee')+'_Payslip_'+state.currentPeriod+'.pdf';
-    pdfDownload(filename,out.join('\n'));
+    pdfDownload(filename,out.join('\n'),state.branding.logoData||'');
     toast('Premium payslip PDF downloaded: '+filename);
   }
 
