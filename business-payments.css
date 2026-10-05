@@ -20,3 +20,12 @@
 .payment-modal-note{margin:4px 0 15px;padding:10px 12px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);font-size:10px;line-height:1.5;color:var(--muted)}
 @media(max-width:900px){.payment-overview{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.payment-overview{grid-template-columns:1fr}.payment-type-chips{display:none}}
+
+.payment-dashboard{display:grid;grid-template-columns:minmax(260px,1.3fr) repeat(3,minmax(130px,.7fr)) auto;gap:12px;align-items:center;padding:16px 18px;margin-bottom:14px}
+.payment-dashboard-intro b{display:block;font-size:13px}
+.payment-dashboard-intro p{margin:4px 0 0;font-size:10.5px;line-height:1.45;color:var(--muted)}
+.payment-dashboard-stat{padding-left:14px;border-left:1px solid var(--border)}
+.payment-dashboard-stat span{display:block;font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.payment-dashboard-stat b{display:block;margin-top:4px;font-size:14px}
+@media(max-width:1050px){.payment-dashboard{grid-template-columns:1fr 1fr 1fr}.payment-dashboard-intro{grid-column:1/-1}.payment-dashboard .primary{grid-column:1/-1;justify-self:start}.payment-dashboard-stat:first-of-type{border-left:0;padding-left:0}}
+@media(max-width:620px){.payment-dashboard{grid-template-columns:1fr}.payment-dashboard-stat{border-left:0;border-top:1px solid var(--border);padding:10px 0 0}.payment-dashboard .primary{width:100%}}
