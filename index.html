@@ -491,6 +491,135 @@ input::placeholder,textarea::placeholder{color:#9aa7a2}
   background:linear-gradient(180deg,#082a23 0%,#0a342b 50%,#071f1b 100%);
 }
 
+
+/* premium-payslip-v0.17.4 */
+.payslip-sheet{
+  margin:18px;
+  padding:0;
+  overflow:hidden;
+  background:#fff;
+  color:#14231f;
+  border:1px solid #dce5e1;
+  border-radius:16px;
+  box-shadow:0 18px 50px rgba(15,48,39,.08)
+}
+.payslip-sheet .payslip-brand{
+  margin:0;
+  padding:20px 22px;
+  border:0;
+  background:linear-gradient(135deg,#0b3d33 0%,#0e5748 100%);
+  color:#fff;
+  position:relative
+}
+.payslip-sheet .payslip-brand:before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:#78ddbd
+}
+.payslip-sheet .payslip-brand b{font-size:15px;color:#fff}
+.payslip-sheet .payslip-brand p,
+.payslip-sheet .payslip-brand small{color:rgba(232,249,244,.7)!important}
+.payslip-sheet .payslip-brand .brand-icon{background:#e1f7ef!important;color:#0b5c4b!important;box-shadow:none}
+.payslip-sheet .payslip-period{
+  margin:0;padding:13px 22px;
+  border-bottom:1px solid #e5ebe8;
+  align-items:center
+}
+.payslip-sheet .payslip-period small,
+.payslip-sheet .payslip-employee small{
+  font-size:9px;letter-spacing:.09em;font-weight:800;text-transform:uppercase;color:#77857f
+}
+.payslip-sheet .payslip-period h2{font-size:20px;margin:3px 0 0}
+.payslip-sheet .payslip-period b{font-size:11px}
+.payslip-sheet .payslip-employee{
+  margin:0;
+  padding:13px 22px;
+  border-radius:0;
+  border-bottom:1px solid #e5ebe8;
+  background:#f6f9f8;
+  gap:18px
+}
+.payslip-sheet .payslip-employee b{font-size:11.5px;margin-top:3px}
+.payslip-sheet .payslip-employee span{font-size:10px;margin-top:3px}
+.payslip-sheet .payslip-columns{
+  gap:14px;
+  margin:17px 22px 0;
+  align-items:start
+}
+.payslip-sheet .payslip-columns>div{
+  overflow:hidden;
+  border:1px solid #dfe7e3;
+  border-radius:11px;
+  background:#fff
+}
+.payslip-sheet .payslip-columns h4{
+  margin:0;
+  padding:9px 12px;
+  border-bottom:1px solid #e3eae6;
+  background:#f4f8f6;
+  color:#0c604f;
+  font-size:10.5px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase
+}
+.payslip-sheet .amount{
+  min-height:34px;
+  padding:7px 12px;
+  border-bottom:1px solid #edf1ef!important;
+  font-size:10.5px;
+  align-items:center
+}
+.payslip-sheet .amount:last-child{border-bottom:0!important}
+.payslip-sheet .amount>span{color:#5f6d68}
+.payslip-sheet .amount b{font-size:11px;color:#17251f}
+.payslip-sheet .amount small{font-size:8.5px;margin-top:2px}
+.payslip-sheet .amount.total{
+  margin:0;
+  padding:8px 12px;
+  background:#edf7f3;
+  border:0!important
+}
+.payslip-sheet .amount.total>span,
+.payslip-sheet .amount.total b{color:#0c604f;font-weight:800}
+.payslip-sheet .ytd-strip{
+  grid-template-columns:repeat(3,1fr);
+  margin:12px 22px 0;
+  border-radius:10px;
+  border-color:#e2e8e5;
+  background:#e2e8e5
+}
+.payslip-sheet .ytd-strip>div{padding:9px 11px}
+.payslip-sheet .ytd-strip span{font-size:8.5px}
+.payslip-sheet .ytd-strip b{font-size:11px;margin-top:3px}
+.payslip-sheet .ytd-strip>small{padding:6px 11px;font-size:9px}
+.payslip-sheet .net-pay{
+  margin:12px 22px 0;
+  padding:13px 15px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#0b3d33,#0d5a49);
+  box-shadow:none
+}
+.payslip-sheet .net-pay span{font-size:9px;color:rgba(226,247,240,.72)}
+.payslip-sheet .net-pay strong{font-size:20px}
+.payslip-sheet .net-pay small{font-size:9px;margin-top:2px}
+.payslip-sheet .payslip-foot{
+  margin:14px 0 0;
+  padding:10px 22px 12px;
+  border-top:1px solid #e4ebe7;
+  background:#fbfcfb;
+  color:#7d8b86;
+  font-size:8.5px
+}
+@media(max-width:780px){
+  .payslip-sheet{margin:0;border-radius:0;border-left:0;border-right:0}
+  .payslip-sheet .payslip-columns{grid-template-columns:1fr;margin-left:16px;margin-right:16px}
+  .payslip-sheet .payslip-period,.payslip-sheet .payslip-employee{padding-left:16px;padding-right:16px}
+  .payslip-sheet .ytd-strip{margin-left:16px;margin-right:16px}
+  .payslip-sheet .net-pay{margin-left:16px;margin-right:16px}
+}
+@media print{
+  .payslip-sheet{margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+  .payslip-sheet .payslip-columns{break-inside:avoid}
+}
 </style></head><body><div id="app"></div><!-- config.js -->
 <script>
 window.DALASIPAY_CONFIG = {
@@ -1870,40 +1999,33 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(!e)return;
     const calc=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);
     const out=[];
-    const ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.91 0.96 0.94',line='0.84 0.88 0.86',paper='1 1 1',soft='0.965 0.978 0.972';
+    const ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.92 0.97 0.95',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
     const text=(x,y,size,value,bold=false,color=ink)=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+pdfEscapeText(value)+') Tj ET');
     const fill=(x,y,w,h,color)=>out.push(color+' rg '+x+' '+y+' '+w+' '+h+' re f');
     const stroke=(x1,y1,x2,y2,color=line,width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
-    const box=(x,y,w,h,fillColor=paper,strokeColor=line,width=.7)=>{fill(x,y,w,h,fillColor);out.push(strokeColor+' RG '+width+' w '+x+' '+y+' '+w+' '+h+' re S')};
-    const labelValue=(x,y,label,value,max=28)=>{text(x,y+15,7.5,label.toUpperCase(),true,'0.42 0.49 0.46');text(x,y,10,pdfClip(value,max),true,ink)};
-    const row=(x,y,w,label,value,isTotal=false)=>{
-      if(isTotal)fill(x,y-8,w,24,mint);
-      text(x+10,y,9,pdfClip(label,30),isTotal,muted);
-      text(x+w-96,y,9,pdfClip(value,18),true,isTotal?green:ink);
-      if(!isTotal)stroke(x+10,y-9,x+w-10,y-9,'0.90 0.92 0.91',.55);
-    };
+    const rect=(x,y,w,h,fillColor=white,strokeColor=line,width=.65)=>{fill(x,y,w,h,fillColor);out.push(strokeColor+' RG '+width+' w '+x+' '+y+' '+w+' '+h+' re S')};
+    const smallLabel=(x,y,label)=>text(x,y,7.2,label.toUpperCase(),true,'0.42 0.49 0.46');
 
-    fill(0,0,595,842,paper);
-    out.push('0.88 0.91 0.90 RG 0.8 w 28 28 539 786 re S');
+    fill(0,0,595,842,white);
+    out.push('0.88 0.91 0.90 RG 0.75 w 24 24 547 794 re S');
+    fill(24,746,547,72,green);
+    fill(24,746,5,72,'0.37 0.82 0.68');
+    text(44,790,18,pdfClip(state.company,35),true,white);
+    text(44,771,8.2,'PAYROLL STATEMENT - THE GAMBIA',true,'0.74 0.91 0.86');
+    text(445,791,20,'PAYSLIP',true,white);
+    text(414,771,7.6,'CONFIDENTIAL EMPLOYEE COPY',true,'0.74 0.91 0.86');
 
-    fill(28,744,539,70,green);
-    fill(28,744,7,70,'0.34 0.78 0.65');
-    text(48,788,19,pdfClip(state.company,34),true,'1 1 1');
-    text(48,768,8.5,'PAYROLL STATEMENT',true,'0.73 0.91 0.86');
-    text(424,791,19,'PAYSLIP',true,'1 1 1');
-    text(425,770,8.5,'CONFIDENTIAL EMPLOYEE COPY',true,'0.73 0.91 0.86');
+    rect(24,695,547,38,soft,line,.55);
+    smallLabel(40,718,'Pay period'); text(40,703,10.2,periodLabel(state.currentPeriod),true);
+    stroke(218,701,218,726,line,.55);
+    smallLabel(235,718,'Reference'); text(235,703,9.4,'PAY-'+state.currentPeriod+'-'+String(e.id).slice(-3),true);
+    stroke(391,701,391,726,line,.55);
+    smallLabel(408,718,'Status'); text(408,703,9.4,pdfClip(state.payrollStatus,18),true);
 
-    box(28,688,539,42,soft,line,.6);
-    labelValue(45,703,'Pay period',periodLabel(state.currentPeriod),26);
-    labelValue(241,703,'Reference','PAY-'+state.currentPeriod+'-'+String(e.id).slice(-3),22);
-    labelValue(428,703,'Generated',new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),18);
-
-    box(28,613,539,61,'0.94 0.97 0.96',line,.6);
-    text(45,653,7.5,'EMPLOYEE',true,'0.42 0.49 0.46');
-    text(45,635,12.5,pdfClip(e.name,34),true,ink);
-    text(45,621,8.5,pdfClip((e.role||'')+' - '+(e.department||''),48),false,muted);
-    labelValue(330,637,'Employee ID',e.id,17);
-    labelValue(431,637,'Payment',e.bank||'Not recorded',23);
+    rect(24,626,547,55,'0.945 0.97 0.96',line,.55);
+    smallLabel(40,663,'Employee'); text(40,647,11.8,pdfClip(e.name,35),true); text(40,634,8.2,pdfClip((e.role||'')+' - '+(e.department||''),48),false,muted);
+    smallLabel(332,663,'Employee ID'); text(332,647,9.5,pdfClip(e.id,18),true);
+    smallLabel(438,663,'Payment'); text(438,647,8.8,pdfClip(e.bank||'Not recorded',22),true);
 
     const earnings=[['Basic salary',money2(calc.basic)],['Fixed allowance',money2(calc.allowance)]];
     if(calc.overtime)earnings.push(['Overtime',money2(calc.overtime)]);
@@ -1911,55 +2033,62 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(calc.commission)earnings.push(['Commission',money2(calc.commission)]);
     if(calc.arrears-calc.retroArrears)earnings.push(['Arrears / back pay',money2(calc.arrears-calc.retroArrears)]);
     if(calc.retroArrears)earnings.push(['Retroactive adjustment',money2(calc.retroArrears)]);
-    earnings.push(['Gross pay',money2(calc.gross)]);
+    earnings.push(['Gross pay',money2(calc.gross),true]);
 
-    const deductions=[['PAYE', '- '+money2(calc.paye)],[state.rules.scheme+' employee contribution','- '+money2(calc.employeeContribution)]];
+    const deductions=[['PAYE','- '+money2(calc.paye)],[state.rules.scheme+' employee contribution','- '+money2(calc.employeeContribution)]];
     if(calc.loanDeduction)deductions.push(['Loan repayment','- '+money2(calc.loanDeduction)]);
     if(calc.advanceDeduction)deductions.push(['Salary advance','- '+money2(calc.advanceDeduction)]);
     if(calc.absenceDeduction)deductions.push(['Absence deduction','- '+money2(calc.absenceDeduction)]);
     if(calc.customDeduction)deductions.push(['Other deduction','- '+money2(calc.customDeduction)]);
-    deductions.push(['Total deductions','- '+money2(calc.totalDeductions)]);
+    deductions.push(['Total deductions','- '+money2(calc.totalDeductions),true]);
 
-    const leftX=28,rightX=307,cardY=337,cardW=260,cardH=258;
-    box(leftX,cardY,cardW,cardH,paper,line,.65);
-    box(rightX,cardY,cardW,cardH,paper,line,.65);
-    fill(leftX,561,cardW,34,'0.93 0.97 0.95');fill(rightX,561,cardW,34,'0.965 0.972 0.969');
-    text(leftX+14,574,10.5,'EARNINGS',true,green);text(leftX+14,563,7.5,'CURRENT PERIOD',false,muted);
-    text(rightX+14,574,10.5,'DEDUCTIONS',true,green);text(rightX+14,563,7.5,'CURRENT PERIOD',false,muted);
+    const cardTop=608,rowH=23,headerH=31;
+    const drawCard=(x,w,title,items)=>{
+      const h=headerH+items.length*rowH,y=cardTop-h;
+      rect(x,y,w,h,white,line,.6);
+      fill(x,cardTop-headerH,w,headerH,'0.955 0.975 0.965');
+      text(x+12,cardTop-18,9.4,title,true,green);
+      text(x+w-74,cardTop-18,7.3,'CURRENT',true,'0.45 0.52 0.49');
+      items.forEach((r,i)=>{
+        const cy=cardTop-headerH-(i+1)*rowH;
+        if(r[2])fill(x,cy,w,rowH,mint);
+        text(x+11,cy+8,8.6,pdfClip(r[0],27),!!r[2],r[2]?green:muted);
+        text(x+w-96,cy+8,8.8,pdfClip(r[1],18),true,r[2]?green:ink);
+        if(!r[2]&&i<items.length-1)stroke(x+10,cy,x+w-10,cy,'0.91 0.93 0.92',.45);
+      });
+      return y;
+    };
+    const leftBottom=drawCard(24,264,'EARNINGS',earnings);
+    const rightBottom=drawCard(307,264,'DEDUCTIONS',deductions);
+    const sectionBottom=Math.min(leftBottom,rightBottom);
 
-    const maxRows=Math.max(earnings.length,deductions.length),topY=535,bottomY=366;
-    const gap=maxRows<=1?0:(topY-bottomY)/(maxRows-1);
-    earnings.forEach((r,i)=>row(leftX+8,topY-i*gap,cardW-16,r[0],r[1],i===earnings.length-1));
-    deductions.forEach((r,i)=>row(rightX+8,topY-i*gap,cardW-16,r[0],r[1],i===deductions.length-1));
+    const summaryY=sectionBottom-66;
+    rect(24,summaryY,547,53,soft,line,.55);
+    smallLabel(40,summaryY+35,'Gross pay'); text(40,summaryY+15,13,money2(calc.gross),true);
+    stroke(202,summaryY+10,202,summaryY+43,line,.55);
+    smallLabel(220,summaryY+35,'Total deductions'); text(220,summaryY+15,13,money2(calc.totalDeductions),true);
+    fill(391,summaryY,180,53,green);
+    text(407,summaryY+35,7.3,'NET PAY',true,'0.74 0.91 0.86');
+    text(407,summaryY+13,17.5,money2(calc.net),true,white);
 
-    box(28,256,539,64,'0.95 0.97 0.96',line,.6);
-    text(45,303,7.5,'GROSS PAY',true,muted);text(45,278,15,money2(calc.gross),true,ink);
-    stroke(198,269,198,307,'0.84 0.88 0.86',.6);
-    text(218,303,7.5,'TOTAL DEDUCTIONS',true,muted);text(218,278,15,money2(calc.totalDeductions),true,ink);
-    stroke(384,269,384,307,'0.84 0.88 0.86',.6);
-    text(405,303,7.5,'NET PAY',true,green);text(405,276,18,money2(calc.net),true,green);
+    const ytdY=summaryY-61;
+    rect(24,ytdY,547,48,white,line,.55);
+    const ytdCols=[[40,year+' YTD GROSS',money2(ytd.gross)],[176,year+' YTD PAYE',money2(ytd.paye)],[310,year+' YTD NET',money2(ytd.net)],[444,'EMPLOYER COST',money2(calc.employerCost)]];
+    ytdCols.forEach(([x,l,v],i)=>{if(i)stroke(x-14,ytdY+8,x-14,ytdY+40,line,.5);smallLabel(x,ytdY+31,l);text(x,ytdY+12,10.1,v,true)});
 
-    box(28,184,539,57,paper,line,.6);
-    text(45,224,7.5,year+' YTD GROSS',true,muted);text(45,202,11.5,money2(ytd.gross),true,ink);
-    text(205,224,7.5,year+' YTD PAYE',true,muted);text(205,202,11.5,money2(ytd.paye),true,ink);
-    text(359,224,7.5,year+' YTD NET',true,muted);text(359,202,11.5,money2(ytd.net),true,ink);
-    text(471,202,8,pdfClip(ytd.months+' month'+(ytd.months===1?'':'s'),12),true,muted);
+    const noteY=ytdY-55;
+    rect(24,noteY,547,42,'0.978 0.984 0.981',line,.5);
+    text(40,noteY+26,8.2,pdfClip(state.branding.payslipNote||'Payroll, beautifully handled.',72),true,'0.25 0.32 0.29');
+    text(40,noteY+11,7.4,'Figures are generated from the payroll record for this period. '+ytd.months+' archived month'+(ytd.months===1?'':'s')+' included in YTD.',false,'0.46 0.52 0.49');
 
-    box(28,103,539,65,'0.975 0.982 0.979',line,.6);
-    text(45,149,7.5,'PAYROLL DETAILS',true,green);
-    text(45,132,8.5,'Employer cost',false,muted);text(126,132,9.5,money2(calc.employerCost),true,ink);
-    text(250,132,8.5,'Statutory scheme',false,muted);text(341,132,9.5,pdfClip(state.rules.scheme,16),true,ink);
-    text(45,115,8.2,pdfClip(state.branding.payslipNote||'Payroll, beautifully handled.',67),false,muted);
-    text(45,104,7.2,'Figures are generated from the approved payroll record for this period.',false,'0.48 0.54 0.52');
-
-    stroke(28,80,567,80,line,.65);
-    text(28,62,7.5,'CONFIDENTIAL - For the named employee only',true,'0.45 0.51 0.49');
-    text(386,62,7.5,'Generated by DalasiPay',true,green);
-    text(28,45,7,'Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',22)+'.',false,'0.51 0.57 0.54');
+    stroke(24,69,571,69,line,.55);
+    text(24,52,7.3,'CONFIDENTIAL - For '+pdfClip(e.name,36)+' only',true,'0.46 0.52 0.49');
+    text(421,52,7.3,'Generated by DalasiPay',true,green);
+    text(24,36,6.8,'Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' - Statutory defaults verified '+pdfClip(state.rules.verifiedOn||'',20),false,'0.53 0.58 0.56');
 
     const filename=(pdfSafeText(e.name).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Employee')+'_Payslip_'+state.currentPeriod+'.pdf';
     pdfDownload(filename,out.join('\n'));
-    toast('Payslip PDF downloaded: '+filename);
+    toast('Premium payslip PDF downloaded: '+filename);
   }
 
   function exportReport(name, format){
@@ -2426,7 +2555,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       <div class="surface employee-card"><div class="table-tools"><div><h3>Payslip distribution</h3><p>${periodLabel(state.currentPeriod)} · ${state.rules.scheme} · ${state.payrollStatus}</p></div><select id="delivery-filter"><option>All</option><option>Ready</option><option>Prepared</option><option>Issued</option></select></div><div class="table-scroll"><table><thead><tr><th>EMPLOYEE</th><th>GROSS</th><th>NET PAY</th><th>PREFERENCE</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${matches.map(r=>{const st=state.sent[r.employee.id]||{status:'Ready'};return `<tr><td>${person(r.employee)}</td><td>${money2(r.gross)}</td><td><b>${money2(r.net)}</b></td><td>${r.employee.delivery}</td><td>${pill(st.status||'Ready',(st.status||'ready').toLowerCase()==='issued'?'paid':(st.status||'').toLowerCase()==='prepared'?'approved':'ready')}</td><td><div class="row-actions">${rowAction('eye',`preview:${r.employee.id}`,'Preview')}${rowAction('download',`download-payslip:${r.employee.id}`,'Download PDF')}${rowAction('mail',`email:${r.employee.id}`,'Email')}${rowAction('whatsapp',`whatsapp:${r.employee.id}`,'WhatsApp')}${rowAction('check',`issue:${r.employee.id}`,'Mark issued')}</div></td></tr>`}).join('')}</tbody></table></div></div>`;
   }
 
-  function payslipModal(e){const c=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);return `<div class="center-modal payslip-modal"><div class="modal-scrim" data-action="close-payslip"></div><div class="modal-box wide"><div class="modal-head no-print"><div><div class="eyebrow">PAYSLIP PREVIEW · ${state.rules.scheme}</div><h2>${esc(e.name)}</h2></div><button class="close" data-action="close-payslip">×</button></div><div class="payslip-sheet"><div class="payslip-brand" style="--brand:${brandColor()}"><div class="brand">${state.branding.logoData?`<img class="payslip-logo-img" src="${esc(state.branding.logoData)}" alt="${esc(state.company)} logo">`:`<span class="brand-icon custom-brand">${esc(state.branding.logoText||state.company.slice(0,1))}</span>`}<div><b>${esc(state.company)}</b><small>Payroll statement</small></div></div><div><b>${esc(state.company)}</b><p>The Gambia</p></div></div><div class="payslip-period"><div><small>PAYSLIP FOR</small><h2>${periodLabel(state.currentPeriod)}</h2></div><div><small>REFERENCE</small><b>PAY-${state.currentPeriod}-${e.id.slice(-3)}</b></div></div><div class="payslip-employee"><div><small>EMPLOYEE</small><b>${esc(e.name)}</b><span>${esc(e.role)} · ${esc(e.department)}</span></div><div><small>EMPLOYEE ID</small><b>${e.id}</b></div><div><small>PAYMENT</small><b>${esc(e.bank)}</b></div></div><div class="payslip-columns"><div><h4>Earnings</h4>${amount('Basic salary',money2(c.basic))}${amount('Fixed allowance',money2(c.allowance))}${c.overtime?amount('Overtime',money2(c.overtime)):''}${c.bonus?amount('Bonus',money2(c.bonus)):''}${c.commission?amount('Commission',money2(c.commission)):''}${(c.arrears-c.retroArrears)?amount('Arrears / back pay',money2(c.arrears-c.retroArrears)):''}${c.retroArrears?amount('Retroactive salary adjustment',money2(c.retroArrears)):''}${amount('Gross pay',money2(c.gross),'',true)}</div><div><h4>Deductions</h4>${amount('PAYE',`− ${money2(c.paye)}`,'GRA bands')}${amount(`${state.rules.scheme} employee contribution`,`− ${money2(c.employeeContribution)}`,state.rules.scheme==='NPF'?'5% basic':'Employer funded')}${c.loanDeduction?amount('Loan repayment',`− ${money2(c.loanDeduction)}`):''}${c.advanceDeduction?amount('Salary advance',`− ${money2(c.advanceDeduction)}`):''}${c.absenceDeduction?amount('Absence deduction',`− ${money2(c.absenceDeduction)}`):''}${c.customDeduction?amount('Other deduction',`− ${money2(c.customDeduction)}`):''}${amount('Total deductions',`− ${money2(c.totalDeductions)}`,'',true)}</div></div><div class="ytd-strip"><div><span>${year} YTD GROSS</span><b>${money2(ytd.gross)}</b></div><div><span>${year} YTD PAYE</span><b>${money2(ytd.paye)}</b></div><div><span>${year} YTD NET</span><b>${money2(ytd.net)}</b></div><small>${ytd.months} archived payroll month${ytd.months===1?'':'s'} included</small></div><div class="net-pay"><span>NET PAY</span><strong>${money2(c.net)}</strong><small>Employer cost this month: ${money2(c.employerCost)}</small></div><div class="payslip-foot"><span>${esc(state.branding.payslipNote||'Payroll, beautifully handled.')} · Statutory defaults verified ${state.rules.verifiedOn}.</span><span>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div></div><div class="modal-actions no-print"><button class="secondary" data-action="save-pdf">${icon('download',14)} Save PDF</button><button class="secondary" data-action="email:${e.id}">${icon('mail',14)} Email</button><button class="secondary" data-action="whatsapp:${e.id}">${icon('whatsapp',14)} WhatsApp</button><button class="primary" data-action="print-current">${icon('print',14)} Print</button></div></div></div>`}
+  function payslipModal(e){const c=employeeCalc(e),year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdForEmployee(e.id,year);return `<div class="center-modal payslip-modal"><div class="modal-scrim" data-action="close-payslip"></div><div class="modal-box wide"><div class="modal-head no-print"><div><div class="eyebrow">PAYSLIP PREVIEW · ${state.rules.scheme}</div><h2>${esc(e.name)}</h2></div><button class="close" data-action="close-payslip">×</button></div><div class="payslip-sheet"><div class="payslip-brand" style="--brand:${brandColor()}"><div class="brand">${state.branding.logoData?`<img class="payslip-logo-img" src="${esc(state.branding.logoData)}" alt="${esc(state.company)} logo">`:`<span class="brand-icon custom-brand">${esc(state.branding.logoText||state.company.slice(0,1))}</span>`}<div><b>${esc(state.company)}</b><small>Payroll statement</small></div></div><div><b>${esc(state.company)}</b><p>The Gambia</p></div></div><div class="payslip-period"><div><small>PAYSLIP FOR</small><h2>${periodLabel(state.currentPeriod)}</h2></div><div><small>REFERENCE</small><b>PAY-${state.currentPeriod}-${e.id.slice(-3)}</b></div></div><div class="payslip-employee"><div><small>EMPLOYEE</small><b>${esc(e.name)}</b><span>${esc(e.role)} · ${esc(e.department)}</span></div><div><small>EMPLOYEE ID</small><b>${e.id}</b></div><div><small>PAYMENT</small><b>${esc(e.bank)}</b></div></div><div class="payslip-columns"><div><h4>Earnings</h4>${amount('Basic salary',money2(c.basic))}${amount('Fixed allowance',money2(c.allowance))}${c.overtime?amount('Overtime',money2(c.overtime)):''}${c.bonus?amount('Bonus',money2(c.bonus)):''}${c.commission?amount('Commission',money2(c.commission)):''}${(c.arrears-c.retroArrears)?amount('Arrears / back pay',money2(c.arrears-c.retroArrears)):''}${c.retroArrears?amount('Retroactive salary adjustment',money2(c.retroArrears)):''}${amount('Gross pay',money2(c.gross),'',true)}</div><div><h4>Deductions</h4>${amount('PAYE',`− ${money2(c.paye)}`,'GRA bands')}${amount(`${state.rules.scheme} employee contribution`,`− ${money2(c.employeeContribution)}`,state.rules.scheme==='NPF'?'5% basic':'Employer funded')}${c.loanDeduction?amount('Loan repayment',`− ${money2(c.loanDeduction)}`):''}${c.advanceDeduction?amount('Salary advance',`− ${money2(c.advanceDeduction)}`):''}${c.absenceDeduction?amount('Absence deduction',`− ${money2(c.absenceDeduction)}`):''}${c.customDeduction?amount('Other deduction',`− ${money2(c.customDeduction)}`):''}${amount('Total deductions',`− ${money2(c.totalDeductions)}`,'',true)}</div></div><div class="ytd-strip"><div><span>${year} YTD GROSS</span><b>${money2(ytd.gross)}</b></div><div><span>${year} YTD PAYE</span><b>${money2(ytd.paye)}</b></div><div><span>${year} YTD NET</span><b>${money2(ytd.net)}</b></div><small>${ytd.months} archived payroll month${ytd.months===1?'':'s'} included</small></div><div class="net-pay"><span>NET PAY</span><strong>${money2(c.net)}</strong><small>Employer cost this month: ${money2(c.employerCost)}</small></div><div class="payslip-foot"><span>${esc(state.branding.payslipNote||'Payroll, beautifully handled.')} · Statutory defaults verified ${state.rules.verifiedOn}.</span><span>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div></div><div class="modal-actions no-print"><button class="secondary" data-action="save-pdf">${icon('download',14)} Download PDF</button><button class="secondary" data-action="email:${e.id}">${icon('mail',14)} Email</button><button class="secondary" data-action="whatsapp:${e.id}">${icon('whatsapp',14)} WhatsApp</button><button class="primary" data-action="print-current">${icon('print',14)} Print</button></div></div></div>`}
 
 
   function controlReports(){
