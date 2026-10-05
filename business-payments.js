@@ -74,6 +74,7 @@
     if(type==='receipt'&&p.status!=='Paid'){ctx.toast('A receipt is available only after the payment is marked Paid.');return}
     if(type==='voucher'&&!['Approved','Paid'].includes(p.status)){ctx.toast('Approve the payment before generating a voucher.');return}
     const isReceipt=type==='receipt',bill=billById(state,p.billId),ben=beneficiaryById(state,p.beneficiaryId);
+    if(isReceipt&&!p.receiptNumber){p.receiptNumber=nextDocumentNumber('PR',state);ctx.save?.();}if(!isReceipt&&!p.voucherNumber){p.voucherNumber=nextDocumentNumber('PV',state);ctx.save?.();}
     const number=isReceipt?p.receiptNumber:p.voucherNumber,title=isReceipt?'PAYMENT RECEIPT':'PAYMENT VOUCHER',subtitle=isReceipt?'Recorded payment confirmation':'Approved payment instruction';
     const out=[],ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.92 0.97 0.95',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
     const escText=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
@@ -326,7 +327,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
     p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
-    ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee});ctx.save();ctx.toast(p.payee+': '+status);ctx.render();
+    ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null});ctx.save();ctx.toast(status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):(p.payee+': '+status));ctx.render();
   }
   function updateBeneficiary(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update beneficiaries.');return;}
