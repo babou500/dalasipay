@@ -502,6 +502,17 @@
       }
     });
 
+    (state.businessExpenses||[]).forEach(x=>{
+      if(x.status==='Paid'||x.status==='Draft')return;
+      add({key:'expense|'+x.id,date:x.expenseDate||today,dateOriginal:x.expenseDate||'',source:'Expense',direction:'out',id:x.id,label:x.merchant||'Business expense',detail:(x.expenseNo||x.id)+' · '+(x.category||x.description||x.status),amount:Number(x.amount)||0,status:x.status||'Pending approval',priority:x.status==='Approved'?3:2});
+    });
+
+    (state.purchaseOrders||[]).forEach(x=>{
+      if(!['Approved','Ordered'].includes(x.status||'Draft'))return;
+      const date=x.requiredDate||x.requestDate||today;
+      add({key:'purchase|'+x.id,date,dateOriginal:x.requiredDate||x.requestDate||'',source:'Purchase',direction:'out',id:x.id,label:x.supplierName||supplierByPurchase(state,x)||'Purchase order',detail:(x.poNumber||x.id)+' · '+(x.description||x.category||x.status),amount:Number(x.amount)||0,status:x.status||'Approved',priority:x.status==='Ordered'?3:2});
+    });
+
     (state.customerInvoices||[]).forEach(inv=>{
       const status=receivableStatus(state,inv),balance=receivableBalance(state,inv);
       if(status==='Draft'||status==='Paid'||balance<=0)return;
@@ -525,8 +536,11 @@
     const out7=by('out',7),in7=by('in',7),out30=by('out',30),in30=by('in',30),out90=by('out',90),in90=by('in',90);
     return {items,out7,in7,out30,in30,out90,in90,need7:Math.max(0,out7-in7),need30:Math.max(0,out30-in30),need90:Math.max(0,out90-in90),surplus7:Math.max(0,in7-out7),surplus30:Math.max(0,in30-out30),surplus90:Math.max(0,in90-out90),overdueOut:sum(overdueOut),overdueOutCount:overdueOut.length,overdueIn:sum(overdueIn),overdueInCount:overdueIn.length};
   }
+  function supplierByPurchase(state,x){
+    const s=beneficiaryById(state,x?.supplierId);return s?.name||x?.supplierName||'';
+  }
   function cashSourceClass(source){
-    return source==='Payroll'?'cash-payroll':source==='Bill'?'cash-bill':source==='Recurring'?'cash-recurring':source==='Receivable'?'cash-receivable':'cash-payment';
+    return source==='Payroll'?'cash-payroll':source==='Bill'?'cash-bill':source==='Recurring'?'cash-recurring':source==='Receivable'?'cash-receivable':source==='Expense'?'cash-expense':source==='Purchase'?'cash-purchase':'cash-payment';
   }
   function cashFlowPanel(state,h){
     const esc=h.esc,money2=h.money2,ctx={payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},view=Number(state.cashFlowWindow||90),s=cashFlowSummary(state,ctx,view),today=todayIso();
@@ -548,7 +562,7 @@
       '<div class="surface '+(s.overdueIn?'cash-alert':'')+'"><span>Overdue receivables</span><b>'+money2(s.overdueIn)+'</b><small>'+s.overdueInCount+' customer invoice'+(s.overdueInCount===1?'':'s')+' past due</small></div>'+
     '</div>'+
     '<div class="cash-toolbar"><div><b>Cash flow calendar</b><span>Expected inflows versus planned outflows · not a live bank balance</span></div><div class="cash-window"><button class="'+(view===30?'active':'')+'" data-action="cash-window:30">30 days</button><button class="'+(view===60?'active':'')+'" data-action="cash-window:60">60 days</button><button class="'+(view===90?'active':'')+'" data-action="cash-window:90">90 days</button></div></div>'+
-    '<div class="cash-legend"><span><i class="cash-payroll"></i>Payroll</span><span><i class="cash-payment"></i>Payments</span><span><i class="cash-bill"></i>Bills</span><span><i class="cash-recurring"></i>Recurring</span><span><i class="cash-receivable"></i>Receivables</span></div>'+
+    '<div class="cash-legend"><span><i class="cash-payroll"></i>Payroll</span><span><i class="cash-payment"></i>Payments</span><span><i class="cash-bill"></i>Bills</span><span><i class="cash-recurring"></i>Recurring</span><span><i class="cash-expense"></i>Expenses</span><span><i class="cash-purchase"></i>Purchases</span><span><i class="cash-receivable"></i>Receivables</span></div>'+
     '<div class="cash-timeline">'+timeline+'</div>';
   }
 
