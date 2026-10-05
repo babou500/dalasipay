@@ -540,7 +540,7 @@
     const typeOptions=TYPES.map(x=>'<option '+(x===typeValue?'selected':'')+'>'+x+'</option>').join('');
     const methodOptions=METHODS.map(x=>'<option '+(x===methodValue?'selected':'')+'>'+x+'</option>').join('');
     const beneficiaryInfo=selected?'<div class="selected-beneficiary"><b>'+esc(selected.name)+'</b><span>'+esc(destinationSummary(selected))+'</span></div>':'';
-    const billInfo=bill?'<div class="selected-bill"><b>Invoice '+esc(bill.invoiceNo||bill.id)+'</b><span>'+esc(bill.supplier)+' · '+h.money2(bill.amount)+'</span></div>:'';
+    const billInfo=bill?'<div class="selected-bill"><b>Invoice '+esc(bill.invoiceNo||bill.id)+'</b><span>'+esc(bill.supplier)+' · '+h.money2(bill.amount)+'</span></div>':'';
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-business-payment"></div><form id="business-payment-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">NEW BUSINESS PAYMENT</div><h2>Record payment</h2><p>Create a controlled payment record outside payroll.</p></div><button type="button" class="close" data-action="close-business-payment">×</button></div>'+
       '<div class="payment-modal-note">This creates a payment record only. It does not send funds from a bank or mobile-money account.</div>'+
