@@ -332,6 +332,7 @@
     const parts=String(period||'').split('-').map(Number),y=parts[0],m=parts[1];if(!y||!m)return todayIso();
     const last=new Date(y,m,0).getDate(),d=Math.min(Math.max(1,Number(day)||28),last);return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   }
+
   function cashFlowItems(state,ctx,horizon=90){
     const today=todayIso(),end=addDaysIso(today,horizon),items=[],seen=new Set();
     const add=item=>{if(!item.date||item.date>end)return;const key=item.key||[item.source,item.id,item.date].join('|');if(seen.has(key))return;seen.add(key);items.push(item);};
@@ -339,12 +340,12 @@
     (state.businessPayments||[]).forEach(p=>{
       if(p.status==='Paid')return;
       const date=p.dueDate||today;
-      add({key:'payment|'+p.id,date,dateOriginal:p.dueDate||'',source:'Payment',id:p.id,label:p.payee||'Business payment',detail:p.reference||p.description||p.type||'',amount:Number(p.amount)||0,status:p.status||'Draft',priority:p.status==='Approved'?3:p.status==='Pending approval'?2:1});
+      add({key:'payment|'+p.id,date,dateOriginal:p.dueDate||'',source:'Payment',direction:'out',id:p.id,label:p.payee||'Business payment',detail:p.reference||p.description||p.type||'',amount:Number(p.amount)||0,status:p.status||'Draft',priority:p.status==='Approved'?3:p.status==='Pending approval'?2:1});
     });
 
     (state.businessBills||[]).forEach(b=>{
       if(b.status==='Paid'||b.paymentId)return;
-      add({key:'bill|'+b.id,date:b.dueDate||today,dateOriginal:b.dueDate||'',source:'Bill',id:b.id,label:b.supplier||'Supplier bill',detail:b.invoiceNo||b.description||'',amount:Number(b.amount)||0,status:b.status||'Draft',priority:b.status==='Approved'?3:b.status==='Pending approval'?2:1});
+      add({key:'bill|'+b.id,date:b.dueDate||today,dateOriginal:b.dueDate||'',source:'Bill',direction:'out',id:b.id,label:b.supplier||'Supplier bill',detail:b.invoiceNo||b.description||'',amount:Number(b.amount)||0,status:b.status||'Draft',priority:b.status==='Approved'?3:b.status==='Pending approval'?2:1});
     });
 
     (state.recurringBusinessPayments||[]).forEach(r=>{
@@ -353,9 +354,15 @@
       while(due<=end&&guard<40){
         if(r.endDate&&due>r.endDate)break;
         const already=(state.businessPayments||[]).some(p=>p.recurringId===r.id&&p.recurringDueDate===due);
-        if(!already)add({key:'recurring|'+r.id+'|'+due,date:due,dateOriginal:due,source:'Recurring',id:r.id,label:r.name||r.payee||'Recurring payment',detail:(r.frequency||'Monthly')+' · '+(r.reference||r.description||'Standing obligation'),amount:Number(r.amount)||0,status:'Scheduled',priority:1});
+        if(!already)add({key:'recurring|'+r.id+'|'+due,date:due,dateOriginal:due,source:'Recurring',direction:'out',id:r.id,label:r.name||r.payee||'Recurring payment',detail:(r.frequency||'Monthly')+' · '+(r.reference||r.description||'Standing obligation'),amount:Number(r.amount)||0,status:'Scheduled',priority:1});
         due=advanceRecurringDate(due,r.frequency||'Monthly');guard++;
       }
+    });
+
+    (state.customerInvoices||[]).forEach(inv=>{
+      const status=receivableStatus(state,inv),balance=receivableBalance(state,inv);
+      if(status==='Draft'||status==='Paid'||balance<=0)return;
+      add({key:'receivable|'+inv.id,date:inv.dueDate||today,dateOriginal:inv.dueDate||'',source:'Receivable',direction:'in',id:inv.id,label:inv.customerName||'Customer invoice',detail:(inv.invoiceNo||inv.id)+' · '+(inv.description||status),amount:balance,status,priority:status==='Overdue'?3:2});
     });
 
     if(ctx&&typeof ctx.payrollCalc==='function'){
@@ -363,40 +370,42 @@
       if(!['Paid','Closed'].includes(status)){
         let date=periodPayday(state.currentPeriod,state.opsConfig?.paydayDay||28);
         if(date<today)date=today;
-        if(date<=end)add({key:'payroll|'+state.currentPeriod,date,dateOriginal:periodPayday(state.currentPeriod,state.opsConfig?.paydayDay||28),source:'Payroll',id:state.currentPeriod,label:'Employee net payroll',detail:(ctx.periodLabel?ctx.periodLabel(state.currentPeriod):state.currentPeriod)+' · '+status,amount:Number(payroll?.totals?.net)||0,status,priority:3});
+        if(date<=end)add({key:'payroll|'+state.currentPeriod,date,dateOriginal:periodPayday(state.currentPeriod,state.opsConfig?.paydayDay||28),source:'Payroll',direction:'out',id:state.currentPeriod,label:'Employee net payroll',detail:(ctx.periodLabel?ctx.periodLabel(state.currentPeriod):state.currentPeriod)+' · '+status,amount:Number(payroll?.totals?.net)||0,status,priority:3});
       }
     }
     return items.sort((a,b)=>a.date.localeCompare(b.date)||b.priority-a.priority||b.amount-a.amount);
   }
   function cashFlowSummary(state,ctx,horizon=90){
-    const today=todayIso(),items=cashFlowItems(state,ctx,horizon),sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const future=items.filter(x=>x.date>=today),overdue=items.filter(x=>x.dateOriginal&&x.dateOriginal<today);
-    return {items,total:sum(future),days7:sum(future.filter(x=>dateDiffDays(today,x.date)<=7)),days30:sum(future.filter(x=>dateDiffDays(today,x.date)<=30)),days90:sum(future.filter(x=>dateDiffDays(today,x.date)<=90)),overdue:sum(overdue),overdueCount:overdue.length};
+    const today=todayIso(),items=cashFlowItems(state,ctx,horizon),sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0),future=items.filter(x=>x.date>=today);
+    const by=(direction,days)=>sum(future.filter(x=>x.direction===direction&&dateDiffDays(today,x.date)<=days));
+    const overdueOut=items.filter(x=>x.direction==='out'&&x.dateOriginal&&x.dateOriginal<today),overdueIn=items.filter(x=>x.direction==='in'&&x.dateOriginal&&x.dateOriginal<today);
+    const out7=by('out',7),in7=by('in',7),out30=by('out',30),in30=by('in',30),out90=by('out',90),in90=by('in',90);
+    return {items,out7,in7,out30,in30,out90,in90,need7:Math.max(0,out7-in7),need30:Math.max(0,out30-in30),need90:Math.max(0,out90-in90),surplus7:Math.max(0,in7-out7),surplus30:Math.max(0,in30-out30),surplus90:Math.max(0,in90-out90),overdueOut:sum(overdueOut),overdueOutCount:overdueOut.length,overdueIn:sum(overdueIn),overdueInCount:overdueIn.length};
   }
   function cashSourceClass(source){
-    return source==='Payroll'?'cash-payroll':source==='Bill'?'cash-bill':source==='Recurring'?'cash-recurring':'cash-payment';
+    return source==='Payroll'?'cash-payroll':source==='Bill'?'cash-bill':source==='Recurring'?'cash-recurring':source==='Receivable'?'cash-receivable':'cash-payment';
   }
   function cashFlowPanel(state,h){
-    const esc=h.esc,money2=h.money2,icon=h.icon,ctx={payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},view=Number(state.cashFlowWindow||90),s=cashFlowSummary(state,ctx,view),today=todayIso();
-    const groups=new Map();
-    s.items.forEach(x=>{const key=x.date;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x);});
-    const dates=[...groups.keys()].sort(),maxDay=Math.max(1,...dates.map(d=>groups.get(d).reduce((a,x)=>a+x.amount,0)));
+    const esc=h.esc,money2=h.money2,ctx={payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},view=Number(state.cashFlowWindow||90),s=cashFlowSummary(state,ctx,view),today=todayIso();
+    const groups=new Map();s.items.forEach(x=>{const key=x.date;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x);});
+    const dates=[...groups.keys()].sort(),maxDay=Math.max(1,...dates.map(d=>{const xs=groups.get(d);return Math.max(xs.filter(x=>x.direction==='out').reduce((a,x)=>a+x.amount,0),xs.filter(x=>x.direction==='in').reduce((a,x)=>a+x.amount,0));}));
+    const card=(label,out,inflow,need,surplus)=>'<div class="surface"><span>'+label+'</span><b>'+(need>0?money2(need)+' needed':money2(surplus)+' surplus')+'</b><small>Out '+money2(out)+' · In '+money2(inflow)+'</small></div>';
     const timeline=dates.length?dates.map(d=>{
-      const items=groups.get(d),total=items.reduce((a,x)=>a+x.amount,0),relative=d<today?'Overdue':d===today?'Today':dateDiffDays(today,d)===1?'Tomorrow':dateDiffDays(today,d)<=7?'In '+dateDiffDays(today,d)+' days':'';
+      const items=groups.get(d),out=items.filter(x=>x.direction==='out').reduce((a,x)=>a+x.amount,0),inflow=items.filter(x=>x.direction==='in').reduce((a,x)=>a+x.amount,0),relative=d<today?'Overdue':d===today?'Today':dateDiffDays(today,d)===1?'Tomorrow':dateDiffDays(today,d)<=7?'In '+dateDiffDays(today,d)+' days':'';
       return '<section class="cash-day '+(d<today?'overdue':'')+'">'+
-        '<div class="cash-date"><div><b>'+new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+'</b><span>'+relative+'</span></div><strong>'+money2(total)+'</strong></div>'+
-        '<div class="cash-day-bar"><i style="width:'+Math.max(4,Math.round(total/maxDay*100))+'%"></i></div>'+
-        '<div class="cash-items">'+items.map(x=>'<div class="cash-item"><span class="cash-source '+cashSourceClass(x.source)+'">'+esc(x.source)+'</span><div class="cash-item-main"><b>'+esc(x.label)+'</b><small>'+esc(x.detail||x.status)+'</small></div><span class="cash-status">'+esc(x.status)+'</span><strong>'+money2(x.amount)+'</strong></div>').join('')+'</div>'+
+        '<div class="cash-date"><div><b>'+new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+'</b><span>'+relative+'</span></div><div class="cash-date-totals"><strong class="cash-out">Out '+money2(out)+'</strong><strong class="cash-in">In '+money2(inflow)+'</strong></div></div>'+
+        '<div class="cash-paired-bars"><div class="cash-day-bar cash-out-bar"><i style="width:'+Math.max(out?4:0,Math.round(out/maxDay*100))+'%"></i></div><div class="cash-day-bar cash-in-bar"><i style="width:'+Math.max(inflow?4:0,Math.round(inflow/maxDay*100))+'%"></i></div></div>'+
+        '<div class="cash-items">'+items.map(x=>'<div class="cash-item '+(x.direction==='in'?'inflow':'outflow')+'"><span class="cash-source '+cashSourceClass(x.source)+'">'+esc(x.source)+'</span><div class="cash-item-main"><b>'+esc(x.label)+'</b><small>'+esc(x.detail||x.status)+'</small></div><span class="cash-status">'+esc(x.status)+'</span><strong>'+(x.direction==='in'?'+ ':'- ')+money2(x.amount)+'</strong></div>').join('')+'</div>'+
       '</section>';
-    }).join(''):'<div class="surface cash-empty"><b>No planned outflows in this window</b><p>Add a bill, payment or recurring obligation to build the cash requirements calendar.</p></div>';
+    }).join(''):'<div class="surface cash-empty"><b>No planned cash movements in this window</b><p>Add customer invoices, bills, payments or recurring obligations to build the cash-flow calendar.</p></div>';
     return '<div class="cash-summary">'+
-      '<div class="surface"><span>Next 7 days</span><b>'+money2(s.days7)+'</b><small>near-term cash required</small></div>'+
-      '<div class="surface"><span>Next 30 days</span><b>'+money2(s.days30)+'</b><small>planned outflows</small></div>'+
-      '<div class="surface"><span>Next 90 days</span><b>'+money2(s.days90)+'</b><small>forward commitments</small></div>'+
-      '<div class="surface '+(s.overdue?'cash-alert':'')+'"><span>Overdue</span><b>'+money2(s.overdue)+'</b><small>'+s.overdueCount+' overdue obligation'+(s.overdueCount===1?'':'s')+'</small></div>'+
+      card('Next 7 days',s.out7,s.in7,s.need7,s.surplus7)+
+      card('Next 30 days',s.out30,s.in30,s.need30,s.surplus30)+
+      card('Next 90 days',s.out90,s.in90,s.need90,s.surplus90)+
+      '<div class="surface '+(s.overdueIn?'cash-alert':'')+'"><span>Overdue receivables</span><b>'+money2(s.overdueIn)+'</b><small>'+s.overdueInCount+' customer invoice'+(s.overdueInCount===1?'':'s')+' past due</small></div>'+
     '</div>'+
-    '<div class="cash-toolbar"><div><b>Due payments calendar</b><span>Planned outflows only · not a live bank balance</span></div><div class="cash-window"><button class="'+(view===30?'active':'')+'" data-action="cash-window:30">30 days</button><button class="'+(view===60?'active':'')+'" data-action="cash-window:60">60 days</button><button class="'+(view===90?'active':'')+'" data-action="cash-window:90">90 days</button></div></div>'+
-    '<div class="cash-legend"><span><i class="cash-payroll"></i>Payroll</span><span><i class="cash-payment"></i>Payments</span><span><i class="cash-bill"></i>Bills</span><span><i class="cash-recurring"></i>Recurring</span></div>'+
+    '<div class="cash-toolbar"><div><b>Cash flow calendar</b><span>Expected inflows versus planned outflows · not a live bank balance</span></div><div class="cash-window"><button class="'+(view===30?'active':'')+'" data-action="cash-window:30">30 days</button><button class="'+(view===60?'active':'')+'" data-action="cash-window:60">60 days</button><button class="'+(view===90?'active':'')+'" data-action="cash-window:90">90 days</button></div></div>'+
+    '<div class="cash-legend"><span><i class="cash-payroll"></i>Payroll</span><span><i class="cash-payment"></i>Payments</span><span><i class="cash-bill"></i>Bills</span><span><i class="cash-recurring"></i>Recurring</span><span><i class="cash-receivable"></i>Receivables</span></div>'+
     '<div class="cash-timeline">'+timeline+'</div>';
   }
 
