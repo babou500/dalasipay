@@ -175,6 +175,14 @@
     invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=Math.max(0,(Number(inv.amount)||0)-paid);invoiced+=Number(inv.amount)||0;collected+=paid;outstanding+=bal;if(bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
     return {customer,invoices,invoiced,collected,outstanding,overdue};
   }
+  function supplierAccount(state,id){
+    const supplier=beneficiaryById(state,id),bills=(state.businessBills||[]).filter(x=>x.beneficiaryId===id),payments=beneficiaryPayments(state,id),today=todayIso();
+    const totalBilled=bills.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const outstanding=bills.filter(x=>x.status!=='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const overdue=bills.filter(x=>x.status!=='Paid'&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const paid=payments.filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
+    return {supplier,bills,payments,totalBilled,outstanding,overdue,paid};
+  }
   function paymentTermsLabel(days){const n=Number(days)||0;return n<=0?'Due on receipt':'Net '+n+' days';}
   function customerDueDate(issueDate,days){return addDaysIso(issueDate||todayIso(),Math.max(0,Number(days)||0));}
   function customerStatusClass(status){return status==='Inactive'?'neutral':'ready';}
@@ -239,6 +247,37 @@
       '<div class="table-scroll"><table><thead><tr><th>CUSTOMER</th><th>PAYMENT TERMS</th><th>INVOICED</th><th>COLLECTED</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
     '</div>';
   }
+  function suppliersPanel(state,h){
+    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
+    const rows=(state.paymentBeneficiaries||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    const active=rows.filter(x=>(x.status||'Active')==='Active').length;
+    const totals=rows.reduce((a,s)=>{const m=supplierAccount(state,s.id);a.billed+=m.totalBilled;a.paid+=m.paid;a.outstanding+=m.outstanding;a.overdue+=m.overdue;return a;},{billed:0,paid:0,outstanding:0,overdue:0});
+    const tableRows=rows.length?rows.map(s=>{
+      const m=supplierAccount(state,s.id),status=s.status||'Active';
+      return '<tr>'+
+        '<td><div class="payment-payee"><b>'+esc(s.name)+'</b><small>'+esc(s.contact||s.email||s.phone||s.id)+'</small></div></td>'+
+        '<td>'+esc(s.kind||'Supplier / vendor')+'</td>'+
+        '<td><div class="payment-destination"><b>'+esc(s.preferredMethod||'Bank transfer')+'</b><small>'+esc(destinationSummary(s))+'</small></div></td>'+
+        '<td class="payment-amount">'+money2(m.totalBilled)+'</td>'+
+        '<td class="customer-collected">'+money2(m.paid)+'</td>'+
+        '<td><div class="receivable-balance"><b>'+money2(m.outstanding)+'</b><small>'+(m.overdue?money2(m.overdue)+' overdue':'No overdue bills')+'</small></div></td>'+
+        '<td>'+pill(status,status==='Active'?'ready':'neutral')+'</td>'+
+        '<td><div class="payment-status-actions"><button class="secondary" data-action="supplier-view:'+s.id+'">View</button>'+(status==='Active'?'<button class="primary" data-action="pay-supplier:'+s.id+'">Pay</button><button class="secondary" data-action="bill-supplier:'+s.id+'">Bill</button><button class="secondary" data-action="beneficiary-status:'+s.id+':Inactive">Deactivate</button>':'<button class="secondary" data-action="beneficiary-status:'+s.id+':Active">Activate</button>')+'</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="8"><div class="empty-inline">No supplier or vendor accounts yet. Add a supplier to reuse payment details and link future bills and payments.</div></td></tr>';
+    return '<div class="customer-summary">'+
+      '<div class="surface"><span>Active suppliers</span><b>'+active+'</b><small>'+rows.length+' total vendor accounts</small></div>'+
+      '<div class="surface"><span>Bills recorded</span><b>'+money2(totals.billed)+'</b><small>supplier invoice value</small></div>'+
+      '<div class="surface"><span>Outstanding</span><b>'+money2(totals.outstanding)+'</b><small>open supplier bills</small></div>'+
+      '<div class="surface '+(totals.overdue?'cash-alert':'')+'"><span>Overdue</span><b>'+money2(totals.overdue)+'</b><small>past due supplier bills</small></div>'+
+    '</div>'+
+    '<div class="payment-notice"><span>'+icon('building',17)+'</span><div><b>Reusable supplier accounts</b><p>Keep supplier contacts and payment details in one place, then link bills and payments to the same vendor account.</p></div></div>'+
+    '<div class="surface employee-card">'+
+      '<div class="table-tools"><div><h3>Suppliers & vendors</h3><p>Vendor details, bills, payments and outstanding balances</p></div><button class="primary" data-action="open-supplier">'+icon('plus',14)+' Add supplier</button></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>SUPPLIER</th><th>TYPE</th><th>PAYMENT DETAILS</th><th>BILLED</th><th>PAID</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+    '</div>';
+  }
+
   function receivablesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,rows=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),m=receivableMetrics(state),today=todayIso();
     const invoiceRows=rows.length?rows.map(inv=>{
@@ -322,6 +361,22 @@
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-customer-account">Close</button><button class="primary" data-action="invoice-customer:'+cust.id+'">'+icon('plus',14)+' New invoice</button></div>'+
     '</div></div>';
   }
+  function supplierAccountModal(state,h){
+    const esc=h.esc,money2=h.money2,icon=h.icon,m=supplierAccount(state,state.supplierAccountId),s=m.supplier;if(!s)return '';
+    const bills=m.bills.slice().sort((a,b)=>String(b.invoiceDate||b.createdAt||'').localeCompare(String(a.invoiceDate||a.createdAt||'')));
+    const billRows=bills.length?bills.map(b=>'<tr><td><b>'+esc(b.invoiceNo||b.id)+'</b></td><td>'+dueDate(b.invoiceDate)+'</td><td>'+dueDate(b.dueDate)+'</td><td>'+money2(b.amount)+'</td><td>'+esc(b.status||'Draft')+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty-inline">No supplier bills linked to this account yet.</div></td></tr>';
+    const pays=m.payments.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+    const payRows=pays.length?pays.slice(0,8).map(p=>'<tr><td><b>'+esc(p.voucherNumber||p.receiptNumber||p.id)+'</b></td><td>'+dueDate(p.dueDate)+'</td><td>'+money2(p.amount)+'</td><td>'+esc(p.method||'Other')+'</td><td>'+esc(p.status||'Draft')+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty-inline">No payments linked to this supplier yet.</div></td></tr>';
+    return '<div class="center-modal payment-modal customer-account-modal"><div class="modal-scrim" data-action="close-supplier-account"></div><div class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">SUPPLIER ACCOUNT</div><h2>'+esc(s.name)+'</h2><p>'+esc(s.contact||s.email||s.phone||s.kind||'Supplier / vendor')+'</p></div><button type="button" class="close" data-action="close-supplier-account">×</button></div>'+
+      '<div class="customer-account-summary"><div><span>Billed</span><b>'+money2(m.totalBilled)+'</b></div><div><span>Paid</span><b>'+money2(m.paid)+'</b></div><div><span>Outstanding</span><b>'+money2(m.outstanding)+'</b></div><div><span>Overdue</span><b>'+money2(m.overdue)+'</b></div></div>'+
+      '<div class="customer-account-details"><div><span>Type</span><b>'+esc(s.kind||'Supplier / vendor')+'</b></div><div><span>Email</span><b>'+esc(s.email||'—')+'</b></div><div><span>Phone</span><b>'+esc(s.phone||'—')+'</b></div><div><span>Payment method</span><b>'+esc(s.preferredMethod||'—')+'</b></div></div>'+
+      '<div class="table-scroll customer-history"><table><thead><tr><th>BILL / INVOICE</th><th>INVOICE DATE</th><th>DUE DATE</th><th>AMOUNT</th><th>STATUS</th></tr></thead><tbody>'+billRows+'</tbody></table></div>'+
+      '<div class="table-scroll customer-history"><table><thead><tr><th>PAYMENT REF</th><th>DUE DATE</th><th>AMOUNT</th><th>METHOD</th><th>STATUS</th></tr></thead><tbody>'+payRows+'</tbody></table></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-supplier-account">Close</button><button class="secondary" data-action="bill-supplier:'+s.id+'">'+icon('plus',14)+' Add bill</button><button class="primary" data-action="pay-supplier:'+s.id+'">'+icon('plus',14)+' New payment</button></div>'+
+    '</div></div>';
+  }
+
   function createCustomer(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add customers.');return;}
@@ -616,6 +671,11 @@
     const actions='<button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button>';
     return pageTitle('CLIENT ACCOUNTS','Customers','Manage repeat customers, payment terms, invoice history, collections and outstanding balances.',actions)+customersPanel(state,h);
   }
+  function renderSuppliers(state,h){
+    const icon=h.icon,pageTitle=h.pageTitle;
+    const actions='<button class="primary" data-action="open-supplier">'+icon('plus',14)+' Add supplier</button>';
+    return pageTitle('SUPPLIER ACCOUNTS','Suppliers','Manage vendors, payment details, supplier bills, payment history and outstanding balances.',actions)+suppliersPanel(state,h);
+  }
 
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
@@ -652,8 +712,8 @@
     '</form></div>';
   }
   function beneficiaryModal(state,h){
-    const field=h.field,icon=h.icon;
-    const kindOptions=BENEFICIARY_TYPES.map(x=>'<option>'+x+'</option>').join('');
+    const field=h.field,icon=h.icon,selectedKind=state.beneficiaryDefaultKind||BENEFICIARY_TYPES[0];
+    const kindOptions=BENEFICIARY_TYPES.map(x=>'<option '+(x===selectedKind?'selected':'')+'>'+x+'</option>').join('');
     const methodOptions=METHODS.map(x=>'<option>'+x+'</option>').join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-beneficiary"></div><form id="beneficiary-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">NEW BENEFICIARY</div><h2>Add beneficiary</h2><p>Save a regular supplier, contractor or other payee.</p></div><button type="button" class="close" data-action="close-beneficiary">×</button></div>'+
@@ -727,7 +787,7 @@
 
   function billModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,beneficiaries=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
-    const beneficiaryOptions=['<option value="">One-off supplier</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
+    const beneficiaryOptions=['<option value="">One-off supplier</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'" '+(state.paymentBeneficiaryId===b.id?'selected':'')+'>'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-business-bill"></div><form id="business-bill-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">NEW BILL / INVOICE</div><h2>Record supplier invoice</h2><p>Track an obligation before it becomes a payment.</p></div><button type="button" class="close" data-action="close-business-bill">×</button></div>'+
       '<div class="payment-modal-note">Attach a small invoice file if useful. Files are stored with this workspace record; maximum 1.5 MB in this version.</div>'+
@@ -798,5 +858,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,renderCustomers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
