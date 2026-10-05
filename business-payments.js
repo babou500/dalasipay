@@ -164,8 +164,84 @@
     ctx.pdfDownload(filename,out.join('\n'),state.branding?.logoData||'');ctx.toast((isReceipt?'Payment receipt':'Payment voucher')+' downloaded');
   }
 
+
+  function dateDiffDays(a,b){
+    const A=new Date(a+'T12:00:00'),B=new Date(b+'T12:00:00');return Math.round((B-A)/86400000);
+  }
+  function periodPayday(period,day){
+    const parts=String(period||'').split('-').map(Number),y=parts[0],m=parts[1];if(!y||!m)return todayIso();
+    const last=new Date(y,m,0).getDate(),d=Math.min(Math.max(1,Number(day)||28),last);return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  }
+  function cashFlowItems(state,ctx,horizon=90){
+    const today=todayIso(),end=addDaysIso(today,horizon),items=[],seen=new Set();
+    const add=item=>{if(!item.date||item.date>end)return;const key=item.key||[item.source,item.id,item.date].join('|');if(seen.has(key))return;seen.add(key);items.push(item);};
+
+    (state.businessPayments||[]).forEach(p=>{
+      if(p.status==='Paid')return;
+      const date=p.dueDate||today;
+      add({key:'payment|'+p.id,date,dateOriginal:p.dueDate||'',source:'Payment',id:p.id,label:p.payee||'Business payment',detail:p.reference||p.description||p.type||'',amount:Number(p.amount)||0,status:p.status||'Draft',priority:p.status==='Approved'?3:p.status==='Pending approval'?2:1});
+    });
+
+    (state.businessBills||[]).forEach(b=>{
+      if(b.status==='Paid'||b.paymentId)return;
+      add({key:'bill|'+b.id,date:b.dueDate||today,dateOriginal:b.dueDate||'',source:'Bill',id:b.id,label:b.supplier||'Supplier bill',detail:b.invoiceNo||b.description||'',amount:Number(b.amount)||0,status:b.status||'Draft',priority:b.status==='Approved'?3:b.status==='Pending approval'?2:1});
+    });
+
+    (state.recurringBusinessPayments||[]).forEach(r=>{
+      if((r.status||'Active')!=='Active'||!r.nextDueDate)return;
+      let due=r.nextDueDate,guard=0;
+      while(due<=end&&guard<40){
+        if(r.endDate&&due>r.endDate)break;
+        const already=(state.businessPayments||[]).some(p=>p.recurringId===r.id&&p.recurringDueDate===due);
+        if(!already)add({key:'recurring|'+r.id+'|'+due,date:due,dateOriginal:due,source:'Recurring',id:r.id,label:r.name||r.payee||'Recurring payment',detail:(r.frequency||'Monthly')+' · '+(r.reference||r.description||'Standing obligation'),amount:Number(r.amount)||0,status:'Scheduled',priority:1});
+        due=advanceRecurringDate(due,r.frequency||'Monthly');guard++;
+      }
+    });
+
+    if(ctx&&typeof ctx.payrollCalc==='function'){
+      const payroll=ctx.payrollCalc(),status=state.payrollStatus||'Draft';
+      if(!['Paid','Closed'].includes(status)){
+        let date=periodPayday(state.currentPeriod,state.opsConfig?.paydayDay||28);
+        if(date<today)date=today;
+        if(date<=end)add({key:'payroll|'+state.currentPeriod,date,dateOriginal:periodPayday(state.currentPeriod,state.opsConfig?.paydayDay||28),source:'Payroll',id:state.currentPeriod,label:'Employee net payroll',detail:(ctx.periodLabel?ctx.periodLabel(state.currentPeriod):state.currentPeriod)+' · '+status,amount:Number(payroll?.totals?.net)||0,status,priority:3});
+      }
+    }
+    return items.sort((a,b)=>a.date.localeCompare(b.date)||b.priority-a.priority||b.amount-a.amount);
+  }
+  function cashFlowSummary(state,ctx,horizon=90){
+    const today=todayIso(),items=cashFlowItems(state,ctx,horizon),sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const future=items.filter(x=>x.date>=today),overdue=items.filter(x=>x.dateOriginal&&x.dateOriginal<today);
+    return {items,total:sum(future),days7:sum(future.filter(x=>dateDiffDays(today,x.date)<=7)),days30:sum(future.filter(x=>dateDiffDays(today,x.date)<=30)),days90:sum(future.filter(x=>dateDiffDays(today,x.date)<=90)),overdue:sum(overdue),overdueCount:overdue.length};
+  }
+  function cashSourceClass(source){
+    return source==='Payroll'?'cash-payroll':source==='Bill'?'cash-bill':source==='Recurring'?'cash-recurring':'cash-payment';
+  }
+  function cashFlowPanel(state,h){
+    const esc=h.esc,money2=h.money2,icon=h.icon,ctx={payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},view=Number(state.cashFlowWindow||90),s=cashFlowSummary(state,ctx,view),today=todayIso();
+    const groups=new Map();
+    s.items.forEach(x=>{const key=x.date;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(x);});
+    const dates=[...groups.keys()].sort(),maxDay=Math.max(1,...dates.map(d=>groups.get(d).reduce((a,x)=>a+x.amount,0)));
+    const timeline=dates.length?dates.map(d=>{
+      const items=groups.get(d),total=items.reduce((a,x)=>a+x.amount,0),relative=d<today?'Overdue':d===today?'Today':dateDiffDays(today,d)===1?'Tomorrow':dateDiffDays(today,d)<=7?'In '+dateDiffDays(today,d)+' days':'';
+      return '<section class="cash-day '+(d<today?'overdue':'')+'">'+
+        '<div class="cash-date"><div><b>'+new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+'</b><span>'+relative+'</span></div><strong>'+money2(total)+'</strong></div>'+
+        '<div class="cash-day-bar"><i style="width:'+Math.max(4,Math.round(total/maxDay*100))+'%"></i></div>'+
+        '<div class="cash-items">'+items.map(x=>'<div class="cash-item"><span class="cash-source '+cashSourceClass(x.source)+'">'+esc(x.source)+'</span><div class="cash-item-main"><b>'+esc(x.label)+'</b><small>'+esc(x.detail||x.status)+'</small></div><span class="cash-status">'+esc(x.status)+'</span><strong>'+money2(x.amount)+'</strong></div>').join('')+'</div>'+
+      '</section>';
+    }).join(''):'<div class="surface cash-empty"><b>No planned outflows in this window</b><p>Add a bill, payment or recurring obligation to build the cash requirements calendar.</p></div>';
+    return '<div class="cash-summary">'+
+      '<div class="surface"><span>Next 7 days</span><b>'+money2(s.days7)+'</b><small>near-term cash required</small></div>'+
+      '<div class="surface"><span>Next 30 days</span><b>'+money2(s.days30)+'</b><small>planned outflows</small></div>'+
+      '<div class="surface"><span>Next 90 days</span><b>'+money2(s.days90)+'</b><small>forward commitments</small></div>'+
+      '<div class="surface '+(s.overdue?'cash-alert':'')+'"><span>Overdue</span><b>'+money2(s.overdue)+'</b><small>'+s.overdueCount+' overdue obligation'+(s.overdueCount===1?'':'s')+'</small></div>'+
+    '</div>'+
+    '<div class="cash-toolbar"><div><b>Due payments calendar</b><span>Planned outflows only · not a live bank balance</span></div><div class="cash-window"><button class="'+(view===30?'active':'')+'" data-action="cash-window:30">30 days</button><button class="'+(view===60?'active':'')+'" data-action="cash-window:60">60 days</button><button class="'+(view===90?'active':'')+'" data-action="cash-window:90">90 days</button></div></div>'+
+    '<div class="cash-legend"><span><i class="cash-payroll"></i>Payroll</span><span><i class="cash-payment"></i>Payments</span><span><i class="cash-bill"></i>Bills</span><span><i class="cash-recurring"></i>Recurring</span></div>'+
+    '<div class="cash-timeline">'+timeline+'</div>';
+  }
+
   function tabs(state){
-    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
+    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='cashflow'?'active':'')+'" data-action="payment-tab:cashflow">Cash Flow</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
   }
   function paymentPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
@@ -280,9 +356,9 @@
 
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
-    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
-    const body=tab==='bills'?billsPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
-    return pageTitle('BUSINESS PAYMENTS','Payments','Manage business payments, bills, recurring obligations, beneficiaries and approval controls in one place.',actions)+tabs(state)+body;
+    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
+    const body=tab==='bills'?billsPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='cashflow'?cashFlowPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
+    return pageTitle('BUSINESS PAYMENTS','Payments','Manage business payments, bills, recurring obligations, cash requirements and beneficiaries in one place.',actions)+tabs(state)+body;
   }
   function modal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc;
@@ -458,5 +534,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,create,createBeneficiary,createBill,createRecurring,update,updateBeneficiary,updateBill,updateRecurring,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,recurringSummary:recurringMetrics,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,create,createBeneficiary,createBill,createRecurring,update,updateBeneficiary,updateBill,updateRecurring,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
