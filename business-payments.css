@@ -116,3 +116,29 @@
 .cash-empty{padding:28px;text-align:center}.cash-empty b{font-size:13px}.cash-empty p{margin:5px 0 0;font-size:10px;color:var(--muted)}
 @media(max-width:900px){.cash-summary{grid-template-columns:1fr 1fr}.cash-item{grid-template-columns:auto minmax(0,1fr) auto}.cash-status{display:none}}
 @media(max-width:600px){.cash-summary{grid-template-columns:1fr}.cash-toolbar{align-items:flex-start;flex-direction:column}.cash-window{width:100%}.cash-window button{flex:1}.cash-item{grid-template-columns:auto minmax(0,1fr)}.cash-item>strong{grid-column:2}.cash-source{min-width:62px}}
+
+.receivable-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.receivable-summary>div{padding:16px}
+.receivable-summary span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.receivable-summary b{display:block;font-size:18px;margin:6px 0 3px}
+.receivable-summary small{font-size:9.5px;color:var(--muted)}
+.receivable-summary .cash-alert{border-color:color-mix(in srgb,var(--danger) 30%,var(--border));background:color-mix(in srgb,var(--panel) 94%,#fff0f0)}
+.receivable-summary .cash-alert b{color:var(--danger)}
+.receivable-balance{display:grid;gap:2px}
+.receivable-balance b{font-size:11px}
+.receivable-balance small{font-size:9px;color:var(--muted)}
+.receivable-overdue td{background:color-mix(in srgb,var(--panel) 96%,#fff1f1)}
+.receivable-overdue .receivable-balance b{color:var(--danger)}
+.receivable-receipts{margin-top:14px}
+.cash-source.cash-receivable,.cash-legend .cash-receivable{background:#e3f7ea;color:#1f7750}
+.cash-date-totals{display:flex;gap:12px;align-items:center}
+.cash-date-totals .cash-out{color:var(--text)}
+.cash-date-totals .cash-in{color:var(--good)}
+.cash-paired-bars{display:grid;gap:3px;margin:0 13px}
+.cash-paired-bars .cash-day-bar{margin:0}
+.cash-out-bar i{background:var(--primary)}
+.cash-in-bar i{background:var(--good)}
+.cash-item.inflow>strong{color:var(--good)}
+.cash-item.outflow>strong{color:var(--text)}
+@media(max-width:900px){.receivable-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.receivable-summary{grid-template-columns:1fr}.cash-date{align-items:flex-start}.cash-date-totals{align-items:flex-end;flex-direction:column;gap:3px}}
