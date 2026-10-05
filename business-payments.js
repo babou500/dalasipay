@@ -165,6 +165,166 @@
   }
 
 
+
+  function receivableById(state,id){return (state.customerInvoices||[]).find(x=>x.id===id)||null;}
+  function incomingPaymentById(state,id){return (state.incomingPayments||[]).find(x=>x.id===id)||null;}
+  function incomingForInvoice(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id);}
+  function receivablePaid(state,id){return incomingForInvoice(state,id).reduce((a,x)=>a+(Number(x.amount)||0),0);}
+  function receivableBalance(state,invoice){return Math.max(0,(Number(invoice?.amount)||0)-receivablePaid(state,invoice?.id));}
+  function receivableStatus(state,invoice){
+    const paid=receivablePaid(state,invoice.id),balance=Math.max(0,(Number(invoice.amount)||0)-paid);
+    if(balance<=0.004)return 'Paid';
+    if(paid>0)return 'Part paid';
+    if((invoice.status||'Draft')==='Draft')return 'Draft';
+    if(invoice.dueDate&&invoice.dueDate<todayIso())return 'Overdue';
+    return invoice.status||'Sent';
+  }
+  function receivableStatusClass(status){return status==='Paid'?'paid':status==='Sent'?'approved':status==='Overdue'?'neutral':status==='Part paid'?'neutral':'ready';}
+  function nextReceivableNumber(prefix,state){
+    const year=new Date().getFullYear();
+    const rows=prefix==='CR'?(state.incomingPayments||[]):(state.customerInvoices||[]);
+    const count=rows.filter(x=>prefix==='CR'?x.receiptNumber:x.invoiceNo).length+1;
+    return prefix+'-'+year+'-'+String(count).padStart(5,'0');
+  }
+  function receivableMetrics(state){
+    const rows=state.customerInvoices||[],payments=state.incomingPayments||[],today=todayIso();
+    let outstanding=0,overdue=0,open=0;
+    rows.forEach(inv=>{const status=receivableStatus(state,inv),bal=receivableBalance(state,inv);if(status!=='Draft'&&status!=='Paid'){outstanding+=bal;open++;if(inv.dueDate&&inv.dueDate<today)overdue+=bal;}});
+    return {count:rows.length,open,outstanding,overdue,collected:payments.reduce((a,x)=>a+(Number(x.amount)||0),0)};
+  }
+  function receivableAction(state,invoice){
+    const status=receivableStatus(state,invoice);
+    if(status==='Draft')return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><button class="primary" data-action="receivable-send:'+invoice.id+'">Mark sent</button>';
+    if(status==='Paid')return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><span class="payment-complete">Paid</span>';
+    return '<button class="secondary" data-action="receivable-doc:invoice:'+invoice.id+'">Invoice PDF</button><button class="primary" data-action="record-incoming:'+invoice.id+'">Record payment</button>';
+  }
+  function receivablesPanel(state,h){
+    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,rows=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),m=receivableMetrics(state),today=todayIso();
+    const invoiceRows=rows.length?rows.map(inv=>{
+      const status=receivableStatus(state,inv),paid=receivablePaid(state,inv),balance=receivableBalance(state,inv),overdue=status==='Overdue';
+      return '<tr class="'+(overdue?'receivable-overdue':'')+'">'+
+        '<td><div class="payment-payee"><b>'+esc(inv.customerName)+'</b><small>'+esc(inv.invoiceNo||inv.id)+'</small></div></td>'+
+        '<td class="payment-amount">'+money2(inv.amount)+'</td>'+
+        '<td><div class="receivable-balance"><b>'+money2(balance)+'</b><small>'+money2(paid)+' received</small></div></td>'+
+        '<td><div class="bill-date"><b>'+dueDate(inv.dueDate)+'</b><small>'+dueDate(inv.issueDate)+'</small></div></td>'+
+        '<td>'+pill(status,receivableStatusClass(status))+'</td>'+
+        '<td><div class="payment-status-actions">'+receivableAction(state,inv)+'</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="6"><div class="empty-inline">No customer invoices yet. Create your first invoice to start tracking money owed to the business.</div></td></tr>';
+    const recent=(state.incomingPayments||[]).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||''))).slice(0,8);
+    const receiptRows=recent.length?recent.map(p=>{const inv=receivableById(state,p.invoiceId);return '<tr><td><div class="payment-payee"><b>'+esc(inv?.customerName||p.customerName||'Customer')+'</b><small>'+esc(p.receiptNumber||p.id)+'</small></div></td><td>'+esc(inv?.invoiceNo||'—')+'</td><td class="payment-amount">'+money2(p.amount)+'</td><td>'+dueDate(p.receivedDate)+'</td><td>'+esc(p.method||'Other')+'</td><td><button class="secondary tiny" data-action="receivable-doc:receipt:'+p.id+'">'+icon('download',13)+' Receipt PDF</button></td></tr>';}).join(''):'<tr><td colspan="6"><div class="empty-inline">No incoming customer payments recorded yet.</div></td></tr>';
+    return '<div class="receivable-summary">'+
+      '<div class="surface"><span>Outstanding</span><b>'+money2(m.outstanding)+'</b><small>'+m.open+' open invoice'+(m.open===1?'':'s')+'</small></div>'+
+      '<div class="surface '+(m.overdue?'cash-alert':'')+'"><span>Overdue receivables</span><b>'+money2(m.overdue)+'</b><small>past due and unpaid</small></div>'+
+      '<div class="surface"><span>Collected</span><b>'+money2(m.collected)+'</b><small>incoming payments recorded</small></div>'+
+      '<div class="surface"><span>Invoices</span><b>'+m.count+'</b><small>draft, sent and paid</small></div>'+
+    '</div>'+
+    '<div class="payment-notice"><span>'+icon('send',17)+'</span><div><b>Money in, with a clear audit trail</b><p>Create customer invoices, mark them sent, record full or partial collections and generate a receipt for each incoming payment.</p></div></div>'+
+    '<div class="surface employee-card">'+
+      '<div class="table-tools"><div><h3>Customer invoices</h3><p>Amounts due to the business and their collection status</p></div><button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / INVOICE</th><th>INVOICE TOTAL</th><th>BALANCE DUE</th><th>DUE / ISSUE DATE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+invoiceRows+'</tbody></table></div>'+
+    '</div>'+
+    '<div class="surface employee-card receivable-receipts">'+
+      '<div class="table-tools"><div><h3>Recent incoming payments</h3><p>Customer collections and generated receipts</p></div></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / RECEIPT</th><th>INVOICE</th><th>AMOUNT RECEIVED</th><th>DATE</th><th>METHOD</th><th>DOCUMENT</th></tr></thead><tbody>'+receiptRows+'</tbody></table></div>'+
+    '</div>';
+  }
+  function receivableModal(state,h){
+    const field=h.field,icon=h.icon;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create receivable</h2><p>Record money the business expects to receive.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
+      '<div class="form-grid">'+
+        field('Customer / client name','<input name="customerName" placeholder="e.g. Kaira Trading Ltd" required>')+
+        field('Invoice number','<input name="invoiceNo" placeholder="Leave blank for automatic number">')+
+        field('Customer email','<input name="customerEmail" type="email" placeholder="accounts@example.com">')+
+        field('Customer phone','<input name="customerPhone" placeholder="+220 ...">')+
+        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Issue date','<input name="issueDate" type="date" value="'+todayIso()+'" required>')+
+        field('Due date','<input name="dueDate" type="date" required>')+
+        field('Customer reference','<input name="reference" placeholder="PO, contract or customer reference">')+
+      '</div>'+
+      field('Description / service','<input name="description" placeholder="What is the customer being invoiced for?" required>')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div>'+
+    '</form></div>';
+  }
+  function incomingPaymentModal(state,h){
+    const field=h.field,icon=h.icon,esc=h.esc,money2=h.money2,inv=receivableById(state,state.incomingPaymentInvoiceId);
+    if(!inv)return '';
+    const balance=receivableBalance(state,inv);
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-incoming-payment"></div><form id="incoming-payment-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">MONEY IN</div><h2>Record customer payment</h2><p>'+esc(inv.customerName)+' · '+esc(inv.invoiceNo)+'</p></div><button type="button" class="close" data-action="close-incoming-payment">×</button></div>'+
+      '<div class="selected-bill"><b>Balance outstanding</b><span>'+money2(balance)+'</span></div>'+
+      '<input type="hidden" name="invoiceId" value="'+esc(inv.id)+'">'+
+      '<div class="form-grid">'+
+        field('Amount received (GMD)','<input name="amount" type="number" min="0.01" max="'+balance+'" step="0.01" value="'+balance.toFixed(2)+'" required>')+
+        field('Date received','<input name="receivedDate" type="date" value="'+todayIso()+'" required>')+
+        field('Payment method','<select name="method"><option>Bank transfer</option><option>Mobile money</option><option>Cash</option><option>Cheque</option><option>Other</option></select>')+
+        field('Payment reference','<input name="reference" placeholder="Bank, transfer or receipt reference">')+
+      '</div>'+
+      field('Note','<input name="note" placeholder="Optional collection note">')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-incoming-payment">Cancel</button><button class="primary" type="submit">'+icon('check',14)+' Record payment</button></div>'+
+    '</form></div>';
+  }
+  function createReceivable(ev,state,ctx){
+    ev.preventDefault();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
+    const fd=new FormData(ev.target),customerName=String(fd.get('customerName')||'').trim(),amount=Number(fd.get('amount')||0),issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||'');
+    if(!customerName||amount<=0||!issueDate||!dueDate){ctx.toast('Customer, amount, issue date and due date are required.');return;}
+    let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
+    if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
+    const id='AR-'+Date.now().toString(36).toUpperCase();state.customerInvoices=state.customerInvoices||[];
+    state.customerInvoices.unshift({id,invoiceNo,customerName,customerEmail:String(fd.get('customerEmail')||'').trim(),customerPhone:String(fd.get('customerPhone')||'').trim(),amount,issueDate,dueDate,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.receivableOpen=false;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+  }
+  function updateReceivable(id,status,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
+    const inv=receivableById(state,id);if(!inv)return;inv.status=status;inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(status==='Sent'){inv.sentAt=inv.sentAt||inv.updatedAt;inv.sentBy=inv.sentBy||inv.updatedBy;}
+    ctx.audit('receivable.status_updated',{invoiceId:id,invoiceNo:inv.invoiceNo,status});ctx.save();ctx.toast(inv.invoiceNo+': '+status);ctx.render();
+  }
+  function recordIncomingPayment(ev,state,ctx){
+    ev.preventDefault();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to record incoming payments.');return;}
+    const fd=new FormData(ev.target),invoiceId=String(fd.get('invoiceId')||''),inv=receivableById(state,invoiceId);if(!inv)return;
+    const amount=Number(fd.get('amount')||0),balance=receivableBalance(state,inv);if(amount<=0||amount>balance+0.004){ctx.toast('Enter an amount no greater than the outstanding balance.');return;}
+    const id='IN-'+Date.now().toString(36).toUpperCase(),receiptNumber=nextReceivableNumber('CR',state);
+    state.incomingPayments=state.incomingPayments||[];
+    state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate:String(fd.get('receivedDate')||todayIso()),method:String(fd.get('method')||'Bank transfer'),reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const remaining=Math.max(0,balance-amount);inv.status=remaining<=0.004?'Paid':'Part paid';inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(inv.status==='Paid')inv.paidAt=inv.updatedAt;
+    state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;ctx.audit('receivable.payment_recorded',{invoiceId,invoiceNo:inv.invoiceNo,incomingPaymentId:id,receiptNumber,amount,balanceRemaining:remaining});ctx.save();ctx.toast('Payment recorded · Receipt '+receiptNumber+' created');ctx.render();
+  }
+  function downloadReceivableDocument(id,type,state,ctx){
+    const isReceipt=type==='receipt',payment=isReceipt?incomingPaymentById(state,id):null,inv=isReceipt?receivableById(state,payment?.invoiceId):receivableById(state,id);
+    if(!inv){ctx.toast('Customer invoice not found');return;}
+    if(isReceipt&&!payment){ctx.toast('Incoming payment record not found');return;}
+    const title=isReceipt?'PAYMENT RECEIPT':'CUSTOMER INVOICE',number=isReceipt?payment.receiptNumber:inv.invoiceNo,amount=isReceipt?payment.amount:inv.amount;
+    const balance=receivableBalance(state,inv),paid=receivablePaid(state,inv),out=[],ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.92 0.97 0.95',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
+    const safeText=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+    const clip=(v,max=48)=>{const s=String(v??'');return s.length>max?s.slice(0,max-3)+'...':s};
+    const text=(x,y,size,value,bold=false,color=ink)=>out.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+safeText(value)+') Tj ET');
+    const fill=(x,y,w,h,color)=>out.push(color+' rg '+x+' '+y+' '+w+' '+h+' re f');
+    const stroke=(x1,y1,x2,y2,color=line,width=.7)=>out.push(color+' RG '+width+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
+    const rect=(x,y,w,h,fillColor=white,strokeColor=line,width=.65)=>{fill(x,y,w,h,fillColor);out.push(strokeColor+' RG '+width+' w '+x+' '+y+' '+w+' '+h+' re S')};
+    const label=(x,y,value)=>text(x,y,7.2,String(value).toUpperCase(),true,'0.42 0.49 0.46');
+    fill(0,0,595,842,white);out.push('0.88 0.91 0.90 RG 0.75 w 24 24 547 794 re S');
+    fill(24,746,547,72,green);fill(24,746,5,72,'0.37 0.82 0.68');
+    if(state.branding?.logoData){out.push('q 42 0 0 42 43 765 cm /Im1 Do Q')}else{fill(43,765,42,42,'0.88 0.97 0.94');text(57,780,14,clip(state.branding?.logoText||state.company.slice(0,1),3),true,green)}
+    text(99,790,17,clip(state.company,29),true,white);text(99,771,8.2,'DALASIPAY MONEY IN',true,'0.74 0.91 0.86');
+    text(394,791,17,title,true,white);text(394,772,7.6,(isReceipt?'CUSTOMER COLLECTION':'AMOUNT DUE').toUpperCase(),true,'0.74 0.91 0.86');
+    rect(24,695,547,38,soft,line,.55);label(40,718,isReceipt?'Receipt no.':'Invoice no.');text(40,703,10,number,true);stroke(218,701,218,726,line,.55);label(235,718,isReceipt?'Date received':'Issue date');text(235,703,9.4,dueDate(isReceipt?payment.receivedDate:inv.issueDate),true);stroke(391,701,391,726,line,.55);label(408,718,isReceipt?'Invoice':'Due date');text(408,703,9.4,isReceipt?inv.invoiceNo:dueDate(inv.dueDate),true);
+    rect(24,607,547,73,'0.945 0.97 0.96',line,.55);label(40,662,'Customer');text(40,644,13,clip(inv.customerName,42),true);text(40,628,8.4,clip([inv.customerEmail,inv.customerPhone].filter(Boolean).join(' · ')||'Customer account',58),false,muted);label(385,662,isReceipt?'Amount received':'Invoice amount');text(385,638,19,ctx.money2(amount),true,green);
+    rect(24,470,547,122,white,line,.55);label(40,570,isReceipt?'Receipt details':'Invoice details');
+    const details=isReceipt?[['Invoice',inv.invoiceNo],['Payment method',payment.method||'Not recorded'],['Payment reference',payment.reference||'Not recorded'],['Description',payment.note||inv.description||'Customer payment']]:[['Description',inv.description||'Customer invoice'],['Customer reference',inv.reference||'Not recorded'],['Status',receivableStatus(state,inv)],['Due date',dueDate(inv.dueDate)]];
+    details.forEach((r,i)=>{const y=544-i*24;text(40,y,8.8,r[0],false,muted);text(190,y,9.2,clip(r[1],50),true,ink);if(i<details.length-1)stroke(40,y-8,555,y-8,'0.91 0.93 0.92',.45)});
+    rect(24,365,547,85,mint,line,.55);
+    if(isReceipt){label(40,428,'Invoice collection summary');text(40,405,9,'Invoice total',false,muted);text(160,405,10,ctx.money2(inv.amount),true);text(300,405,9,'Total received',false,muted);text(410,405,10,ctx.money2(paid),true,green);text(40,383,9,'Balance remaining',false,muted);text(160,383,13,ctx.money2(balance),true,balance>0?ink:green);}
+    else{label(40,428,'Amount due');text(40,392,21,ctx.money2(balance),true,green);text(300,397,8.4,paid>0?'Payments received '+ctx.money2(paid):'No payments recorded yet',true,muted);}
+    rect(24,260,547,82,soft,line,.55);label(40,321,isReceipt?'Collection record':'Payment instructions');text(40,299,8.5,isReceipt?'Recorded by':'Invoice prepared by',false,muted);text(175,299,9.2,clip(isReceipt?(payment.createdBy||'Workspace user'):(inv.createdBy||'Workspace user'),38),true);text(40,279,8.5,isReceipt?'Recorded on':'Invoice status',false,muted);text(175,279,9.2,isReceipt?new Date(payment.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):receivableStatus(state,inv),true);
+    fill(24,176,547,59,green);text(42,212,8.2,isReceipt?'PAYMENT RECEIVED':'CUSTOMER AMOUNT DUE',true,'0.74 0.91 0.86');text(42,190,20,ctx.money2(isReceipt?payment.amount:balance),true,white);text(356,196,8,clip(isReceipt?(payment.method||''):(inv.dueDate?'Due '+dueDate(inv.dueDate):''),26),true,'0.84 0.95 0.91');
+    stroke(24,82,571,82,line,.55);text(24,63,7.3,isReceipt?'This receipt records a customer payment received in DalasiPay.':'This invoice records an amount due to the business.',true,'0.45 0.51 0.49');text(24,48,6.9,isReceipt?'Bank or mobile-money settlement is not independently verified unless a payment-provider integration confirms it.':'Please use the invoice number as the payment reference unless otherwise agreed.',false,'0.53 0.58 0.56');text(421,63,7.3,'Generated by DalasiPay',true,green);
+    const safe=(String(inv.customerName||'Customer').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Customer'),filename=(isReceipt?'Customer_Receipt_':'Customer_Invoice_')+safe+'_'+number+'.pdf';
+    ctx.pdfDownload(filename,out.join('\n'),state.branding?.logoData||'');ctx.toast((isReceipt?'Customer receipt':'Customer invoice')+' downloaded');
+  }
+
   function dateDiffDays(a,b){
     const A=new Date(a+'T12:00:00'),B=new Date(b+'T12:00:00');return Math.round((B-A)/86400000);
   }
@@ -241,7 +401,7 @@
   }
 
   function tabs(state){
-    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='cashflow'?'active':'')+'" data-action="payment-tab:cashflow">Cash Flow</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
+    return '<div class="payment-tabs"><button class="'+(state.paymentTab==='payments'?'active':'')+'" data-action="payment-tab:payments">Payments</button><button class="'+(state.paymentTab==='bills'?'active':'')+'" data-action="payment-tab:bills">Bills & invoices</button><button class="'+(state.paymentTab==='receivables'?'active':'')+'" data-action="payment-tab:receivables">Money In</button><button class="'+(state.paymentTab==='recurring'?'active':'')+'" data-action="payment-tab:recurring">Recurring</button><button class="'+(state.paymentTab==='cashflow'?'active':'')+'" data-action="payment-tab:cashflow">Cash Flow</button><button class="'+(state.paymentTab==='beneficiaries'?'active':'')+'" data-action="payment-tab:beneficiaries">Beneficiaries</button></div>';
   }
   function paymentPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
@@ -356,9 +516,9 @@
 
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.paymentTab||'payments';
-    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
-    const body=tab==='bills'?billsPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='cashflow'?cashFlowPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
-    return pageTitle('BUSINESS PAYMENTS','Payments','Manage business payments, bills, recurring obligations, cash requirements and beneficiaries in one place.',actions)+tabs(state)+body;
+    const actions=tab==='payments'?'<button class="secondary" data-action="download-payment-register">'+icon('download',14)+' Export register</button><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' New payment</button>':tab==='bills'?'<button class="primary" data-action="open-business-bill">'+icon('plus',14)+' Add bill</button>':tab==='receivables'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-payment">'+icon('plus',14)+' Add recurring</button>':tab==='cashflow'?'<button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button>':'<button class="primary" data-action="open-beneficiary">'+icon('plus',14)+' Add beneficiary</button>';
+    const body=tab==='bills'?billsPanel(state,h):tab==='receivables'?receivablesPanel(state,h):tab==='recurring'?recurringPanel(state,h):tab==='cashflow'?cashFlowPanel(state,h):tab==='beneficiaries'?beneficiaryPanel(state,h):paymentPanel(state,h);
+    return pageTitle('BUSINESS PAYMENTS','Payments','Manage money out, money in, bills, recurring obligations, cash requirements and beneficiaries in one place.',actions)+tabs(state)+body;
   }
   function modal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc;
@@ -534,5 +694,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,create,createBeneficiary,createBill,createRecurring,update,updateBeneficiary,updateBill,updateRecurring,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,summary:totals,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={render,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,create,createBeneficiary,createBill,createRecurring,createReceivable,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
