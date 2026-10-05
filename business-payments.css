@@ -62,3 +62,16 @@
 .selected-bill b{font-size:10.5px}.selected-bill span{font-size:9.5px;color:var(--muted);text-align:right}
 @media(max-width:900px){.bill-summary{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.bill-summary{grid-template-columns:1fr}.selected-bill{flex-direction:column;align-items:flex-start}.selected-bill span{text-align:left}}
+
+.recurring-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.recurring-summary>div{padding:16px}
+.recurring-summary span{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.recurring-summary b{display:block;font-size:18px;margin:6px 0 3px}
+.recurring-summary small{font-size:9.5px;color:var(--muted)}
+.recurring-summary>div:last-child{border-color:color-mix(in srgb,var(--primary) 22%,var(--border));background:color-mix(in srgb,var(--soft) 46%,var(--panel))}
+.recurring-summary>div:last-child b{color:var(--primary)}
+.payment-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}
+.payment-tabs::-webkit-scrollbar{display:none}
+.payment-tabs button{white-space:nowrap}
+@media(max-width:900px){.recurring-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.recurring-summary{grid-template-columns:1fr}}
