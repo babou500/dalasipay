@@ -1,0 +1,22 @@
+
+.payment-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.payment-overview>div{padding:16px}
+.payment-overview span{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.payment-overview b{display:block;font-size:20px;margin:6px 0 3px}
+.payment-overview small{font-size:9.5px;color:var(--muted)}
+.payment-notice{display:flex;align-items:flex-start;gap:11px;padding:13px 14px;margin-bottom:14px;border:1px solid color-mix(in srgb,var(--primary) 22%,var(--border));border-radius:11px;background:linear-gradient(135deg,var(--soft),var(--panel))}
+.payment-notice>span{width:32px;height:32px;border-radius:9px;background:var(--panel);display:grid;place-items:center;color:var(--primary);flex:none}
+.payment-notice b{display:block;font-size:12px}
+.payment-notice p{margin:3px 0 0;font-size:10.5px;line-height:1.5;color:var(--muted)}
+.payment-type-chips{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px}
+.payment-type-chips span{padding:7px 9px;border:1px solid var(--border);border-radius:999px;background:var(--panel);font-size:9.5px;font-weight:750;color:var(--muted)}
+.payment-payee{display:grid;gap:2px}
+.payment-payee b{font-size:11.5px}.payment-payee small{font-size:9.5px;color:var(--muted)}
+.payment-amount{font-weight:850;font-size:12.5px}
+.payment-status-actions{display:flex;gap:5px;flex-wrap:wrap}
+.payment-status-actions button{min-height:29px;padding:0 9px;border-radius:7px;font-size:9.5px}
+.payment-complete{font-size:9.5px;font-weight:800;color:var(--good)}
+.payment-modal .modal-box{width:min(720px,94vw)}
+.payment-modal-note{margin:4px 0 15px;padding:10px 12px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);font-size:10px;line-height:1.5;color:var(--muted)}
+@media(max-width:900px){.payment-overview{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.payment-overview{grid-template-columns:1fr}.payment-type-chips{display:none}}
