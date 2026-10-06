@@ -14,7 +14,7 @@
     return window.DalasiInventory?.summary?.(state)?.value??(state.salesCatalog||[]).filter(x=>x.type==='Product').reduce((a,x)=>a+(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0),0);
   }
   function supplierPayables(state){
-    return (state.businessBills||[]).filter(x=>x.status!=='Paid').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
+    return (state.businessBills||[]).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
   }
   function accruedExpenses(state){
     return (state.businessExpenses||[]).filter(x=>x.status==='Approved').reduce((a,x)=>a+(Number(x.amount)||0),0);
@@ -42,6 +42,8 @@
     (state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').forEach(x=>{const t=window.DalasiTax?.meta?.(state,x,'purchase');if(t?.vatRecoverable)input+=Number(t.vatAmount)||0;});
     (state.customerCreditNotes||[]).filter(x=>x.status!=='Void').forEach(x=>{output-=Number(x.vatAmount)||0;});
     (state.supplierCreditNotes||[]).filter(x=>x.status!=='Void'&&x.vatRecoverable).forEach(x=>{input-=Number(x.vatAmount)||0;});
+    (state.customerDebitNotes||[]).filter(x=>x.status!=='Void').forEach(x=>{output+=Number(x.vatAmount)||0;});
+    (state.supplierDebitNotes||[]).filter(x=>x.status!=='Void'&&x.vatRecoverable).forEach(x=>{input+=Number(x.vatAmount)||0;});
     const paid=(state.vatPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
     return {input:money(input),output:money(Math.max(0,output-paid)),outputGross:money(output),paid:money(paid)};
   }
