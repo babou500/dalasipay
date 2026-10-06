@@ -61,6 +61,7 @@
       field('Account name','<input name="name" placeholder="e.g. GTBank Operating Account" required>')+
       field('Account type','<select name="type">'+TYPES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
       field('Opening balance (GMD)','<input name="openingBalance" type="number" step="0.01" value="0">')+
+      field('Opening balance date','<input name="openingDate" type="date" value="'+todayIso()+'" required>')+
       field('Reference / last digits','<input name="reference" placeholder="Optional internal reference">')+
       '</div><div class="modal-note">Use the actual opening balance as of the date you begin maintaining this account in DalasiPay. Future movements will update it automatically.</div><div class="modal-actions"><button type="button" class="secondary" data-action="close-cash-account">Cancel</button><button class="primary" type="submit">'+icon('save',14)+' Add account</button></div></form></div>';
   }
@@ -91,7 +92,7 @@
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add accounts.');return;}
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter an account name.');return;}
     state.cashAccounts=state.cashAccounts||[];const id='CBA-'+Date.now().toString(36).toUpperCase();
-    state.cashAccounts.push({id,name,type:String(fd.get('type')||'Bank'),openingBalance:Math.round((Number(fd.get('openingBalance'))||0)*100)/100,reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.cashAccounts.push({id,name,type:String(fd.get('type')||'Bank'),openingBalance:Math.round((Number(fd.get('openingBalance'))||0)*100)/100,openingDate:String(fd.get('openingDate')||todayIso()),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     state.cashAccountOpen=false;ctx.audit('cash.account_created',{accountId:id,name,type:String(fd.get('type')||'Bank')});ctx.save();ctx.toast(name+' added to Cash & Bank');ctx.render();
   }
   function createTransaction(ev,state,ctx){
