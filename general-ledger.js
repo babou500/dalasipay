@@ -2,8 +2,8 @@
   'use strict';
 
   const CHART=[
-    ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
-    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2100','Payroll Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
+    ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
+    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
     ['4000','Sales Revenue','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
     ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense']
@@ -59,9 +59,11 @@
     (state.customerInvoices||[]).forEach(inv=>{
       if(invoiceStatus(state,inv)==='Draft')return;
       const amt=round(inv.amount);if(!amt)return;
+      const tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:amt,vatAmount:0};
       pushJournal(out,'INV-'+inv.id,inv.issueDate||inv.createdAt,inv.invoiceNo||inv.id,'Customer invoice',[
         {account:'Accounts Receivable',debit:amt,memo:inv.customerName||''},
-        {account:'Sales Revenue',credit:amt,memo:inv.description||'Customer invoice'}
+        {account:'Sales Revenue',credit:round(tax.taxNet),memo:inv.description||'Customer invoice'},
+        {account:'VAT Output Payable',credit:round(tax.vatAmount),memo:tax.vatAmount?'Output VAT included in invoice total':''}
       ]);
     });
 
@@ -119,14 +121,17 @@
     (state.businessExpenses||[]).forEach(x=>{
       if(!['Approved','Paid'].includes(x.status))return;
       const amt=round(x.amount);if(!amt)return;
+      const tax=window.DalasiTax?.meta?.(state,x,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false},net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
       if(x.status==='Paid'){
         pushJournal(out,'EXP-'+x.id,x.expenseDate||x.paidAt||x.createdAt,x.expenseNo||x.reference||x.id,'Paid expense',[
-          {account:'Operating Expenses',debit:amt,memo:x.category||x.description||''},
+          {account:'Operating Expenses',debit:net,memo:x.category||x.description||''},
+          {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
           {account:cashAccountName(state,x.accountId),credit:amt,memo:x.merchant||''}
         ]);
       }else{
         pushJournal(out,'EXP-'+x.id,x.expenseDate||x.createdAt,x.expenseNo||x.reference||x.id,'Accrued expense',[
-          {account:'Operating Expenses',debit:amt,memo:x.category||x.description||''},
+          {account:'Operating Expenses',debit:net,memo:x.category||x.description||''},
+          {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
           {account:'Accrued Expenses',credit:amt,memo:x.merchant||''}
         ]);
       }
@@ -134,10 +139,12 @@
 
     // Supplier bills that are not draft/paid: treat as payable with mapping suspense pending detailed account allocation.
     (state.businessBills||[]).forEach(b=>{
-      if(['Draft','Paid'].includes(b.status||'Draft'))return;
+      if((b.status||'Draft')==='Draft')return;
       const amt=round(b.amount);if(!amt)return;
+      const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false},net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
       pushJournal(out,'BILL-'+b.id,b.invoiceDate||b.createdAt,b.invoiceNo||b.id,'Supplier bill',[
-        {account:'Opening / Mapping Suspense',debit:amt,memo:b.description||'Supplier bill account mapping pending'},
+        {account:'Opening / Mapping Suspense',debit:net,memo:b.description||'Supplier bill account mapping pending'},
+        {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
         {account:'Accounts Payable',credit:amt,memo:b.supplier||''}
       ]);
     });
@@ -149,6 +156,15 @@
       pushJournal(out,'PAY-'+p.id,p.paidAt||p.dueDate||p.createdAt,p.receiptNumber||p.voucherNumber||p.reference||p.id,'Business payment',[
         {account:p.billId?'Accounts Payable':'Opening / Mapping Suspense',debit:amt,memo:p.payee||''},
         {account:cashAccountName(state,p.accountId),credit:amt,memo:p.description||''}
+      ]);
+    });
+
+    // VAT payments to GRA.
+    (state.vatPayments||[]).forEach(p=>{
+      const amt=round(p.amount);if(!amt)return;
+      pushJournal(out,'VATPAY-'+p.id,p.date||p.createdAt,p.reference||p.id,'VAT payment',[
+        {account:'VAT Output Payable',debit:amt,memo:'VAT settlement for '+(p.period||'')},
+        {account:cashAccountName(state,p.accountId),credit:amt,memo:'Gambia Revenue Authority'}
       ]);
     });
 
