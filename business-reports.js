@@ -12,8 +12,8 @@
     const cash=window.DalasiBusinessPayments.cashFlowSummary(state,{payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},90),cashForecast=window.DalasiCashFlow?.forecast?.(state,{payrollCalc:h.payrollCalc},90)||{start:0,inflows:0,outflows:0,closing:0,minBalance:0,firstDeficit:''};
     const today=todayIso(),bills=(state.businessBills||[]).filter(x=>x.status!=='Paid'),billBal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0);
     const payable=bills.reduce((a,x)=>a+billBal(x),0),overduePayable=bills.filter(x=>billBal(x)>0&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+billBal(x),0);
-    const collections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),outPaid=(state.businessPayments||[]).filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const invoiced=(state.customerInvoices||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),collectionRate=invoiced?Math.round(collections/invoiced*100):0;
+    const grossCollections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),customerRefunds=(state.customerRefunds||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),collections=Math.max(0,grossCollections-customerRefunds),outPaid=(state.businessPayments||[]).filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const grossInvoiced=(state.customerInvoices||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),invoiceCredits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),invoiced=Math.max(0,grossInvoiced-invoiceCredits),collectionRate=invoiced?Math.round(collections/invoiced*100):0;
     const expenses=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.expenseMetrics(state):{count:0,total:0,pending:0,approved:0,paid:0,receipts:0};
     const purchases=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.purchaseMetrics(state):{count:0,open:0,openValue:0,approval:0,ordered:0,received:0};
     const inventory=window.DalasiCatalog?window.DalasiCatalog.inventoryMetrics(state):{products:0,active:0,low:0,value:0};
