@@ -74,7 +74,7 @@
   function productMargins(state,period){
     const invs=(state.customerInvoices||[]).filter(inv=>{const st=window.DalasiSalesInvoices?.status?.(state,inv)||(inv.status||'Draft');return st!=='Draft'&&periodOf(inv.issueDate||inv.createdAt)===period;});
     const map=new Map();
-    invs.forEach(inv=>(inv.lineItems||[]).forEach(line=>{const p=item(state,line.catalogId);if(!p||p.type!=='Product')return;const x=map.get(p.id)||{id:p.id,code:p.code,name:p.name,qty:0,revenue:0,cogs:0};x.qty+=Number(line.quantity)||0;x.revenue+=Number(line.amount)||0;map.set(p.id,x);}));
+    invs.forEach(inv=>(inv.lineItems||[]).forEach(line=>{const p=item(state,line.catalogId);if(!p||p.type!=='Product')return;const x=map.get(p.id)||{id:p.id,code:p.code,name:p.name,qty:0,revenue:0,cogs:0},tax=window.DalasiTax?.meta?.(state,inv,'sale'),ratio=(Number(inv.amount)||0)>0?((Number(tax?.taxNet??inv.amount)||0)/(Number(inv.amount)||1)):1;x.qty+=Number(line.quantity)||0;x.revenue+=(Number(line.amount)||0)*ratio;map.set(p.id,x);}));
     (state.inventoryMovements||[]).filter(mv=>mv.type==='Sales issue'&&periodOf(mv.revenueDate||mv.createdAt)===period).forEach(mv=>{const x=map.get(mv.catalogId);if(x)x.cogs+=Number(mv.costAmount)||Math.abs(Number(mv.quantity)||0)*(Number(mv.unitCost)||0);});
     return [...map.values()].map(x=>({...x,qty:round(x.qty),revenue:round(x.revenue),cogs:round(x.cogs),grossProfit:round(x.revenue-x.cogs),margin:x.revenue?round((x.revenue-x.cogs)/x.revenue*100):0})).sort((a,b)=>b.revenue-a.revenue);
   }
