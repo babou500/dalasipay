@@ -1,0 +1,6 @@
+.cashbank-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.cashbank-kpis>div{padding:15px 16px}.cashbank-kpis span{display:block;font-size:9px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}.cashbank-kpis b{display:block;margin:6px 0 3px;font-size:17px}.cashbank-kpis small{font-size:9.5px;color:var(--muted)}
+.cash-register{margin-top:14px}.cash-sub{display:block;margin-top:2px;font-size:9px;color:var(--muted)}
+.cash-in-amount{font-weight:800;color:var(--good);white-space:nowrap}.cash-out-amount{font-weight:800;color:var(--danger);white-space:nowrap}
+@media(max-width:900px){.cashbank-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.cashbank-kpis{grid-template-columns:1fr}}
