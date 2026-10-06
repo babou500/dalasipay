@@ -20,15 +20,17 @@
     return (state.businessExpenses||[]).filter(x=>x.status==='Approved').reduce((a,x)=>a+(Number(x.amount)||0),0);
   }
   function payrollLiabilities(state){
-    const approved=(state.runs||[]).filter(r=>r.status==='Approved'&&Array.isArray(r.rows));
-    let wages=0,statutory=0;
-    approved.forEach(run=>{
+    const runs=(state.runs||[]).filter(r=>['Approved','Paid','Closed'].includes(r.status)&&Array.isArray(r.rows));
+    let wages=0,statutory=0,approvedRuns=0,statutoryRuns=0;
+    runs.forEach(run=>{
+      if(run.status==='Approved')approvedRuns++;
+      if(!run.statutoryPaidAt)statutoryRuns++;
       (run.rows||[]).forEach(r=>{
-        wages+=Number(r.net)||0;
-        statutory+=(Number(r.paye)||0)+(Number(r.employeeContribution)||0)+(Number(r.employerContribution)||0)+(Number(r.iicf)||0)+(Number(r.employerBenefits)||0);
+        if(run.status==='Approved')wages+=Number(r.net)||0;
+        if(!run.statutoryPaidAt)statutory+=(Number(r.paye)||0)+(Number(r.employeeContribution)||0)+(Number(r.employerContribution)||0)+(Number(r.iicf)||0)+(Number(r.employerBenefits)||0)+(Number(r.otherDeductions)||0);
       });
     });
-    return {wages:money(wages),statutory:money(statutory),runs:approved.length};
+    return {wages:money(wages),statutory:money(statutory),runs:approvedRuns,statutoryRuns};
   }
   function currentYearProfit(state){
     const period=String(state.currentPeriod||'').match(/^\d{4}-\d{2}$/)?.[0];
@@ -89,7 +91,8 @@
       '</div>'+
       (s.usingCashbook?'<div class="bs-note"><b>Cash & Bank linked.</b> '+s.cashbookAccounts+' active account'+(s.cashbookAccounts===1?'':'s')+' now feed the Balance Sheet automatically. Manual cash fields are ignored while accounts exist.</div>':'<div class="bs-note">No Cash & Bank accounts exist yet, so the manual cash and petty-cash setup balances are still being used.</div>')+
       (!s.balanced?'<div class="bs-note bs-warning-note"><b>Balance Sheet is not balanced yet.</b> Enter or correct fixed assets, loans, capital and opening retained earnings from the company records. DalasiPay will not invent a balancing figure.</div>':'<div class="bs-note"><b>Balanced.</b> Assets equal liabilities plus equity based on the balances currently recorded.</div>')+
-      (s.payroll.runs?'<div class="bs-note">Payroll liabilities include '+s.payroll.runs+' approved payroll run'+(s.payroll.runs===1?'':'s')+' not yet marked paid. Once payroll is marked paid, those wage liabilities leave this automatic balance.</div>':'')+
+      (s.payroll.runs?'<div class="bs-note">Net payroll payable includes '+s.payroll.runs+' approved payroll run'+(s.payroll.runs===1?'':'s')+' not yet marked paid. Net wages clear when payroll is paid.</div>':'')+
+      (s.payroll.statutoryRuns?'<div class="bs-note">PAYE, social contributions, IICF and other payroll deductions remain under payroll/statutory payable until a remittance-clearing workflow records them as settled.</div>':'')+
     '</section>';
   }
   function modal(state,h){
