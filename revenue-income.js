@@ -78,6 +78,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to record income.');return;}
     const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),customer=(state.customers||[]).find(x=>x.id===customerId),payer=String(fd.get('payer')||'').trim()||customer?.name||'',amount=Number(fd.get('amount')||0),revenueDate=String(fd.get('revenueDate')||'');
     if(!payer||amount<=0||!revenueDate){ctx.toast('Payer/source, amount and revenue date are required.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,revenueDate)){ctx.toast('That accounting period is closed. Reopen it before recording this income.');return;}
     state.revenueEntries=state.revenueEntries||[];const id='REV-'+Date.now().toString(36).toUpperCase(),revenueNo=nextNumber(state);
     const accountId=String(fd.get('accountId')||'')||null,reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim();
     state.revenueEntries.unshift({id,revenueNo,customerId:customerId||null,payer,revenueDate,category:String(fd.get('category')||'Other business income'),amount,method:String(fd.get('method')||'Other'),accountId,reference,description,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
