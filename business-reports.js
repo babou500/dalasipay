@@ -55,7 +55,8 @@
       ['recurring-commitments','Recurring commitments','Standing obligations and their monthly equivalent','calendar'],
       ['expense-register','Expense register','Business costs, categories, receipts and approval status','file'],
       ['purchase-orders','Purchase orders','Purchase requests, supplier commitments and receiving status','building'],
-      ['inventory-summary','Inventory summary','Product stock on hand, cost value and reorder levels','building'],
+      ['inventory-summary','Inventory valuation','Weighted-average / FIFO stock value, ageing and reorder levels','building'],
+      ['product-margin','Product gross margin','Product revenue, COGS, gross profit and margin by reporting period','chart'],
       ['inventory-movements','Inventory movements','Opening balances, receipts, corrections and sales issues','file'],
       ['cash-flow','Cash flow forecast','Expected inflows and planned outflows for the next 90 days','reports']
     ];
@@ -119,9 +120,11 @@
     }else if(kind==='purchase-orders'){
       csv=rowsToCsv(['PO Number','Supplier','Supplier ID','Category','Description','Request Date','Required Date','Project','Cost Centre','Lines','Subtotal','Discount','Amount','Requested By','Reference','Status','Inventory Received'],(state.purchaseOrders||[]).map(x=>[x.poNumber||x.id,x.supplierName||'',x.supplierId||'',x.category,x.description,x.requestDate,x.requiredDate,x.project||'',x.costCentre||'',(x.lineItems||[]).length,x.subtotal??x.amount,x.discountTotal||0,x.amount,x.requestedBy,x.reference,x.status,x.inventoryReceivedAt||'']));
     }else if(kind==='inventory-summary'){
-      csv=rowsToCsv(['Code','Item','Type','Unit','Selling Price','Cost Price','Stock On Hand','Reorder Level','Stock Value','Status'],(state.salesCatalog||[]).map(x=>[x.code||x.id,x.name,x.type||'Product',x.unit||'Unit',x.unitPrice||0,x.costPrice||0,x.type==='Product'?(Number(x.stockOnHand)||0):'',x.type==='Product'?(Number(x.reorderLevel)||0):'',x.type==='Product'?((Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)):'',x.status||'Active']));
+      csv=rowsToCsv(['Code','Item','Type','Unit','Selling Price','Costing Method','Valuation Unit Cost','Stock On Hand','Reorder Level','Stock Value','Status'],(state.salesCatalog||[]).map(x=>{const v=window.DalasiInventory?.valuation?.(state,x)||{unitCost:x.costPrice||0,value:(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)};return [x.code||x.id,x.name,x.type||'Product',x.unit||'Unit',x.unitPrice||0,x.type==='Product'?(window.DalasiInventory?.method?.(x)||'Weighted Average'):'',x.type==='Product'?v.unitCost:'',x.type==='Product'?(Number(x.stockOnHand)||0):'',x.type==='Product'?(Number(x.reorderLevel)||0):'',x.type==='Product'?v.value:'',x.status||'Active'];}));
+    }else if(kind==='product-margin'){
+      const period=state.inventoryPeriod||state.currentPeriod,rows=window.DalasiInventory?.productMargins?.(state,period)||[];csv=rowsToCsv(['Period','Code','Product','Quantity Sold','Net Revenue','COGS','Gross Profit','Margin %'],rows.map(x=>[period,x.code||x.id,x.name,x.qty,x.revenue,x.cogs,x.grossProfit,x.margin]));
     }else if(kind==='inventory-movements'){
-      csv=rowsToCsv(['Movement ID','Date','Sales Period Date','Item Code','Item','Type','Quantity','Unit Cost','Cost Amount','Balance Before','Balance After','Reference','Note','Created By'],(state.inventoryMovements||[]).map(mv=>{const item=(state.salesCatalog||[]).find(x=>x.id===mv.catalogId);return [mv.id,mv.createdAt,mv.revenueDate||'',item?.code||'',item?.name||mv.catalogId,mv.type,mv.quantity,mv.unitCost??'',mv.costAmount??'',mv.balanceBefore??'',mv.balanceAfter??'',mv.reference||'',mv.note||'',mv.createdBy||''];}));
+      csv=rowsToCsv(['Movement ID','Date','Sales Period Date','Item Code','Item','Type','Quantity','Unit Cost','Cost Amount','Balance Before','Balance After','Reference','Note','Created By'],(state.inventoryMovements||[]).map(mv=>{const item=(state.salesCatalog||[]).find(x=>x.id===mv.catalogId);return [mv.id,mv.movementDate||mv.createdAt,mv.revenueDate||'',item?.code||'',item?.name||mv.catalogId,mv.type,mv.quantity,mv.unitCost??'',mv.costAmount??'',mv.balanceBefore??'',mv.balanceAfter??'',mv.reference||'',mv.note||'',mv.createdBy||''];}));
     }else if(kind==='cash-flow'){
       const items=window.DalasiBusinessPayments.cashFlowSummary(state,{payrollCalc:ctx.payrollCalc,periodLabel:ctx.periodLabel},90).items;
       csv=rowsToCsv(['Date','Direction','Source','Description','Detail','Amount','Status'],items.map(x=>[x.date,x.direction==='in'?'Inflow':'Outflow',x.source,x.label,x.detail,x.amount,x.status]));
