@@ -41,6 +41,8 @@
       ['fixed-assets','Fixed asset register','Asset cost, accumulated depreciation, net book value and disposal status','building'],
       ['vat-return','VAT return working paper','Output VAT, recoverable input VAT, filing due date and net GRA position','shield'],
       ['budget-vs-actual','Budget vs Actual','Annual and YTD targets compared with live P&L performance','chart'],
+      ['project-profitability','Project profitability','Revenue, COGS, operating costs, payroll and profit by project','building'],
+      ['cost-centre-performance','Cost centre performance','Operating activity and payroll employer cost by cost centre','reports'],
       ['month-end-close','Month-End Close','Review accounting controls, lock completed periods and preserve close snapshots','shield'],
       ['year-end-close','Year-End Close','Manually close the financial year after all 12 monthly periods are closed','shield'],
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
@@ -91,15 +93,17 @@
     }else if(kind==='fixed-assets'){window.DalasiFixedAssets?.exportCsv(state,ctx);return;
     }else if(kind==='vat-return'){window.DalasiTax?.exportReturn(state,state.taxPeriod||state.currentPeriod,ctx);return;
     }else if(kind==='budget-vs-actual'){window.DalasiBudgets?.exportCsv(state,String(state.budgetYear||state.currentPeriod||'').slice(0,4),ctx);return;
+    }else if(kind==='project-profitability'){window.DalasiDimensions?.exportCsv(state,'project',state.dimensionPeriod||state.currentPeriod,ctx);return;
+    }else if(kind==='cost-centre-performance'){window.DalasiDimensions?.exportCsv(state,'costCentre',state.dimensionPeriod||state.currentPeriod,ctx);return;
     }else if(kind==='month-end-close'){const p=state.monthClosePeriod||state.currentPeriod;if(window.DalasiMonthClose?.record(state,p))window.DalasiMonthClose.exportRecord(p,state,ctx);else ctx.toast('Close the selected accounting period before exporting its close record.');return;
     }else if(kind==='year-end-close'){const y=state.yearCloseYear||String(state.currentPeriod||'').slice(0,4);if(window.DalasiYearClose?.record(state,y))window.DalasiYearClose.exportRecord(y,state,ctx);else ctx.toast('Close the selected financial year before exporting its close record.');return;
     }else if(kind==='revenue-register'){
       const rows=window.DalasiRevenueIncome?window.DalasiRevenueIncome.ledgerRows(state):[];
-      csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Net Revenue','VAT','Gross Amount','VAT Treatment','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.vat||0,x.gross??x.amount,window.DalasiTax?.code?.(x.taxCode)?.label||x.taxCode||'Out of scope',x.status]));
+      csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Project','Cost Centre','Net Revenue','VAT','Gross Amount','VAT Treatment','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.project||'',x.costCentre||'',x.amount,x.vat||0,x.gross??x.amount,window.DalasiTax?.code?.(x.taxCode)?.label||x.taxCode||'Out of scope',x.status]));
     }else if(kind==='accounts-receivable'){
-      csv=rowsToCsv(['Invoice ID','Invoice No','Customer','Issue Date','Due Date','Amount','Received','Balance','Status'],(state.customerInvoices||[]).map(inv=>[inv.id,inv.invoiceNo,inv.customerName,inv.issueDate,inv.dueDate,inv.amount,(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0),Math.max(0,(Number(inv.amount)||0)-(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0)),inv.status]));
+      csv=rowsToCsv(['Invoice ID','Invoice No','Customer','Issue Date','Due Date','Project','Cost Centre','Amount','Received','Balance','Status'],(state.customerInvoices||[]).map(inv=>[inv.id,inv.invoiceNo,inv.customerName,inv.issueDate,inv.dueDate,inv.project||'',inv.costCentre||'',inv.amount,(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0),Math.max(0,(Number(inv.amount)||0)-(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0)),inv.status]));
     }else if(kind==='accounts-payable'){
-      csv=rowsToCsv(['Bill ID','Supplier','Invoice No','Invoice Date','Due Date','Amount','Status','Linked Payment'],(state.businessBills||[]).map(b=>[b.id,b.supplier,b.invoiceNo,b.invoiceDate,b.dueDate,b.amount,b.status,b.paymentId||'']));
+      csv=rowsToCsv(['Bill ID','Supplier','Invoice No','Invoice Date','Due Date','Project','Cost Centre','Amount','Status','Linked Payment'],(state.businessBills||[]).map(b=>[b.id,b.supplier,b.invoiceNo,b.invoiceDate,b.dueDate,b.project||'',b.costCentre||'',b.amount,b.status,b.paymentId||'']));
     }else if(kind==='customer-balances'){
       csv=rowsToCsv(['Customer ID','Customer','Status','Payment Terms Days','Invoiced','Collected','Outstanding','Overdue'],customerRows(state).map(x=>[x.id,x.name,x.status,x.terms,x.invoiced,x.collected,x.outstanding,x.overdue]));
     }else if(kind==='incoming-payments'){
@@ -109,9 +113,9 @@
     }else if(kind==='recurring-commitments'){
       csv=rowsToCsv(['Recurring ID','Name','Payee','Amount','Frequency','Next Due Date','Monthly Equivalent','Method','Status'],(state.recurringBusinessPayments||[]).map(r=>[r.id,r.name,r.payee,r.amount,r.frequency,r.nextDueDate,r.frequency==='Weekly'?(Number(r.amount)||0)*52/12:r.frequency==='Quarterly'?(Number(r.amount)||0)/3:r.frequency==='Yearly'?(Number(r.amount)||0)/12:Number(r.amount)||0,r.method,r.status]));
     }else if(kind==='expense-register'){
-      csv=rowsToCsv(['Expense No','Merchant','Supplier ID','Category','Expense Date','Amount','Method','Reference','Receipt','Status','Created By'],(state.businessExpenses||[]).map(x=>[x.expenseNo||x.id,x.merchant,x.supplierId||'',x.category,x.expenseDate,x.amount,x.method,x.reference,x.receiptName||'',x.status,x.createdBy]));
+      csv=rowsToCsv(['Expense No','Merchant','Supplier ID','Category','Expense Date','Project','Cost Centre','Amount','Method','Reference','Receipt','Status','Created By'],(state.businessExpenses||[]).map(x=>[x.expenseNo||x.id,x.merchant,x.supplierId||'',x.category,x.expenseDate,x.project||'',x.costCentre||'',x.amount,x.method,x.reference,x.receiptName||'',x.status,x.createdBy]));
     }else if(kind==='purchase-orders'){
-      csv=rowsToCsv(['PO Number','Supplier','Supplier ID','Category','Description','Request Date','Required Date','Lines','Subtotal','Discount','Amount','Requested By','Reference','Status','Inventory Received'],(state.purchaseOrders||[]).map(x=>[x.poNumber||x.id,x.supplierName||'',x.supplierId||'',x.category,x.description,x.requestDate,x.requiredDate,(x.lineItems||[]).length,x.subtotal??x.amount,x.discountTotal||0,x.amount,x.requestedBy,x.reference,x.status,x.inventoryReceivedAt||'']));
+      csv=rowsToCsv(['PO Number','Supplier','Supplier ID','Category','Description','Request Date','Required Date','Project','Cost Centre','Lines','Subtotal','Discount','Amount','Requested By','Reference','Status','Inventory Received'],(state.purchaseOrders||[]).map(x=>[x.poNumber||x.id,x.supplierName||'',x.supplierId||'',x.category,x.description,x.requestDate,x.requiredDate,x.project||'',x.costCentre||'',(x.lineItems||[]).length,x.subtotal??x.amount,x.discountTotal||0,x.amount,x.requestedBy,x.reference,x.status,x.inventoryReceivedAt||'']));
     }else if(kind==='inventory-summary'){
       csv=rowsToCsv(['Code','Item','Type','Unit','Selling Price','Cost Price','Stock On Hand','Reorder Level','Stock Value','Status'],(state.salesCatalog||[]).map(x=>[x.code||x.id,x.name,x.type||'Product',x.unit||'Unit',x.unitPrice||0,x.costPrice||0,x.type==='Product'?(Number(x.stockOnHand)||0):'',x.type==='Product'?(Number(x.reorderLevel)||0):'',x.type==='Product'?((Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)):'',x.status||'Active']));
     }else if(kind==='inventory-movements'){
