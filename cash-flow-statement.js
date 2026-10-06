@@ -34,6 +34,8 @@
     if(source==='expense')return 'Operating expenses';
     if(source==='payroll')return 'Payroll';
     if(source==='vat-payment')return 'VAT / tax payments';
+    if(source==='customer-refund')return 'Customer refunds';
+    if(source==='supplier-refund')return 'Supplier refunds';
     if(source==='fixed_asset')return Number(tx.amount)>=0?'Asset disposal proceeds':'Capital expenditure';
     if(source==='loan-drawdown')return 'Loan proceeds';
     if(source==='loan-repayment')return 'Loan repayments';
@@ -65,12 +67,12 @@
     const add=x=>{if(!x.date||x.date>end)return;const key=x.key||[x.type,x.id,x.date].join('|');if(seen.has(key))return;seen.add(key);items.push(x);};
 
     (state.customerInvoices||[]).forEach(inv=>{
-      const st=invoiceStatus(state,inv),balance=Math.max(0,(Number(inv.amount)||0)-receivablePaid(state,inv.id));if(st==='Draft'||st==='Paid'||balance<=0)return;
+      const st=invoiceStatus(state,inv),balance=window.DalasiReturns?.invoiceBalance?.(state,inv)??Math.max(0,(Number(inv.amount)||0)-receivablePaid(state,inv.id));if(st==='Draft'||balance<=0)return;
       add({key:'ar:'+inv.id,date:inv.dueDate||today,direction:'in',type:'Receivable',label:inv.customerName||'Customer',detail:inv.invoiceNo||inv.id,amount:round(balance),confidence:'High'});
     });
 
     const billsWithPayment=new Set((state.businessPayments||[]).filter(p=>p.billId&&p.status!=='Paid').map(p=>p.billId));
-    (state.businessBills||[]).forEach(b=>{if((b.status||'Draft')==='Draft'||b.status==='Paid'||b.paymentId||billsWithPayment.has(b.id))return;add({key:'bill:'+b.id,date:b.dueDate||today,direction:'out',type:'Supplier bill',label:b.supplier||'Supplier',detail:b.invoiceNo||b.id,amount:round(b.amount),confidence:'High'});});
+    (state.businessBills||[]).forEach(b=>{if((b.status||'Draft')==='Draft'||b.status==='Paid'||b.paymentId||billsWithPayment.has(b.id))return;const balance=window.DalasiReturns?.billBalance?.(state,b)??round(b.amount);if(balance<=.004)return;add({key:'bill:'+b.id,date:b.dueDate||today,direction:'out',type:'Supplier bill',label:b.supplier||'Supplier',detail:b.invoiceNo||b.id,amount:balance,confidence:'High'});});
     (state.businessPayments||[]).forEach(p=>{if(p.status==='Paid')return;add({key:'payment:'+p.id,date:p.dueDate||today,direction:'out',type:'Business payment',label:p.payee||'Payee',detail:p.reference||p.description||p.id,amount:round(p.amount),confidence:p.status==='Approved'?'High':'Medium'});});
     (state.businessExpenses||[]).forEach(x=>{if(!['Approved'].includes(x.status))return;add({key:'expense:'+x.id,date:x.expenseDate||today,direction:'out',type:'Approved expense',label:x.merchant||'Expense',detail:x.expenseNo||x.id,amount:round(x.amount),confidence:'High'});});
 
@@ -90,6 +92,9 @@
       const net=round(ctx.payrollCalc()?.totals?.net||0),basePeriod=state.currentPeriod||periodOf(today);
       for(let i=0;i<4;i++){const p=periodOf(addMonths(basePeriod+'-01',i)),date=payday(p,state.opsConfig?.paydayDay||28);if(!date||date<today||date>end)continue;const existingPaid=(state.cashTransactions||[]).some(x=>x.sourceType==='payroll'&&x.sourceId===p);if(existingPaid)continue;add({key:'payroll:'+p,date,direction:'out',type:'Payroll',label:'Employee net payroll',detail:p,amount:net,confidence:i===0?'High':'Medium'});}
     }
+
+    (state.customerCreditNotes||[]).forEach(c=>{const due=window.DalasiReturns?.customerRefundDue?.(state,c)||0;if(due>0)add({key:'customer-refund:'+c.id,date:today,direction:'out',type:'Customer refund',label:c.customerName||'Customer',detail:c.creditNo||c.id,amount:round(due),confidence:'High'});});
+    (state.supplierCreditNotes||[]).forEach(c=>{const due=window.DalasiReturns?.supplierRefundDue?.(state,c)||0;if(due>0)add({key:'supplier-refund:'+c.id,date:today,direction:'in',type:'Supplier refund',label:c.supplier||'Supplier',detail:c.creditNo||c.id,amount:round(due),confidence:'High'});});
 
     (state.purchaseOrders||[]).forEach(po=>{if(!['Approved','Ordered'].includes(po.status||'Draft'))return;if(po.inventoryReceivedAt)return;const date=po.requiredDate||po.requestDate||today;if(date>end)return;add({key:'po:'+po.id,date,direction:'out',type:'Purchase commitment',label:po.supplierName||'Supplier',detail:po.poNumber||po.id,amount:round(po.amount),confidence:'Low'});});
 
