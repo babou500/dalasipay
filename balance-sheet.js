@@ -11,7 +11,7 @@
     },0);
   }
   function inventoryValue(state){
-    return (state.salesCatalog||[]).filter(x=>x.type==='Product').reduce((a,x)=>a+(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0),0);
+    return window.DalasiInventory?.summary?.(state)?.value??(state.salesCatalog||[]).filter(x=>x.type==='Product').reduce((a,x)=>a+(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0),0);
   }
   function supplierPayables(state){
     return (state.businessBills||[]).filter(x=>x.status!=='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
