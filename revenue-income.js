@@ -14,10 +14,10 @@
   }
   function metrics(state){
     const invoices=invoiceRows(state);
-    const grossInvoiceRevenue=invoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0),credits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0),invoiceRevenue=Math.max(0,grossInvoiceRevenue-credits);
+    const grossInvoiceRevenue=invoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0),credits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0),debits=(state.customerDebitNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0),invoiceRevenue=Math.max(0,grossInvoiceRevenue+debits-credits);
     const direct=(state.revenueEntries||[]).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const collections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),refunds=(state.customerRefunds||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
-    return {invoiceRevenue,grossInvoiceRevenue,credits,direct,total:invoiceRevenue+direct,cashReceived:collections+direct-refunds,refunds,invoiceCount:invoices.length,directCount:(state.revenueEntries||[]).length};
+    return {invoiceRevenue,grossInvoiceRevenue,credits,debits,direct,total:invoiceRevenue+direct,cashReceived:collections+direct-refunds,refunds,invoiceCount:invoices.length,directCount:(state.revenueEntries||[]).length};
   }
   function ledgerRows(state){
     const rows=[];
@@ -25,6 +25,7 @@
       const s=window.DalasiSalesInvoices?.status?window.DalasiSalesInvoices.status(state,inv):(inv.status||'Sent'),tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:Number(inv.amount)||0,taxGross:Number(inv.amount)||0,vatAmount:0,taxCode:'OUT'};
       rows.push({id:inv.id,date:inv.issueDate,source:'Invoice',reference:inv.invoiceNo||inv.id,party:inv.customerName||'Customer',category:'Sales revenue',description:inv.description||'Customer invoice',method:'Accounts receivable',amount:Number(tax.taxNet)||0,gross:Number(tax.taxGross)||0,vat:Number(tax.vatAmount)||0,taxCode:tax.taxCode,project:inv.project||'',costCentre:inv.costCentre||'',status:s});
     });
+    (state.customerDebitNotes||[]).filter(x=>x.status!=='Void').forEach(d=>{const inv=(state.customerInvoices||[]).find(x=>x.id===d.invoiceId);rows.push({id:d.id,date:d.date,source:'Debit note',reference:d.debitNo||d.id,party:d.customerName||inv?.customerName||'Customer',category:'Sales debit',description:d.reason||d.note||'Customer debit note',method:'Accounts receivable',amount:Math.abs(Number(d.taxNet??d.amount)||0),gross:Math.abs(Number(d.amount)||0),vat:Math.abs(Number(d.vatAmount)||0),taxCode:d.taxCode||inv?.taxCode||'OUT',project:inv?.project||'',costCentre:inv?.costCentre||'',status:d.status||'Issued'});});
     (state.customerCreditNotes||[]).filter(x=>x.status!=='Void').forEach(c=>{const inv=(state.customerInvoices||[]).find(x=>x.id===c.invoiceId);rows.push({id:c.id,date:c.date,source:'Credit note',reference:c.creditNo||c.id,party:c.customerName||inv?.customerName||'Customer',category:'Sales credit',description:c.reason||c.note||'Customer credit note',method:'Accounts receivable / refund',amount:-Math.abs(Number(c.taxNet??c.amount)||0),gross:-Math.abs(Number(c.amount)||0),vat:-Math.abs(Number(c.vatAmount)||0),taxCode:c.taxCode||inv?.taxCode||'OUT',project:inv?.project||'',costCentre:inv?.costCentre||'',status:c.status||'Issued'});});
     (state.revenueEntries||[]).forEach(x=>{const tax=window.DalasiTax?.meta?.(state,x,'sale')||{taxNet:Number(x.amount)||0,taxGross:Number(x.amount)||0,vatAmount:0,taxCode:'OUT'};rows.push({id:x.id,date:x.revenueDate,source:'Direct income',reference:x.reference||x.revenueNo||x.id,party:x.payer||'Direct income',category:x.category||'Other business income',description:x.description||'',method:x.method||'Other',amount:Number(tax.taxNet)||0,gross:Number(tax.taxGross)||0,vat:Number(tax.vatAmount)||0,taxCode:tax.taxCode,project:x.project||'',costCentre:x.costCentre||'',status:'Recorded'});});
     return rows.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.id).localeCompare(String(a.id)));
@@ -46,7 +47,7 @@
       '<td>'+pill(x.status,x.status==='Paid'||x.status==='Recorded'?'paid':x.status==='Sent'?'approved':'neutral')+'</td>'+
     '</tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No recognized revenue yet. Issued invoices will appear here automatically, and direct income can be recorded manually.</div></td></tr>';
     return '<div class="sales-summary">'+
-      '<div class="surface"><span>Net invoice revenue</span><b>'+money2(m.invoiceRevenue)+'</b><small>'+money2(m.credits||0)+' credited · '+m.invoiceCount+' invoices</small></div>'+
+      '<div class="surface"><span>Net invoice revenue</span><b>'+money2(m.invoiceRevenue)+'</b><small>'+money2(m.debits||0)+' debit · '+money2(m.credits||0)+' credit</small></div>'+
       '<div class="surface"><span>Direct income</span><b>'+money2(m.direct)+'</b><small>'+m.directCount+' non-invoice record'+(m.directCount===1?'':'s')+'</small></div>'+
       '<div class="surface"><span>Total revenue</span><b>'+money2(m.total)+'</b><small>invoice revenue + direct income</small></div>'+
       '<div class="surface"><span>Net cash from revenue</span><b>'+money2(m.cashReceived)+'</b><small>collections + direct income − customer refunds</small></div>'+
