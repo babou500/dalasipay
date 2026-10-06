@@ -44,7 +44,7 @@
   function activeAccountIds(state){return new Set((state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').map(x=>x.id));}
   function balanceAt(state,date){
     const active=activeAccountIds(state);
-    let total=(state.cashAccounts||[]).filter(x=>active.has(x.id)).reduce((a,x)=>a+(Number(x.openingBalance)||0),0);
+    let total=(state.cashAccounts||[]).filter(x=>active.has(x.id)).reduce((a,x)=>{const od=String(x.openingDate||x.createdAt||'').slice(0,10);return a+((!od||od<=date)?(Number(x.openingBalance)||0):0);},0);
     (state.cashTransactions||[]).forEach(tx=>{if(active.has(tx.accountId)&&String(tx.date||'')<=date)total+=Number(tx.amount)||0;});
     return round(total);
   }
@@ -70,7 +70,7 @@
     });
 
     const billsWithPayment=new Set((state.businessPayments||[]).filter(p=>p.billId&&p.status!=='Paid').map(p=>p.billId));
-    (state.businessBills||[]).forEach(b=>{if(b.status==='Paid'||b.paymentId||billsWithPayment.has(b.id))return;add({key:'bill:'+b.id,date:b.dueDate||today,direction:'out',type:'Supplier bill',label:b.supplier||'Supplier',detail:b.invoiceNo||b.id,amount:round(b.amount),confidence:'High'});});
+    (state.businessBills||[]).forEach(b=>{if((b.status||'Draft')==='Draft'||b.status==='Paid'||b.paymentId||billsWithPayment.has(b.id))return;add({key:'bill:'+b.id,date:b.dueDate||today,direction:'out',type:'Supplier bill',label:b.supplier||'Supplier',detail:b.invoiceNo||b.id,amount:round(b.amount),confidence:'High'});});
     (state.businessPayments||[]).forEach(p=>{if(p.status==='Paid')return;add({key:'payment:'+p.id,date:p.dueDate||today,direction:'out',type:'Business payment',label:p.payee||'Payee',detail:p.reference||p.description||p.id,amount:round(p.amount),confidence:p.status==='Approved'?'High':'Medium'});});
     (state.businessExpenses||[]).forEach(x=>{if(!['Approved'].includes(x.status))return;add({key:'expense:'+x.id,date:x.expenseDate||today,direction:'out',type:'Approved expense',label:x.merchant||'Expense',detail:x.expenseNo||x.id,amount:round(x.amount),confidence:'High'});});
 
