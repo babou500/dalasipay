@@ -17,7 +17,7 @@
   }
   function quoteStatus(q){if(!q)return 'Draft';const s=q.status||'Draft';if(['Accepted','Declined','Converted'].includes(s))return s;if(q.validUntil&&q.validUntil<todayIso()&&s!=='Draft')return 'Expired';return s;}
   function paid(state,inv){return paymentsFor(state,inv.id).reduce((a,x)=>a+(Number(x.amount)||0),0);}
-  function balance(state,inv){return Math.max(0,(Number(inv.amount)||0)-paid(state,inv));}
+  function balance(state,inv){return window.DalasiReturns?.invoiceBalance?.(state,inv)??Math.max(0,(Number(inv.amount)||0)-paid(state,inv));}
   function status(state,inv){
     const p=paid(state,inv),b=balance(state,inv);
     if(b<=0.004)return 'Paid';
@@ -28,10 +28,10 @@
   }
   function statusClass(s){return s==='Paid'?'paid':s==='Sent'?'approved':s==='Overdue'?'neutral':s==='Part paid'?'neutral':'ready';}
   function metrics(state){
-    const rows=state.customerInvoices||[],payments=state.incomingPayments||[],today=todayIso();
+    const rows=state.customerInvoices||[],payments=state.incomingPayments||[],today=todayIso(),credited=window.DalasiReturns?(state.customerCreditNotes||[]).reduce((a,x)=>a+(Number(x.amount)||0),0):0;
     let invoiced=0,collected=0,outstanding=0,overdue=0,draft=0,open=0;
     rows.forEach(inv=>{const s=status(state,inv),p=paid(state,inv),b=balance(state,inv);invoiced+=Number(inv.amount)||0;collected+=p;outstanding+=b;if(b>0&&inv.dueDate&&inv.dueDate<today)overdue+=b;if(s==='Draft')draft++;if(!['Draft','Paid'].includes(s))open++;});
-    return {count:rows.length,invoiced,collected,outstanding,overdue,draft,open,collectionRate:invoiced?Math.round(collected/invoiced*100):0,payments:payments.length};
+    const netInvoiced=Math.max(0,invoiced-credited);return {count:rows.length,invoiced,credited,netInvoiced,collected,outstanding,overdue,draft,open,collectionRate:netInvoiced?Math.round(collected/netInvoiced*100):0,payments:payments.length};
   }
   function tabs(state){
     const tab=state.salesTab||'invoices';
@@ -165,11 +165,12 @@
   function invoiceAction(state,inv,icon){
     const s=status(state,inv);
     if(s==='Draft')return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' PDF</button><button class="primary" data-action="receivable-send:'+inv.id+'">Mark sent</button>';
+    const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),creditBtn=remainingCredit>.004?'<button class="secondary" data-action="credit-invoice:'+inv.id+'">Credit</button>':'';
     if(s==='Paid'){
       const needsStock=invoiceHasStockLines(state,inv);
-      return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+(needsStock&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">'+icon('check',13)+' Fulfil / issue stock</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>');
+      return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+creditBtn+(needsStock&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">'+icon('check',13)+' Fulfil / issue stock</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>');
     }
-    return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button><button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>';
+    return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+creditBtn+'<button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>';
   }
   function invoicePanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=metrics(state),filter=state.salesFilter||'all';
@@ -188,7 +189,7 @@
       '</tr>';
     }).join(''):'<tr><td colspan="7"><div class="empty-inline">No invoices match this view.</div></td></tr>';
     return '<div class="sales-summary">'+
-      '<div class="surface"><span>Total invoiced</span><b>'+money2(m.invoiced)+'</b><small>'+m.count+' invoice'+(m.count===1?'':'s')+'</small></div>'+
+      '<div class="surface"><span>Net invoiced</span><b>'+money2(m.netInvoiced)+'</b><small>'+money2(m.credited||0)+' credited · '+m.count+' invoices</small></div>'+
       '<div class="surface"><span>Collected</span><b>'+money2(m.collected)+'</b><small>'+m.collectionRate+'% collection rate</small></div>'+
       '<div class="surface"><span>Outstanding</span><b>'+money2(m.outstanding)+'</b><small>'+m.open+' open invoice'+(m.open===1?'':'s')+'</small></div>'+
       '<div class="surface '+(m.overdue?'cash-alert':'')+'"><span>Overdue</span><b>'+money2(m.overdue)+'</b><small>past due customer balances</small></div>'+
@@ -237,7 +238,7 @@
     }else if(kind==='quotes'){
       csv=rowsToCsv(['Quotation No','Customer','Quotation Date','Valid Until','Project','Cost Centre','Lines','Subtotal','Discount','Amount','VAT Treatment','Status','Description','Reference','Invoice No'],(state.salesQuotes||[]).map(q=>[q.quoteNo||q.id,q.customerName,q.quoteDate,q.validUntil,q.project||'',q.costCentre||'',(q.lineItems||[]).length,q.subtotal??q.amount,q.discountTotal||0,q.amount,window.DalasiTax?.code?.(q.taxCode||'OUT')?.label||q.taxCode||'Out of scope',quoteStatus(q),q.description||'',q.reference||'',q.invoiceNo||'']));
     }else if(kind==='invoices'){
-      csv=rowsToCsv(['Invoice No','Customer','Issue Date','Due Date','Project','Cost Centre','Lines','Subtotal','Discount','Gross Amount','Net Amount','VAT Amount','VAT Rate','VAT Treatment','Collected','Balance','Status','Description','Reference'],(state.customerInvoices||[]).map(inv=>{const tx=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:inv.amount,vatAmount:0,vatRate:0,taxCode:'OUT'};return [inv.invoiceNo||inv.id,inv.customerName,inv.issueDate,inv.dueDate,inv.project||'',inv.costCentre||'',(inv.lineItems||[]).length,inv.subtotal??inv.amount,inv.discountTotal||0,inv.amount,tx.taxNet,tx.vatAmount,tx.vatRate,window.DalasiTax?.code?.(tx.taxCode)?.label||tx.taxCode,paid(state,inv),balance(state,inv),status(state,inv),inv.description||'',inv.reference||''];}));
+      csv=rowsToCsv(['Invoice No','Customer','Issue Date','Due Date','Project','Cost Centre','Lines','Subtotal','Discount','Gross Amount','Credit Notes','Net Gross','Net Amount','VAT Amount','VAT Rate','VAT Treatment','Collected','Balance','Status','Description','Reference'],(state.customerInvoices||[]).map(inv=>{const tx=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:inv.amount,vatAmount:0,vatRate:0,taxCode:'OUT'};const credit=window.DalasiReturns?.customerCredited?.(state,inv.id)||0;return [inv.invoiceNo||inv.id,inv.customerName,inv.issueDate,inv.dueDate,inv.project||'',inv.costCentre||'',(inv.lineItems||[]).length,inv.subtotal??inv.amount,inv.discountTotal||0,inv.amount,credit,Math.max(0,(Number(inv.amount)||0)-credit),tx.taxNet,tx.vatAmount,tx.vatRate,window.DalasiTax?.code?.(tx.taxCode)?.label||tx.taxCode,paid(state,inv),balance(state,inv),status(state,inv),inv.description||'',inv.reference||''];}));
     }else if(kind==='collections'){
       csv=rowsToCsv(['Receipt No','Customer','Invoice No','Date Received','Amount','Method','Reference','Recorded By'],(state.incomingPayments||[]).map(p=>{const inv=invoiceById(state,p.invoiceId);return [p.receiptNumber||p.id,inv?.customerName||p.customerName||'',inv?.invoiceNo||'',p.receivedDate,p.amount,p.method,p.reference||'',p.createdBy||''];}));
     }else return;
