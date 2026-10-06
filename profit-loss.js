@@ -1,6 +1,7 @@
 (function(){
   'use strict';
 
+  const round=n=>Math.round((Number(n)||0)*100)/100;
   function periodRange(period){
     const [y,m]=String(period||'').split('-').map(Number);
     if(!y||!m)return null;
