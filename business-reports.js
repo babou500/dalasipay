@@ -17,7 +17,8 @@
     const expenses=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.expenseMetrics(state):{count:0,total:0,pending:0,approved:0,paid:0,receipts:0};
     const purchases=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.purchaseMetrics(state):{count:0,open:0,openValue:0,approval:0,ordered:0,received:0};
     const inventory=window.DalasiCatalog?window.DalasiCatalog.inventoryMetrics(state):{products:0,active:0,low:0,value:0};
-    return {payments,ar,recurring,cash,payable,overduePayable,collections,outPaid,invoiced,collectionRate,expenses,purchases,inventory};
+    const revenue=window.DalasiRevenueIncome?window.DalasiRevenueIncome.metrics(state):{invoiceRevenue:invoiced,direct:0,total:invoiced,cashReceived:collections,invoiceCount:(state.customerInvoices||[]).length,directCount:0};
+    return {payments,ar,recurring,cash,payable,overduePayable,collections,outPaid,invoiced,collectionRate,expenses,purchases,inventory,revenue};
   }
   function customerRows(state){
     return (state.customers||[]).map(c=>{const a=window.DalasiBusinessPayments.customerAccount(state,c.id);return {id:c.id,name:c.name,terms:Number(c.termDays)||0,invoiced:a.invoiced,collected:a.collected,outstanding:a.outstanding,overdue:a.overdue,status:c.status||'Active'};}).sort((a,b)=>b.outstanding-a.outstanding);
@@ -29,6 +30,7 @@
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
       ['accounts-payable','Accounts payable','Supplier bills, due dates, approval state and amounts owed','file'],
       ['customer-balances','Customer balances','Outstanding and overdue balances by saved customer','employees'],
+      ['revenue-register','Revenue register','Issued invoice revenue plus direct non-invoice business income','reports'],
       ['incoming-payments','Incoming payments','Recorded customer collections and receipt references','bank'],
       ['outgoing-payments','Outgoing payments','Business payment register including approval and paid status','bank'],
       ['recurring-commitments','Recurring commitments','Standing obligations and their monthly equivalent','calendar'],
@@ -42,7 +44,7 @@
       '<div class="business-report-kpis">'+
         '<div class="surface"><span>Outstanding receivables</span><b>'+money2(m.ar.outstanding)+'</b><small>'+money2(m.ar.overdue)+' overdue</small></div>'+
         '<div class="surface"><span>Outstanding payables</span><b>'+money2(m.payable)+'</b><small>'+money2(m.overduePayable)+' overdue</small></div>'+
-        '<div class="surface"><span>Collections recorded</span><b>'+money2(m.collections)+'</b><small>'+m.collectionRate+'% of invoiced value</small></div>'+
+        '<div class="surface"><span>Total revenue</span><b>'+money2(m.revenue.total)+'</b><small>'+money2(m.revenue.cashReceived)+' cash received</small></div>'+
         '<div class="surface"><span>30-day funding need</span><b>'+(m.cash.need30?money2(m.cash.need30):money2(m.cash.surplus30))+'</b><small>'+(m.cash.need30?'funding required':'projected surplus')+'</small></div>'+
       '</div>'+
       '<div class="business-report-grid">'+reports.map(r=>'<article class="surface business-report-card"><span class="business-report-icon">'+icon(r[3],18)+'</span><div><b>'+esc(r[1])+'</b><p>'+esc(r[2])+'</p></div><button class="secondary" data-action="business-report-export:'+r[0]+'">CSV</button></article>').join('')+'</div>'+
@@ -58,7 +60,10 @@
   function exportReport(kind,state,ctx){
     const m=metrics(state,ctx),today=todayIso();let csv='',name=kind;
     if(kind==='business-summary'){
-      csv=rowsToCsv(['Metric','Value'],[['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Inventory at cost',m.inventory.value],['Low-stock products',m.inventory.low],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
+      csv=rowsToCsv(['Metric','Value'],[['Total revenue',m.revenue.total],['Invoice revenue',m.revenue.invoiceRevenue],['Direct non-invoice income',m.revenue.direct],['Cash received from revenue',m.revenue.cashReceived],['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Inventory at cost',m.inventory.value],['Low-stock products',m.inventory.low],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
+    }else if(kind==='revenue-register'){
+      const rows=window.DalasiRevenueIncome?window.DalasiRevenueIncome.ledgerRows(state):[];
+      csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Amount','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.status]));
     }else if(kind==='accounts-receivable'){
       csv=rowsToCsv(['Invoice ID','Invoice No','Customer','Issue Date','Due Date','Amount','Received','Balance','Status'],(state.customerInvoices||[]).map(inv=>[inv.id,inv.invoiceNo,inv.customerName,inv.issueDate,inv.dueDate,inv.amount,(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0),Math.max(0,(Number(inv.amount)||0)-(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0)),inv.status]));
     }else if(kind==='accounts-payable'){
