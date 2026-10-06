@@ -345,6 +345,8 @@
         field('Email','<input name="email" type="email" placeholder="accounts@example.com">')+
         field('Phone','<input name="phone" placeholder="+220 ...">')+
         field('Payment terms','<select name="termDays"><option value="0">Due on receipt</option><option value="7">Net 7 days</option><option value="14">Net 14 days</option><option value="30" selected>Net 30 days</option><option value="60">Net 60 days</option></select>')+
+        field('Credit limit (GMD)','<input name="creditLimit" type="number" min="0" step="0.01" value="0" placeholder="0 = no formal limit">')+
+        field('Credit status','<select name="creditStatus"><option>Open</option><option>Hold</option></select>')+
         field('Account / customer reference','<input name="reference" placeholder="Customer code, contract or account ref">')+
       '</div>'+
       field('Address','<input name="address" placeholder="Business or billing address">')+
@@ -359,7 +361,7 @@
     return '<div class="center-modal payment-modal customer-account-modal"><div class="modal-scrim" data-action="close-customer-account"></div><div class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">CLIENT ACCOUNT</div><h2>'+esc(cust.name)+'</h2><p>'+esc(cust.contact||cust.email||cust.phone||paymentTermsLabel(cust.termDays))+'</p></div><button type="button" class="close" data-action="close-customer-account">×</button></div>'+
       '<div class="customer-account-summary"><div><span>Invoiced</span><b>'+money2(m.invoiced)+'</b></div><div><span>Collected</span><b>'+money2(m.collected)+'</b></div><div><span>Outstanding</span><b>'+money2(m.outstanding)+'</b></div><div><span>Overdue</span><b>'+money2(m.overdue)+'</b></div></div>'+
-      '<div class="customer-account-details"><div><span>Payment terms</span><b>'+esc(paymentTermsLabel(cust.termDays))+'</b></div><div><span>Email</span><b>'+esc(cust.email||'—')+'</b></div><div><span>Phone</span><b>'+esc(cust.phone||'—')+'</b></div><div><span>Reference</span><b>'+esc(cust.reference||'—')+'</b></div></div>'+
+      '<div class="customer-account-details"><div><span>Payment terms</span><b>'+esc(paymentTermsLabel(cust.termDays))+'</b></div><div><span>Credit limit</span><b>'+money2(cust.creditLimit||0)+'</b></div><div><span>Credit status</span><b>'+esc(cust.creditStatus||'Open')+'</b></div><div><span>Email</span><b>'+esc(cust.email||'—')+'</b></div><div><span>Phone</span><b>'+esc(cust.phone||'—')+'</b></div><div><span>Reference</span><b>'+esc(cust.reference||'—')+'</b></div></div>'+
       '<div class="table-scroll customer-history"><table><thead><tr><th>INVOICE</th><th>ISSUED</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-customer-account">Close</button><button class="primary" data-action="invoice-customer:'+cust.id+'">'+icon('plus',14)+' New invoice</button></div>'+
     '</div></div>';
@@ -385,7 +387,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add customers.');return;}
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter the customer name.');return;}
     const id='CUS-'+Date.now().toString(36).toUpperCase();state.customers=state.customers||[];
-    state.customers.push({id,name,contact:String(fd.get('contact')||'').trim(),email:String(fd.get('email')||'').trim(),phone:String(fd.get('phone')||'').trim(),termDays:Number(fd.get('termDays')||0),reference:String(fd.get('reference')||'').trim(),address:String(fd.get('address')||'').trim(),notes:String(fd.get('notes')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.customers.push({id,name,contact:String(fd.get('contact')||'').trim(),email:String(fd.get('email')||'').trim(),phone:String(fd.get('phone')||'').trim(),termDays:Number(fd.get('termDays')||0),creditLimit:Math.max(0,Number(fd.get('creditLimit'))||0),creditStatus:String(fd.get('creditStatus'))==='Hold'?'Hold':'Open',creditNote:'',reference:String(fd.get('reference')||'').trim(),address:String(fd.get('address')||'').trim(),notes:String(fd.get('notes')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.customerOpen=false;ctx.audit('customer.created',{customerId:id,name,termDays:Number(fd.get('termDays')||0)});ctx.save();ctx.toast(name+' added as a customer');ctx.render();
   }
   function updateCustomer(id,status,state,ctx){
@@ -417,6 +419,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
     const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
     if(!customerName||totals.total<=0||!issueDate||!dueDate||!lines.length){ctx.toast('Customer, at least one priced line item, issue date and due date are required.');return;}
+    if(saved?.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before creating a new invoice.');return;}
     if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
