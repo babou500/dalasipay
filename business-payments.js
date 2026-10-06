@@ -402,6 +402,7 @@
         field('Amount received (GMD)','<input name="amount" type="number" min="0.01" max="'+balance+'" step="0.01" value="'+balance.toFixed(2)+'" required>')+
         field('Date received','<input name="receivedDate" type="date" value="'+todayIso()+'" required>')+
         field('Payment method','<select name="method"><option>Bank transfer</option><option>Mobile money</option><option>Cash</option><option>Cheque</option><option>Other</option></select>')+
+        field('Deposit to account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Payment reference','<input name="reference" placeholder="Bank, transfer or receipt reference">')+
       '</div>'+
       field('Note','<input name="note" placeholder="Optional collection note">')+
@@ -431,7 +432,9 @@
     const amount=Number(fd.get('amount')||0),balance=receivableBalance(state,inv);if(amount<=0||amount>balance+0.004){ctx.toast('Enter an amount no greater than the outstanding balance.');return;}
     const id='IN-'+Date.now().toString(36).toUpperCase(),receiptNumber=nextReceivableNumber('CR',state);
     state.incomingPayments=state.incomingPayments||[];
-    state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate:String(fd.get('receivedDate')||todayIso()),method:String(fd.get('method')||'Bank transfer'),reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const receivedDate=String(fd.get('receivedDate')||todayIso()),accountId=String(fd.get('accountId')||'')||null;
+    state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate,method:String(fd.get('method')||'Bank transfer'),accountId,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    if(accountId)window.DalasiCashBank?.post(state,{accountId,date:receivedDate,direction:'in',amount,type:'Customer collection',counterparty:inv.customerName,reference:String(fd.get('reference')||receiptNumber).trim(),description:'Collection for '+(inv.invoiceNo||invoiceId),sourceType:'customer-collection',sourceId:id,sourceKey:'customer-collection:'+id+':in',createdBy:state.session?.name||'User'});
     const remaining=Math.max(0,balance-amount);inv.status=remaining<=0.004?'Paid':'Part paid';inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(inv.status==='Paid')inv.paidAt=inv.updatedAt;
     state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;ctx.audit('receivable.payment_recorded',{invoiceId,invoiceNo:inv.invoiceNo,incomingPaymentId:id,receiptNumber,amount,balanceRemaining:remaining});ctx.save();ctx.toast('Payment recorded · Receipt '+receiptNumber+' created');ctx.render();
   }
@@ -726,6 +729,7 @@
         field('Payment type','<select name="type">'+typeOptions+'</select>')+
         field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" value="'+esc(bill?.amount||'')+'" placeholder="0.00" required>')+
         field('Payment method','<select name="method">'+methodOptions+'</select>')+
+        field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Due date','<input name="dueDate" type="date" value="'+esc(bill?.dueDate||'')+'">')+
         field('Reference / invoice no.','<input name="reference" value="'+esc(bill?.invoiceNo||'')+'" placeholder="Invoice, bill or internal reference">')+
       '</div>'+
@@ -850,7 +854,7 @@
     if(!payee||amount<=0){ctx.toast('Enter a payee and a valid payment amount.');return;}
     const id='BP-'+Date.now().toString(36).toUpperCase();
     state.businessPayments=state.businessPayments||[];
-    state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),accountId:String(fd.get('accountId')||'')||null,dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     if(billId){const bill=billById(state,billId);if(bill){bill.paymentId=id;bill.updatedAt=new Date().toISOString();}}
     state.paymentOpen=false;state.paymentBeneficiaryId=null;state.paymentBillId=null;
     ctx.audit('payment.created',{paymentId:id,beneficiaryId:beneficiaryId||null,payee,amount});ctx.save();ctx.toast('Business payment saved as draft');ctx.render();
@@ -868,7 +872,7 @@
   function update(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
-    p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
+    p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=p.paidAt||new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.accountId)window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:state.session?.name||'User'});if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
     ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null});ctx.save();ctx.toast(status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):(p.payee+': '+status));ctx.render();
   }
   function updateBeneficiary(id,status,state,ctx){
