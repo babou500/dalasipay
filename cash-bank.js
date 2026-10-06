@@ -29,7 +29,7 @@
     if(sourceKey){const existing=state.cashTransactions.find(x=>x.sourceKey===sourceKey);if(existing)return existing;}
     const raw=Math.abs(Number(input.amount)||0);if(raw<=0)return null;
     const direction=input.direction==='out'?'out':'in',signed=direction==='out'?-raw:raw;
-    const tx={id:'CBT-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase(),accountId,date:String(input.date||todayIso()),direction,amount:Math.round(signed*100)/100,type:String(input.type||'Manual'),counterparty:String(input.counterparty||''),reference:String(input.reference||''),description:String(input.description||''),sourceType:String(input.sourceType||''),sourceId:String(input.sourceId||''),sourceKey,createdAt:new Date().toISOString(),createdBy:String(input.createdBy||'User')};
+    const tx={id:'CBT-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase(),accountId,date:String(input.date||todayIso()),direction,amount:Math.round(signed*100)/100,type:String(input.type||'Manual'),counterparty:String(input.counterparty||''),reference:String(input.reference||''),description:String(input.description||''),cashFlowClass:String(input.cashFlowClass||''),cashFlowDetail:String(input.cashFlowDetail||''),sourceType:String(input.sourceType||''),sourceId:String(input.sourceId||''),sourceKey,createdAt:new Date().toISOString(),createdBy:String(input.createdBy||'User')};
     state.cashTransactions.unshift(tx);return tx;
   }
   function reverseSource(state,sourceKey,createdBy='User'){
@@ -72,6 +72,8 @@
       field('Date','<input name="date" type="date" value="'+todayIso()+'" required>')+
       field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" required>')+
       field('Counterparty / source','<input name="counterparty" placeholder="Who paid or received?">')+
+      field('Cash-flow class','<select name="cashFlowClass"><option>Operating</option><option>Investing</option><option>Financing</option></select>')+
+      field('Cash-flow detail','<input name="cashFlowDetail" placeholder="e.g. Owner capital, equipment, tax">')+
       field('Reference','<input name="reference" placeholder="Bank, receipt or internal reference">')+
       '</div>'+field('Description','<input name="description" placeholder="Reason for the movement">')+'<div class="modal-actions"><button type="button" class="secondary" data-action="close-cash-transaction">Cancel</button><button class="primary" type="submit">'+icon('save',14)+' Record transaction</button></div></form></div>';
   }
@@ -94,7 +96,7 @@
   }
   function createTransaction(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to record cash transactions.');return;}
-    const fd=new FormData(ev.target),date=String(fd.get('date')||todayIso());if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this cash transaction.');return;}const tx=post(state,{accountId:String(fd.get('accountId')||''),direction:String(fd.get('direction')||'in'),date,amount:Number(fd.get('amount')||0),type:'Manual cashbook',counterparty:String(fd.get('counterparty')||'').trim(),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),createdBy:state.session?.name||'User'});
+    const fd=new FormData(ev.target),date=String(fd.get('date')||todayIso());if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this cash transaction.');return;}const tx=post(state,{accountId:String(fd.get('accountId')||''),direction:String(fd.get('direction')||'in'),date,amount:Number(fd.get('amount')||0),type:'Manual cashbook',counterparty:String(fd.get('counterparty')||'').trim(),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),cashFlowClass:String(fd.get('cashFlowClass')||'Operating'),cashFlowDetail:String(fd.get('cashFlowDetail')||'').trim(),createdBy:state.session?.name||'User'});
     if(!tx){ctx.toast('Choose an account and enter a valid amount.');return;}state.cashTransactionOpen=false;ctx.audit('cash.transaction_recorded',{transactionId:tx.id,accountId:tx.accountId,amount:tx.amount});ctx.save();ctx.toast('Cash transaction recorded');ctx.render();
   }
   function createTransfer(ev,state,ctx){
@@ -109,7 +111,7 @@
   }
   function exportCsv(state,ctx){
     const rows=(state.cashTransactions||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-    const csv=[['Date','Account','Type','Counterparty','Reference','Description','Money In','Money Out','Source','Reconciliation ID','Statement Date'],...rows.map(x=>{const a=accountById(state,x.accountId);return [x.date,a?.name||'',x.type,x.counterparty,x.reference,x.description,Number(x.amount)>=0?Math.abs(Number(x.amount)):0,Number(x.amount)<0?Math.abs(Number(x.amount)):0,x.sourceType||'Manual',x.reconciliationId||'',x.statementDate||'']})].map(r=>r.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n');
+    const csv=[['Date','Account','Type','Counterparty','Reference','Description','Cash Flow Class','Cash Flow Detail','Money In','Money Out','Source','Reconciliation ID','Statement Date'],...rows.map(x=>{const a=accountById(state,x.accountId);return [x.date,a?.name||'',x.type,x.counterparty,x.reference,x.description,window.DalasiCashFlow?.classify?.(state,x)||x.cashFlowClass||'Operating',window.DalasiCashFlow?.detailClass?.(state,x)||x.cashFlowDetail||'',Number(x.amount)>=0?Math.abs(Number(x.amount)):0,Number(x.amount)<0?Math.abs(Number(x.amount)):0,x.sourceType||'Manual',x.reconciliationId||'',x.statementDate||'']})].map(r=>r.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n');
     ctx.downloadText('dalasipay-cash-bank-'+todayIso()+'.csv',csv);ctx.toast('Cash & Bank register downloaded');
   }
   window.DalasiCashBank={TYPES,accounts,accountById,balance,totals,accountSelect,post,reverseSource,render,accountModal,transactionModal,transferModal,createAccount,createTransaction,createTransfer,exportCsv};
