@@ -44,7 +44,7 @@
   }
   function expenseBreakdown(state,start,end){
     const map=new Map(),rows=(state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)&&inRange(x.expenseDate||x.createdAt,start,end));
-    rows.forEach(x=>{const k=x.category||'Other expense';map.set(k,(map.get(k)||0)+(Number(x.amount)||0));});
+    rows.forEach(x=>{const k=x.category||'Other expense',tax=window.DalasiTax?.meta?.(state,x,'purchase')||{taxNet:Number(x.amount)||0,vatRecoverable:false};const amount=tax.vatRecoverable?tax.taxNet:(Number(x.amount)||0);map.set(k,(map.get(k)||0)+amount);});
     const items=[...map.entries()].map(([category,amount])=>({category,amount:Math.round(amount*100)/100})).sort((a,b)=>b.amount-a.amount);
     return {total:Math.round(items.reduce((a,x)=>a+x.amount,0)*100)/100,items,count:rows.length};
   }
@@ -73,7 +73,7 @@
   function statement(state,period){
     const r=periodRange(period);if(!r)return null;
     const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
-    const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
     const manual=manualAdjustments(state,r.start,r.end),assets=fixedAssetActivity(state,r.start,r.end);
