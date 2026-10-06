@@ -37,18 +37,28 @@
     const y=window.DalasiProfitLoss?.ytd?.(state,period);
     return money(y?.netProfit||0);
   }
+  function manualBalanceAdjustments(state){
+    let assets=0,liabilities=0,equity=0;
+    (state.manualJournals||[]).filter(j=>j.status==='Posted').forEach(j=>(j.lines||[]).forEach(x=>{
+      const debit=Number(x.debit)||0,credit=Number(x.credit)||0;
+      if(x.accountType==='Asset')assets+=debit-credit;
+      else if(x.accountType==='Liability')liabilities+=credit-debit;
+      else if(x.accountType==='Equity')equity+=credit-debit;
+    }));
+    return {assets:money(assets),liabilities:money(liabilities),equity:money(equity)};
+  }
   function statement(state){
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0,updatedAt:'',note:''},state.balanceSheetSetup||{});
     const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),profit=currentYearProfit(state);
     const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0;
-    const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash));
+    const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash)),manual=manualBalanceAdjustments(state);
     const currentAssets=money(cashBank+pettyCash+ar+inventory+Number(setup.otherCurrentAssets));
-    const totalAssets=money(currentAssets+Number(setup.fixedAssetsNet));
+    const totalAssets=money(currentAssets+Number(setup.fixedAssetsNet)+manual.assets);
     const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+Number(setup.otherLiabilities));
-    const totalLiabilities=money(currentLiabilities+Number(setup.loansBorrowings));
-    const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit);
+    const totalLiabilities=money(currentLiabilities+Number(setup.loansBorrowings)+manual.liabilities);
+    const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit+manual.equity);
     const liabilitiesEquity=money(totalLiabilities+equity);
-    return {setup,ar,inventory,ap,accrued,payroll,profit,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
+    return {setup,ar,inventory,ap,accrued,payroll,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
   }
   function row(label,value,money2,total=false,sub=false){
     return '<tr class="'+(total?'bs-total ':'')+(sub?'bs-sub':'')+'"><td>'+label+'</td><td>'+money2(value)+'</td></tr>';
@@ -72,6 +82,7 @@
           row('Other current assets',setup.otherCurrentAssets,money2)+
           row('Total current assets',s.currentAssets,money2,true)+
           row('Property / equipment, net',setup.fixedAssetsNet,money2)+
+          (s.manual.assets?row('Manual journal asset adjustments',s.manual.assets,money2):'')+
           row('TOTAL ASSETS',s.totalAssets,money2,true)+
         '</tbody></table></div>'+
         '<div><h4>LIABILITIES & EQUITY</h4><table><tbody>'+
@@ -81,10 +92,12 @@
           row('Payroll/statutory payable',s.payroll.statutory,money2)+
           row('Other current liabilities',setup.otherLiabilities,money2)+
           row('Loans / borrowings',setup.loansBorrowings,money2)+
+          (s.manual.liabilities?row('Manual journal liability adjustments',s.manual.liabilities,money2):'')+
           row('Total liabilities',s.totalLiabilities,money2,true)+
           row('Owner / share capital',setup.ownerCapital,money2)+
           row('Opening retained earnings',setup.openingRetainedEarnings,money2)+
           row('Current-year profit',s.profit,money2)+
+          (s.manual.equity?row('Manual journal equity adjustments',s.manual.equity,money2):'')+
           row('TOTAL EQUITY',s.equity,money2,true)+
           row('LIABILITIES + EQUITY',s.liabilitiesEquity,money2,true)+
         '</tbody></table></div>'+
