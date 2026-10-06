@@ -314,24 +314,24 @@
     const issue=todayIso(),due=selected?customerDueDate(issue,selected.termDays):'';
     const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'" '+(selected&&selected.id===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(paymentTermsLabel(c.termDays))+'</option>')).join('');
     const selectedInfo=selected?'<div class="selected-customer"><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div>':'';
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create receivable</h2><p>Record money the business expects to receive.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box sales-document-modal">'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create invoice</h2><p>Build an itemized customer invoice and track the amount due.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
       field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
       '<div class="form-grid">'+
         field('Customer / client name','<input name="customerName" value="'+esc(selected?.name||'')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
         field('Invoice number','<input name="invoiceNo" placeholder="Leave blank for automatic number">')+
         field('Customer email','<input name="customerEmail" type="email" value="'+esc(selected?.email||'')+'" placeholder="accounts@example.com">')+
         field('Customer phone','<input name="customerPhone" value="'+esc(selected?.phone||'')+'" placeholder="+220 ...">')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
         field('Issue date','<input name="issueDate" type="date" value="'+issue+'" required>')+
         field('Due date','<input name="dueDate" type="date" value="'+due+'" required>')+
         field('Customer reference','<input name="reference" value="'+esc(selected?.reference||'')+'" placeholder="PO, contract or customer reference">')+
       '</div>'+
-      field('Description / service','<input name="description" placeholder="What is the customer being invoiced for?" required>')+
+      '<div class="sales-line-note">Choose saved Products & Services or enter custom lines. The invoice total is calculated automatically.</div>'+
+      window.DalasiCatalog.lineItemsForm(state,[])+
+      field('Overall description / note','<input name="description" placeholder="Optional invoice summary">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div>'+
     '</form></div>';
   }
-
   function customerModal(state,h){
     const field=h.field,icon=h.icon;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-customer"></div><form id="customer-form" class="modal-box">'+
@@ -411,13 +411,13 @@
   function createReceivable(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
-    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',amount=Number(fd.get('amount')||0),issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||'');
-    if(!customerName||amount<=0||!issueDate||!dueDate){ctx.toast('Customer, amount, issue date and due date are required.');return;}
+    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
+    if(!customerName||totals.total<=0||!issueDate||!dueDate||!lines.length){ctx.toast('Customer, at least one priced line item, issue date and due date are required.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase();state.customerInvoices=state.customerInvoices||[];
-    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),amount,issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.receivableOpen=false;state.receivableCustomerId=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.receivableOpen=false;state.receivableCustomerId=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
