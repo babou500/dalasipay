@@ -1,0 +1,12 @@
+.cashbank-tabs{display:inline-flex;max-width:100%;gap:4px;padding:4px;margin:0 0 14px;border:1px solid var(--border);border-radius:11px;background:var(--panel-2);overflow-x:auto;scrollbar-width:thin}
+.cashbank-tabs button{border:0;background:transparent;border-radius:8px;padding:8px 12px;font-size:10.5px;font-weight:800;color:var(--muted);white-space:nowrap}
+.cashbank-tabs button.active{background:var(--panel);color:var(--primary);box-shadow:0 1px 5px rgba(0,0,0,.05)}
+.bank-recon-card{padding:16px}.recon-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 12px}
+.recon-kpis>div{border:1px solid var(--border);border-radius:10px;background:var(--panel-2);padding:12px 13px}
+.recon-kpis span{display:block;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:800}
+.recon-kpis b{display:block;margin:5px 0 2px;font-size:16px}.recon-kpis small{font-size:9px;color:var(--muted)}
+.recon-warning{background:var(--warn-bg)!important}.recon-summary-line{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);font-size:9.5px;color:var(--muted)}
+.recon-summary-line b{color:var(--text)}.recon-cleared-row{background:var(--soft-2)}.recon-note{margin-top:10px;padding:9px 11px;border-radius:8px;background:var(--panel-2);font-size:9.5px;line-height:1.45;color:var(--muted)}
+.recon-note b{color:var(--text)}.recon-warning-note{background:var(--warn-bg);color:var(--warn)}
+@media(max-width:900px){.recon-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.recon-kpis{grid-template-columns:1fr}.bank-recon-card{padding:12px}.cashbank-tabs{width:100%}.cashbank-tabs button{flex:0 0 auto}}
