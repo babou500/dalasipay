@@ -12,6 +12,13 @@
   }
   function money(n){return (Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function lineAmount(line){const q=Math.max(0,Number(line.quantity)||0),p=Math.max(0,Number(line.unitPrice)||0),d=Math.min(100,Math.max(0,Number(line.discount)||0));return Math.round((q*p*(1-d/100)+Number.EPSILON)*100)/100;}
+  function stockOnHand(item){return item?.type==='Product'?Math.max(0,Number(item.stockOnHand)||0):null;}
+  function inventoryMetrics(state){
+    const products=(state.salesCatalog||[]).filter(x=>x.type==='Product'),active=products.filter(x=>(x.status||'Active')==='Active');
+    const low=active.filter(x=>Number(x.stockOnHand||0)<=Number(x.reorderLevel||0));
+    const value=active.reduce((a,x)=>a+(Number(x.stockOnHand||0)*Number(x.costPrice||0)),0);
+    return {products:products.length,active:active.length,low:low.length,value};
+  }
   function lineTotals(lines){
     const clean=(lines||[]).map(x=>({...x,quantity:Number(x.quantity)||0,unitPrice:Number(x.unitPrice)||0,discount:Number(x.discount)||0}));
     const subtotal=clean.reduce((a,x)=>a+(x.quantity*x.unitPrice),0);
@@ -84,26 +91,28 @@
     update();
   }
   function catalogPanel(state,h){
-    const icon=h.icon,money2=h.money2,pill=h.pill,rows=(state.salesCatalog||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+    const icon=h.icon,money2=h.money2,pill=h.pill,rows=(state.salesCatalog||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))),inv=inventoryMetrics(state);
     const active=rows.filter(x=>(x.status||'Active')==='Active').length,products=rows.filter(x=>x.type==='Product').length,services=rows.filter(x=>x.type==='Service').length;
-    const table=rows.length?rows.map(x=>'<tr>'+
+    const table=rows.length?rows.map(x=>{
+      const isProduct=x.type==='Product',stock=isProduct?stockOnHand(x):null,reorder=Number(x.reorderLevel)||0,low=isProduct&&stock<=reorder;
+      return '<tr>'+
       '<td><div class="payment-payee"><b>'+esc(x.name)+'</b><small>'+esc(x.code||x.id)+'</small></div></td>'+
       '<td>'+esc(x.type||'Product')+'</td>'+
       '<td>'+esc(x.unit||'Unit')+'</td>'+
       '<td class="payment-amount">'+money2(x.unitPrice)+'</td>'+
-      '<td>'+esc(x.description||'—')+'</td>'+
+      '<td>'+(isProduct?'<div class="receivable-balance"><b>'+stock.toLocaleString('en-GB')+' '+esc(x.unit||'Unit')+'</b><small>'+(low?'Low stock · reorder '+reorder:'Cost '+money2(x.costPrice||0))+'</small></div>':'<span class="bill-no-file">Non-stock service</span>')+'</td>'+
       '<td>'+pill(x.status||'Active',(x.status||'Active')==='Active'?'ready':'neutral')+'</td>'+
-      '<td><button class="secondary" data-action="catalog-status:'+x.id+':'+((x.status||'Active')==='Active'?'Inactive':'Active')+'">'+((x.status||'Active')==='Active'?'Deactivate':'Activate')+'</button></td>'+
-    '</tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No products or services yet. Add frequently sold items so quotations and invoices can reuse them.</div></td></tr>';
+      '<td><div class="payment-status-actions">'+(isProduct?'<button class="secondary" data-action="stock-adjust:'+x.id+'">Adjust stock</button>':'')+'<button class="secondary" data-action="catalog-status:'+x.id+':'+((x.status||'Active')==='Active'?'Inactive':'Active')+'">'+((x.status||'Active')==='Active'?'Deactivate':'Activate')+'</button></div></td>'+
+    '</tr>';}).join(''):'<tr><td colspan="7"><div class="empty-inline">No products or services yet. Add frequently sold items so quotations and invoices can reuse them.</div></td></tr>';
     return '<div class="sales-summary">'+
       '<div class="surface"><span>Active items</span><b>'+active+'</b><small>'+rows.length+' total catalog items</small></div>'+
-      '<div class="surface"><span>Products</span><b>'+products+'</b><small>physical or countable items</small></div>'+
-      '<div class="surface"><span>Services</span><b>'+services+'</b><small>fees, labour and service items</small></div>'+
-      '<div class="surface"><span>Quick reuse</span><b>'+active+'</b><small>available in quote and invoice lines</small></div>'+
+      '<div class="surface"><span>Stock value</span><b>'+money2(inv.value)+'</b><small>at recorded cost price</small></div>'+
+      '<div class="surface '+(inv.low?'cash-alert':'')+'"><span>Low stock</span><b>'+inv.low+'</b><small>products at or below reorder level</small></div>'+
+      '<div class="surface"><span>Services</span><b>'+services+'</b><small>non-stock sales items</small></div>'+
     '</div>'+
-    '<div class="payment-notice"><span>'+icon('file',17)+'</span><div><b>Reusable sales catalog</b><p>Save common products and services once with a default unit and price, then select them while building quotations or invoices.</p></div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Products & services</h3><p>Sales catalog with reusable pricing and units</p></div><button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button></div>'+
-    '<div class="table-scroll"><table><thead><tr><th>ITEM</th><th>TYPE</th><th>UNIT</th><th>DEFAULT PRICE</th><th>DESCRIPTION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="payment-notice"><span>'+icon('file',17)+'</span><div><b>Products, services and stock in one catalog</b><p>Products carry stock, cost and reorder levels. Services remain non-stock. Use stock adjustments for receipts, corrections and opening balances.</p></div></div>'+
+    '<div class="surface employee-card"><div class="table-tools"><div><h3>Products & services</h3><p>Reusable sales pricing with product inventory control</p></div><button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button></div>'+
+    '<div class="table-scroll"><table><thead><tr><th>ITEM</th><th>TYPE</th><th>UNIT</th><th>SELLING PRICE</th><th>STOCK / COST</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
   function catalogModal(state,h){
     const field=h.field,icon=h.icon;
@@ -114,7 +123,10 @@
         field('Item name','<input name="name" placeholder="e.g. Monthly bookkeeping" required>')+
         field('Code / SKU','<input name="code" placeholder="Leave blank for automatic code">')+
         field('Unit','<select name="unit">'+UNITS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
-        field('Default unit price (GMD)','<input name="unitPrice" type="number" min="0" step="0.01" placeholder="0.00" required>')+
+        field('Default selling price (GMD)','<input name="unitPrice" type="number" min="0" step="0.01" placeholder="0.00" required>')+
+        field('Cost price (GMD)','<input name="costPrice" type="number" min="0" step="0.01" placeholder="Products only">')+
+        field('Opening stock','<input name="stockOnHand" type="number" min="0" step="0.01" placeholder="Products only">')+
+        field('Reorder level','<input name="reorderLevel" type="number" min="0" step="0.01" placeholder="Products only">')+
       '</div>'+
       field('Description','<input name="description" placeholder="Optional sales description">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-catalog-item">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save item</button></div>'+
@@ -122,16 +134,51 @@
   }
   function createItem(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add catalog items.');return;}
-    const fd=new FormData(ev.target),type=String(fd.get('type')||'Product'),name=String(fd.get('name')||'').trim(),unitPrice=Number(fd.get('unitPrice')||0);if(!name||unitPrice<0){ctx.toast('Item name and a valid unit price are required.');return;}
+    const fd=new FormData(ev.target),type=String(fd.get('type')||'Product'),name=String(fd.get('name')||'').trim(),unitPrice=Number(fd.get('unitPrice')||0),costPrice=Math.max(0,Number(fd.get('costPrice')||0)),stockOnHand=Math.max(0,Number(fd.get('stockOnHand')||0)),reorderLevel=Math.max(0,Number(fd.get('reorderLevel')||0));if(!name||unitPrice<0){ctx.toast('Item name and a valid selling price are required.');return;}
     state.salesCatalog=state.salesCatalog||[];let code=String(fd.get('code')||'').trim()||nextCode(state,type);
     if(state.salesCatalog.some(x=>String(x.code||'').toLowerCase()===code.toLowerCase())){ctx.toast('That product/service code already exists.');return;}
-    const id='CAT-'+Date.now().toString(36).toUpperCase();state.salesCatalog.push({id,type,name,code,unit:String(fd.get('unit')||'Unit'),unitPrice,description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.catalogOpen=false;ctx.audit('sales.catalog_created',{catalogId:id,code,type,name,unitPrice});ctx.save();ctx.toast(name+' added to Products & Services');ctx.render();
+    const id='CAT-'+Date.now().toString(36).toUpperCase();state.salesCatalog.push({id,type,name,code,unit:String(fd.get('unit')||'Unit'),unitPrice,costPrice:type==='Product'?costPrice:0,stockOnHand:type==='Product'?stockOnHand:0,reorderLevel:type==='Product'?reorderLevel:0,description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.inventoryMovements=state.inventoryMovements||[];if(type==='Product'&&stockOnHand>0)state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase(),catalogId:id,type:'Opening balance',quantity:stockOnHand,balanceAfter:stockOnHand,reference:code,note:'Opening stock',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.catalogOpen=false;ctx.audit('sales.catalog_created',{catalogId:id,code,type,name,unitPrice,costPrice,stockOnHand,reorderLevel});ctx.save();ctx.toast(name+' added to Products & Services');ctx.render();
+  }
+  function stockAdjustModal(state,h){
+    const field=h.field,icon=h.icon,item=itemById(state,state.stockAdjustId);if(!item||item.type!=='Product')return '';
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-stock-adjust"></div><form id="stock-adjust-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">INVENTORY ADJUSTMENT</div><h2>'+esc(item.name)+'</h2><p>Current stock: '+stockOnHand(item).toLocaleString('en-GB')+' '+esc(item.unit||'Unit')+'</p></div><button type="button" class="close" data-action="close-stock-adjust">×</button></div>'+
+      '<input type="hidden" name="catalogId" value="'+esc(item.id)+'">'+
+      '<div class="form-grid">'+
+        field('Adjustment type','<select name="movementType"><option>Stock received</option><option>Stock correction increase</option><option>Stock correction decrease</option><option>Damaged / written off</option></select>')+
+        field('Quantity','<input name="quantity" type="number" min="0.01" step="0.01" required>')+
+        field('Reference','<input name="reference" placeholder="PO, supplier invoice or internal ref">')+
+      '</div>'+
+      field('Note','<input name="note" placeholder="Reason for this stock movement">')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-stock-adjust">Cancel</button><button class="primary" type="submit">'+icon('check',14)+' Apply adjustment</button></div>'+
+    '</form></div>';
+  }
+  function adjustStock(ev,state,ctx){
+    ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to adjust stock.');return;}
+    const fd=new FormData(ev.target),item=itemById(state,String(fd.get('catalogId')||''));if(!item||item.type!=='Product')return;
+    const qty=Math.max(0,Number(fd.get('quantity')||0));if(qty<=0){ctx.toast('Enter a quantity greater than zero.');return;}
+    const movementType=String(fd.get('movementType')||'Stock received'),decrease=['Stock correction decrease','Damaged / written off'].includes(movementType),before=stockOnHand(item);
+    if(decrease&&qty>before){ctx.toast('Adjustment cannot reduce stock below zero.');return;}
+    const after=Math.max(0,before+(decrease?-qty:qty));item.stockOnHand=after;item.updatedAt=new Date().toISOString();item.updatedBy=state.session?.name||'User';
+    state.inventoryMovements=state.inventoryMovements||[];const id='MOV-'+Date.now().toString(36).toUpperCase();state.inventoryMovements.unshift({id,catalogId:item.id,type:movementType,quantity:decrease?-qty:qty,balanceBefore:before,balanceAfter:after,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.stockAdjustId=null;ctx.audit('inventory.adjusted',{movementId:id,catalogId:item.id,type:movementType,quantity:decrease?-qty:qty,balanceAfter:after});ctx.save();ctx.toast(item.name+' stock updated to '+after+' '+(item.unit||'Unit'));ctx.render();
+  }
+  function fulfillInvoice(invoice,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to issue stock.');return false;}
+    if(invoice.fulfilledAt){ctx.toast('This invoice has already been fulfilled.');return false;}
+    const lines=(invoice.lineItems||[]).filter(x=>x.catalogId),requirements=[];
+    lines.forEach(line=>{const item=itemById(state,line.catalogId);if(item?.type==='Product')requirements.push({item,qty:Math.max(0,Number(line.quantity)||0)});});
+    for(const r of requirements){if(stockOnHand(r.item)<r.qty){ctx.toast('Not enough stock for '+r.item.name+'. Available: '+stockOnHand(r.item));return false;}}
+    state.inventoryMovements=state.inventoryMovements||[];const now=new Date().toISOString();
+    requirements.forEach(r=>{const before=stockOnHand(r.item),after=Math.max(0,before-r.qty);r.item.stockOnHand=after;r.item.updatedAt=now;state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase(),catalogId:r.item.id,type:'Sales issue',quantity:-r.qty,balanceBefore:before,balanceAfter:after,reference:invoice.invoiceNo||invoice.id,note:'Fulfilled customer invoice',createdAt:now,createdBy:state.session?.name||'User'});});
+    invoice.fulfilledAt=now;invoice.fulfilledBy=state.session?.name||'User';ctx.audit('inventory.invoice_fulfilled',{invoiceId:invoice.id,invoiceNo:invoice.invoiceNo,productLines:requirements.length});ctx.save();ctx.toast((invoice.invoiceNo||'Invoice')+' fulfilled and stock issued');ctx.render();return true;
   }
   function updateItem(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update catalog items.');return;}
     const x=itemById(state,id);if(!x)return;x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';ctx.audit('sales.catalog_status_updated',{catalogId:id,status});ctx.save();ctx.toast(x.name+': '+status);ctx.render();
   }
 
-  window.DalasiCatalog={UNITS:UNITS.slice(),itemById,lineAmount,lineTotals,lineItemsForm,readLines,bindLineItems,catalogPanel,catalogModal,createItem,updateItem};
+  window.DalasiCatalog={UNITS:UNITS.slice(),itemById,lineAmount,lineTotals,lineItemsForm,readLines,bindLineItems,catalogPanel,catalogModal,stockAdjustModal,createItem,updateItem,adjustStock,fulfillInvoice,stockOnHand,inventoryMetrics};
 })();
