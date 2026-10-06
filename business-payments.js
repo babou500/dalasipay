@@ -201,10 +201,10 @@
   }
   function receivableStatusClass(status){return status==='Paid'?'paid':status==='Sent'?'approved':status==='Overdue'?'neutral':status==='Part paid'?'neutral':'ready';}
   function nextReceivableNumber(prefix,state){
-    const year=new Date().getFullYear();
-    const rows=prefix==='CR'?(state.incomingPayments||[]):(state.customerInvoices||[]);
-    const count=rows.filter(x=>prefix==='CR'?x.receiptNumber:x.invoiceNo).length+1;
-    return prefix+'-'+year+'-'+String(count).padStart(5,'0');
+    const year=new Date().getFullYear(),base=prefix+'-'+year+'-',rows=prefix==='CR'?(state.incomingPayments||[]):(state.customerInvoices||[]),key=prefix==='CR'?'receiptNumber':'invoiceNo';
+    let max=0;rows.forEach(x=>{const v=String(x[key]||'');if(v.startsWith(base)){const n=Number(v.slice(base.length));if(Number.isFinite(n)&&n>max)max=n;}});
+    let n=max+1,number=base+String(n).padStart(5,'0');while(rows.some(x=>String(x[key]||'').toLowerCase()===number.toLowerCase())){n++;number=base+String(n).padStart(5,'0');}
+    return number;
   }
   function receivableMetrics(state){
     const rows=state.customerInvoices||[],payments=state.incomingPayments||[],today=todayIso();
