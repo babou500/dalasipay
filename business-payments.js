@@ -414,6 +414,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
     const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
     if(!customerName||totals.total<=0||!issueDate||!dueDate||!lines.length){ctx.toast('Customer, at least one priced line item, issue date and due date are required.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase();state.customerInvoices=state.customerInvoices||[];
@@ -422,7 +423,7 @@
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
-    const inv=receivableById(state,id);if(!inv)return;inv.status=status;inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(status==='Sent'){inv.sentAt=inv.sentAt||inv.updatedAt;inv.sentBy=inv.sentBy||inv.updatedBy;}
+    const inv=receivableById(state,id);if(!inv)return;if(window.DalasiMonthClose?.isClosed(state,inv.issueDate||inv.createdAt)){ctx.toast('This invoice belongs to a closed accounting period. Reopen the period before changing it.');return;}inv.status=status;inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(status==='Sent'){inv.sentAt=inv.sentAt||inv.updatedAt;inv.sentBy=inv.sentBy||inv.updatedBy;}
     ctx.audit('receivable.status_updated',{invoiceId:id,invoiceNo:inv.invoiceNo,status});ctx.save();ctx.toast(inv.invoiceNo+': '+status);ctx.render();
   }
   function recordIncomingPayment(ev,state,ctx){
@@ -433,6 +434,7 @@
     const id='IN-'+Date.now().toString(36).toUpperCase(),receiptNumber=nextReceivableNumber('CR',state);
     state.incomingPayments=state.incomingPayments||[];
     const receivedDate=String(fd.get('receivedDate')||todayIso()),accountId=String(fd.get('accountId')||'')||null;
+    if(window.DalasiMonthClose?.isClosed(state,receivedDate)){ctx.toast('That accounting period is closed. Reopen it before recording this receipt.');return;}
     state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate,method:String(fd.get('method')||'Bank transfer'),accountId,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     if(accountId)window.DalasiCashBank?.post(state,{accountId,date:receivedDate,direction:'in',amount,type:'Customer collection',counterparty:inv.customerName,reference:String(fd.get('reference')||receiptNumber).trim(),description:'Collection for '+(inv.invoiceNo||invoiceId),sourceType:'customer-collection',sourceId:id,sourceKey:'customer-collection:'+id+':in',createdBy:state.session?.name||'User'});
     const remaining=Math.max(0,balance-amount);inv.status=remaining<=0.004?'Paid':'Part paid';inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(inv.status==='Paid')inv.paidAt=inv.updatedAt;
@@ -836,15 +838,16 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add bills.');return;}
     const fd=new FormData(ev.target),beneficiaryId=String(fd.get('beneficiaryId')||''),ben=beneficiaryById(state,beneficiaryId),supplier=String(fd.get('supplier')||'').trim()||ben?.name||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),amount=Number(fd.get('amount')||0),due=String(fd.get('dueDate')||'');
     if(!supplier||!invoiceNo||amount<=0||!due){ctx.toast('Supplier, invoice number, amount and due date are required.');return;}
+    const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
     if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
     const id='BILL-'+Date.now().toString(36).toUpperCase();state.businessBills=state.businessBills||[];
-    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,invoiceDate:String(fd.get('invoiceDate')||''),dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update bills.');return;}
-    const b=billById(state,id);if(!b)return;b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
+    const b=billById(state,id);if(!b)return;if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
   }
 
   function create(ev,state,ctx){
@@ -872,6 +875,7 @@
   function update(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
+    if(status==='Paid'&&window.DalasiMonthClose?.isClosed(state,todayIso())){ctx.toast('The current accounting period is closed. Reopen it before posting this payment.');return;}
     p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=p.paidAt||new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.accountId)window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:state.session?.name||'User'});if(p.billId){const bill=billById(state,p.billId);if(bill){bill.status='Paid';bill.paidAt=p.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
     ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null});ctx.save();ctx.toast(status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):(p.payee+': '+status));ctx.render();
   }
