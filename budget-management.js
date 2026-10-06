@@ -34,6 +34,7 @@
   function ytdBudget(line,month){const idx=monthIndex(month);return round(MONTHS.slice(0,idx+1).reduce((a,[m])=>a+(Number(line?.months?.[m])||0),0));}
   function periodStatement(state,year,month){return window.DalasiProfitLoss?.statement?.(state,year+'-'+month)||null;}
   function actualFor(state,line,year,month){
+    if((line.project||line.costCentre)&&window.DalasiDimensions?.budgetActual)return round(window.DalasiDimensions.budgetActual(state,line,year,month));
     const p=periodStatement(state,year,month);if(!p)return 0;
     const code=line.categoryCode;
     if(code==='sales-revenue')return round(p.invoiceRevenue);
@@ -65,8 +66,12 @@
     return [...set].filter(x=>/^\d{4}$/.test(x)).sort().reverse();
   }
   function linesFor(state,year){return (state.businessBudgets||[]).filter(x=>String(x.year)===String(year)).slice().sort((a,b)=>(a.kind||'').localeCompare(b.kind||'')||(a.label||'').localeCompare(b.label||''));}
+  function summaryLines(state,year){
+    const rows=linesFor(state,year),groups=new Map();rows.forEach(x=>{if(!groups.has(x.categoryCode))groups.set(x.categoryCode,[]);groups.get(x.categoryCode).push(x)});
+    const out=[];groups.forEach(xs=>{const global=xs.filter(x=>!x.project&&!x.costCentre);out.push(...(global.length?global:xs));});return out;
+  }
   function summary(state,year,month){
-    const lines=linesFor(state,year),idx=monthIndex(month);
+    const lines=summaryLines(state,year),idx=monthIndex(month);
     let annualBudgetRevenue=0,annualActualRevenue=0,annualBudgetExpense=0,annualActualExpense=0,ytdBudgetRevenue=0,ytdActualRevenue=0,ytdBudgetExpense=0,ytdActualExpense=0;
     lines.forEach(line=>{
       const ab=annual(line),aa=annualActual(state,line,year),yb=ytdBudget(line,month),ya=ytdActual(state,line,year,month);
@@ -94,7 +99,7 @@
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-budget-line"></div><form id="budget-line-form" class="modal-box budget-modal">'+
       '<div class="modal-head"><div><div class="eyebrow">MANAGEMENT BUDGET</div><h2>'+(existing?'Edit budget line':'Add budget line')+'</h2><p>'+esc(year)+' planning amounts. Actuals remain calculated from the accounting records.</p></div><button type="button" class="close" data-action="close-budget-line">×</button></div>'+
       '<input type="hidden" name="id" value="'+esc(existing?.id||'')+'"><input type="hidden" name="year" value="'+esc(year)+'">'+
-      '<div class="form-grid">'+field('Budget category','<select name="categoryCode">'+options+'</select>')+field('Annual amount · optional quick spread','<input name="annualAmount" type="number" min="0" step="0.01" value="0" placeholder="Enter annual total only if monthly boxes are blank">')+'</div>'+
+      '<div class="form-grid">'+field('Budget category','<select name="categoryCode">'+options+'</select>')+field('Annual amount · optional quick spread','<input name="annualAmount" type="number" min="0" step="0.01" value="0" placeholder="Enter annual total only if monthly boxes are blank">')+field('Project · optional',window.DalasiDimensions?.projectSelect?.(state,'project',existing?.project||'','Company-wide / no project')||'<select name="project"><option value="">Company-wide</option></select>')+field('Cost centre · optional',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre',existing?.costCentre||'','Company-wide / no cost centre')||'<select name="costCentre"><option value="">Company-wide</option></select>')+'</div>'+
       '<div class="budget-month-grid">'+monthFields+'</div>'+
       field('Budget note','<input name="note" value="'+esc(existing?.note||'')+'" placeholder="Optional assumption, target or planning note">')+
       '<div class="modal-note">If all monthly amounts are zero and you enter an annual amount, DalasiPay spreads it equally across the 12 months. You can then edit individual months later.</div>'+
@@ -112,9 +117,9 @@
     }
     if(Object.values(months).every(x=>x<=0)){ctx.toast('Enter at least one monthly budget amount or an annual amount.');return;}
     state.businessBudgets=state.businessBudgets||[];
-    const id=String(fd.get('id')||''),duplicate=state.businessBudgets.find(x=>String(x.year)===year&&x.categoryCode===cat.code&&x.id!==id);
-    if(duplicate){ctx.toast('That category already has a budget line for '+year+'. Edit the existing line instead.');return;}
-    const now=new Date().toISOString(),record={id:id||nextId(),year,kind:cat.kind,categoryCode:cat.code,label:cat.label,months,note:String(fd.get('note')||'').trim(),updatedAt:now,updatedBy:state.session?.name||'User'};
+    const id=String(fd.get('id')||''),project=String(fd.get('project')||''),costCentre=String(fd.get('costCentre')||''),duplicate=state.businessBudgets.find(x=>String(x.year)===year&&x.categoryCode===cat.code&&String(x.project||'')===project&&String(x.costCentre||'')===costCentre&&x.id!==id);
+    if(duplicate){ctx.toast('That category already has a budget line for the same project / cost centre in '+year+'. Edit the existing line instead.');return;}
+    const now=new Date().toISOString(),record={id:id||nextId(),year,kind:cat.kind,categoryCode:cat.code,label:cat.label,project,costCentre,months,note:String(fd.get('note')||'').trim(),updatedAt:now,updatedBy:state.session?.name||'User'};
     if(id){const i=state.businessBudgets.findIndex(x=>x.id===id);if(i>=0)record.createdAt=state.businessBudgets[i].createdAt||now,record.createdBy=state.businessBudgets[i].createdBy||state.session?.name||'User',state.businessBudgets[i]=record;else state.businessBudgets.unshift({...record,createdAt:now,createdBy:state.session?.name||'User'});}
     else state.businessBudgets.unshift({...record,createdAt:now,createdBy:state.session?.name||'User'});
     state.budgetLineOpen=false;state.budgetLineId=null;ctx.audit('budget.line_saved',{id:record.id,year,category:cat.label,annualAmount:annual(record)});ctx.save();ctx.toast('Budget line saved');ctx.render();
@@ -135,14 +140,14 @@
   }
   function exportCsv(state,year,ctx){
     const month=currentMonth(state),rows=linesFor(state,year);
-    const header=['Type','Category',...MONTHS.map(x=>x[1]+' Budget'),'Annual Budget','YTD Budget','YTD Actual','YTD Favorable/(Unfavorable)','Annual Actual','Annual Favorable/(Unfavorable)','Note'];
-    const data=rows.map(line=>[line.kind,line.label,...MONTHS.map(([m])=>line.months?.[m]||0),annual(line),ytdBudget(line,month),ytdActual(state,line,year,month),favorable(line,ytdBudget(line,month),ytdActual(state,line,year,month)),annualActual(state,line,year),favorable(line,annual(line),annualActual(state,line,year)),line.note||'']);
+    const header=['Type','Category','Project','Cost Centre',...MONTHS.map(x=>x[1]+' Budget'),'Annual Budget','YTD Budget','YTD Actual','YTD Favorable/(Unfavorable)','Annual Actual','Annual Favorable/(Unfavorable)','Note'];
+    const data=rows.map(line=>[line.kind,line.label,line.project||'',line.costCentre||'',...MONTHS.map(([m])=>line.months?.[m]||0),annual(line),ytdBudget(line,month),ytdActual(state,line,year,month),favorable(line,ytdBudget(line,month),ytdActual(state,line,year,month)),annualActual(state,line,year),favorable(line,annual(line),annualActual(state,line,year)),line.note||'']);
     const csv=[header,...data].map(r=>r.map(v=>{const q=String(v??'');return /[",\n]/.test(q)?'"'+q.replace(/"/g,'""')+'"':q}).join(',')).join('\n');ctx.downloadText('dalasipay-budget-vs-actual-'+year+'.csv',csv);ctx.toast('Budget vs actual report downloaded');
   }
   function render(state,h){
     const {pageTitle,icon,money2,pill}=h,year=currentYear(state),month=currentMonth(state),lines=linesFor(state,year),sum=summary(state,year,month),st=status(state,year),isLocked=st.status==='Approved',yearOpts=years(state).map(y=>'<option value="'+esc(y)+'" '+(y===year?'selected':'')+'>'+esc(y)+'</option>').join(''),monthOpts=MONTHS.map(([m,l])=>'<option value="'+m+'" '+(m===month?'selected':'')+'>'+l+'</option>').join('');
     const rows=lines.length?lines.map(line=>{const yb=ytdBudget(line,month),ya=ytdActual(state,line,year,month),fav=favorable(line,yb,ya),aa=annualActual(state,line,year),afav=favorable(line,annual(line),aa);return '<tr>'+
-      '<td><div class="payment-payee"><b>'+esc(line.label)+'</b><small>'+esc(line.kind)+(line.note?' · '+esc(line.note):'')+'</small></div></td>'+
+      '<td><div class="payment-payee"><b>'+esc(line.label)+'</b><small>'+esc(line.kind)+(line.project?' · Project '+esc(line.project):'')+(line.costCentre?' · CC '+esc(line.costCentre):'')+(line.note?' · '+esc(line.note):'')+'</small></div></td>'+
       '<td>'+money2(annual(line))+'</td><td>'+money2(yb)+'</td><td>'+money2(ya)+'</td><td class="'+(fav<0?'budget-bad':'budget-good')+'">'+(fav>=0?'+':'')+money2(fav)+'</td><td>'+money2(aa)+'</td><td class="'+(afav<0?'budget-bad':'budget-good')+'">'+(afav>=0?'+':'')+money2(afav)+'</td>'+
       '<td><div class="inline-buttons"><button class="secondary tiny" data-action="budget-edit:'+esc(line.id)+'" '+(isLocked?'disabled':'')+'>Edit</button><button class="secondary tiny" data-action="budget-delete:'+esc(line.id)+'" '+(isLocked?'disabled':'')+'>Delete</button></div></td></tr>';}).join(''):'<tr><td colspan="8"><div class="empty-inline">No budget lines for '+esc(year)+'. Add revenue and expense targets to begin budget vs actual reporting.</div></td></tr>';
     const monthlyRows=sum.monthly.map(x=>{const b=x.budgetProfit,a=x.actualProfit,v=round(a-b);return '<tr class="'+(x.month===month?'budget-current-month':'')+'"><td><b>'+esc(x.label)+'</b></td><td>'+money2(x.budgetRevenue)+'</td><td>'+money2(x.actualRevenue)+'</td><td>'+money2(x.budgetExpense)+'</td><td>'+money2(x.actualExpense)+'</td><td>'+money2(b)+'</td><td>'+money2(a)+'</td><td class="'+(v<0?'budget-bad':'budget-good')+'">'+(v>=0?'+':'')+money2(v)+'</td></tr>';}).join('');
