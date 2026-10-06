@@ -45,7 +45,7 @@
     return tabs(state)+pageTitle('BUSINESS REPORTING','Reports','Cross-module finance reports for money in, money out, customers, bills and cash flow.',`<button class="secondary" data-action="business-report-export:business-summary">${icon('download',14)} Export summary</button>`)+
       '<div class="business-report-kpis">'+
         '<div class="surface"><span>Total revenue</span><b>'+money2(m.pnl?.revenue||0)+'</b><small>'+(state.pnlPeriod||state.currentPeriod)+' reporting period</small></div>'+
-        '<div class="surface '+((m.pnl?.netProfit||0)<0?'cash-alert':'')+'"><span>Net profit</span><b>'+money2(m.pnl?.netProfit||0)+'</b><small>'+((m.pnl?.netMargin||0).toFixed?m.pnl.netMargin.toFixed(1):m.pnl?.netMargin||0)+'% net margin</small></div>'+
+        '<div class="surface '+((m.pnl?.netProfit||0)<0?'cash-alert':'')+'"><span>Net profit</span><b>'+money2(m.pnl?.netProfit||0)+'</b><small>'+Number(m.pnl?.netMargin||0).toFixed(1)+'% net margin</small></div>'+
         '<div class="surface"><span>Outstanding receivables</span><b>'+money2(m.ar.outstanding)+'</b><small>'+money2(m.ar.overdue)+' overdue</small></div>'+
         '<div class="surface"><span>Outstanding payables</span><b>'+money2(m.payable)+'</b><small>'+money2(m.overduePayable)+' overdue</small></div>'+
       '</div>'+
