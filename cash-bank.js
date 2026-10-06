@@ -94,13 +94,14 @@
   }
   function createTransaction(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to record cash transactions.');return;}
-    const fd=new FormData(ev.target),tx=post(state,{accountId:String(fd.get('accountId')||''),direction:String(fd.get('direction')||'in'),date:String(fd.get('date')||todayIso()),amount:Number(fd.get('amount')||0),type:'Manual cashbook',counterparty:String(fd.get('counterparty')||'').trim(),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),createdBy:state.session?.name||'User'});
+    const fd=new FormData(ev.target),date=String(fd.get('date')||todayIso());if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this cash transaction.');return;}const tx=post(state,{accountId:String(fd.get('accountId')||''),direction:String(fd.get('direction')||'in'),date,amount:Number(fd.get('amount')||0),type:'Manual cashbook',counterparty:String(fd.get('counterparty')||'').trim(),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),createdBy:state.session?.name||'User'});
     if(!tx){ctx.toast('Choose an account and enter a valid amount.');return;}state.cashTransactionOpen=false;ctx.audit('cash.transaction_recorded',{transactionId:tx.id,accountId:tx.accountId,amount:tx.amount});ctx.save();ctx.toast('Cash transaction recorded');ctx.render();
   }
   function createTransfer(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to transfer funds.');return;}
     const fd=new FormData(ev.target),from=String(fd.get('fromAccountId')||''),to=String(fd.get('toAccountId')||''),amount=Math.abs(Number(fd.get('amount'))||0),date=String(fd.get('date')||todayIso()),reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim();
     if(!from||!to||from===to||amount<=0){ctx.toast('Choose two different accounts and enter a valid amount.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this transfer.');return;}
     const transferId='TRF-'+Date.now().toString(36).toUpperCase();
     const a=post(state,{accountId:from,direction:'out',date,amount,type:'Internal transfer',counterparty:accountById(state,to)?.name||'',reference,description,sourceKey:'transfer:'+transferId+':out',sourceType:'transfer',sourceId:transferId,createdBy:state.session?.name||'User'});
     const b=post(state,{accountId:to,direction:'in',date,amount,type:'Internal transfer',counterparty:accountById(state,from)?.name||'',reference,description,sourceKey:'transfer:'+transferId+':in',sourceType:'transfer',sourceId:transferId,createdBy:state.session?.name||'User'});
