@@ -28,7 +28,7 @@
     const bs=window.DalasiBalanceSheet?.statement?.(state)||null;
     const bankAccounts=(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active'&&['Bank','Mobile Money'].includes(x.type||'Bank'));
     const bankMissing=bankAccounts.filter(a=>{const rec=latestBankRecon(state,a.id);return !rec||String(rec.statementDate||'')<r.end;});
-    const drafts=draftsInPeriod(state,r),fixedAssets=window.DalasiFixedAssets?.periodStatus?.(state,period)||{eligible:0,posted:0,missing:0};
+    const drafts=draftsInPeriod(state,r),fixedAssets=window.DalasiFixedAssets?.periodStatus?.(state,period)||{eligible:0,posted:0,missing:0},loanInterest=window.DalasiLoans?.periodStatus?.(state,period)||{eligible:0,posted:0,missing:0};
     const checks=[
       {id:'bank',label:'Bank & mobile reconciliations',done:bankMissing.length===0,blocking:true,detail:bankAccounts.length?(bankMissing.length?bankMissing.length+' account'+(bankMissing.length===1?'':'s')+' not reconciled through '+r.end:'All active bank/mobile accounts reconciled through period end'):'No active bank/mobile accounts to reconcile'},
       {id:'trial',label:'Trial Balance',done:!!tb.balanced,blocking:true,detail:tb.balanced?'Debits equal credits':'Debit/credit difference '+round(Math.abs(tb.difference))},
@@ -36,9 +36,10 @@
       {id:'cogs',label:'Revenue & COGS matching',done:!(pnl?.unfulfilledProductInvoices),blocking:true,detail:pnl?.unfulfilledProductInvoices?(pnl.unfulfilledProductInvoices+' product invoice'+(pnl.unfulfilledProductInvoices===1?'':'s')+' not fulfilled'):'No issued product invoices waiting for COGS'},
       {id:'balance',label:'Balance Sheet',done:!!bs?.balanced,blocking:true,detail:bs?.balanced?'Assets equal liabilities + equity':'Balance Sheet difference '+round(Math.abs(bs?.difference||0))},
       {id:'fixed-assets',label:'Fixed asset depreciation',done:fixedAssets.missing===0,blocking:true,detail:fixedAssets.missing?(fixedAssets.missing+' asset'+(fixedAssets.missing===1?'':'s')+' still need depreciation for '+period):(fixedAssets.eligible?('Depreciation posted for '+fixedAssets.posted+' eligible asset'+(fixedAssets.posted===1?'':'s')):'No depreciation due for this period')},
+      {id:'loan-interest',label:'Loan interest accruals',done:loanInterest.missing===0,blocking:true,detail:loanInterest.missing?(loanInterest.missing+' loan installment'+(loanInterest.missing===1?'':'s')+' still need interest accrual for '+period):(loanInterest.eligible?('Interest accrued for '+loanInterest.posted+' installment'+(loanInterest.posted===1?'':'s')):'No loan interest due for this period')},
       {id:'drafts',label:'Draft accounting documents',done:drafts.total===0,blocking:true,detail:drafts.total?(drafts.total+' draft document'+(drafts.total===1?'':'s')+' dated in this period'):'No draft invoices, expenses, supplier bills or journals in the period'}
     ];
-    return {period,r,checks,ready:checks.filter(x=>x.blocking).every(x=>x.done),tb,suspense,pnl,bs,bankAccounts,bankMissing,drafts,fixedAssets};
+    return {period,r,checks,ready:checks.filter(x=>x.blocking).every(x=>x.done),tb,suspense,pnl,bs,bankAccounts,bankMissing,drafts,fixedAssets,loanInterest};
   }
   function periods(state){
     const set=new Set((state.periods||[]).map(x=>x.id));
@@ -49,6 +50,8 @@
     (state.cashTransactions||[]).forEach(x=>add(x.date||x.createdAt));
     (state.fixedAssetDepreciation||[]).forEach(x=>add(x.date||x.period));
     (state.fixedAssets||[]).forEach(x=>{add(x.acquisitionDate);add(x.disposalDate);});
+    (state.businessLoans||[]).forEach(x=>{add(x.startDate);(window.DalasiLoans?.schedule?.(x)||[]).forEach(r=>add(r.dueDate));});
+    (state.loanRepayments||[]).forEach(x=>add(x.date));
     (state.monthEndCloses||[]).forEach(x=>set.add(x.period));
     if(state.currentPeriod)set.add(state.currentPeriod);
     return [...set].filter(x=>/^\d{4}-\d{2}$/.test(x)).sort().reverse();
