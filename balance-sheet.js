@@ -114,8 +114,8 @@
   function saveSetup(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update Balance Sheet balances.');return;}
-    const fd=new FormData(ev.target),num=name=>money(fd.get(name));
-    state.balanceSheetSetup={cashBank:num('cashBank'),pettyCash:num('pettyCash'),otherCurrentAssets:num('otherCurrentAssets'),fixedAssetsNet:num('fixedAssetsNet'),loansBorrowings:num('loansBorrowings'),otherLiabilities:num('otherLiabilities'),ownerCapital:num('ownerCapital'),openingRetainedEarnings:num('openingRetainedEarnings'),note:String(fd.get('note')||'').trim(),updatedAt:new Date().toISOString(),updatedBy:state.session?.name||'User'};
+    const fd=new FormData(ev.target),old=state.balanceSheetSetup||{},num=(name,fallback=0)=>fd.has(name)?money(fd.get(name)):money(fallback);
+    state.balanceSheetSetup={cashBank:num('cashBank',old.cashBank),pettyCash:num('pettyCash',old.pettyCash),otherCurrentAssets:num('otherCurrentAssets',old.otherCurrentAssets),fixedAssetsNet:num('fixedAssetsNet',old.fixedAssetsNet),loansBorrowings:num('loansBorrowings',old.loansBorrowings),otherLiabilities:num('otherLiabilities',old.otherLiabilities),ownerCapital:num('ownerCapital',old.ownerCapital),openingRetainedEarnings:num('openingRetainedEarnings',old.openingRetainedEarnings),note:String(fd.get('note')||old.note||'').trim(),updatedAt:new Date().toISOString(),updatedBy:state.session?.name||'User'};
     state.balanceSheetOpen=false;ctx.audit('balance_sheet.setup_updated',{...state.balanceSheetSetup});ctx.save();ctx.toast('Balance Sheet balances updated');ctx.render();
   }
   function exportCsv(state,ctx){
