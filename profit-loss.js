@@ -50,7 +50,9 @@
   }
   function statement(state,period){
     const r=periodRange(period);if(!r)return null;
-    const invoiceRevenue=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
+    const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
     const revenue=Math.round((invoiceRevenue+directIncome)*100)/100;
     const cogs=cogsForRange(state,r.start,r.end);
@@ -66,7 +68,8 @@
       revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
       businessExpenses:exp.total,expenseBreakdown:exp.items,expenseCount:exp.count,
-      payroll,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0
+      payroll,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
+      unfulfilledProductInvoices
     };
   }
   function ytd(state,period){
@@ -125,6 +128,7 @@
         row('Total operating expenses',-m.operatingExpenses,-y.operatingExpenses,money2,true)+
         row('Net profit',m.netProfit,y.netProfit,money2,true)+
       '</tbody></table></div>'+
+      (m.unfulfilledProductInvoices?'<div class="pnl-note pnl-warning">Attention: '+m.unfulfilledProductInvoices+' product invoice'+(m.unfulfilledProductInvoices===1?' is':'s are')+' issued but not yet fulfilled. Revenue is included, but matching COGS will post when stock is issued.</div>':'')+
       (m.cogsEstimated?'<div class="pnl-note">Note: '+m.cogsEstimated+' older stock issue'+(m.cogsEstimated===1?'':'s')+' use the current recorded product cost because a historical issue cost was not stored at the time.</div>':'')+
     '</section>';
   }
