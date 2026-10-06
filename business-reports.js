@@ -32,6 +32,8 @@
       ['business-summary','Business summary','High-level inflows, outflows, receivables, payables and cash position','reports'],
       ['profit-loss','Profit & Loss','Revenue, cost of goods sold, operating expenses and net profit','chart'],
       ['balance-sheet','Balance Sheet','Assets, liabilities and equity with automatic operational balances','building'],
+      ['trial-balance','Trial Balance','Debit and credit balances across the generated chart of accounts','reports'],
+      ['general-ledger','General Ledger','Journal lines by account, source document and reference','file'],
       ['cash-bank-register','Cash & Bank register','Bank, mobile-money and cash-account balances and movements','bank'],
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
       ['accounts-payable','Accounts payable','Supplier bills, due dates, approval state and amounts owed','file'],
@@ -56,6 +58,7 @@
       '<div class="business-report-grid">'+reports.map(r=>'<article class="surface business-report-card"><span class="business-report-icon">'+icon(r[3],18)+'</span><div><b>'+esc(r[1])+'</b><p>'+esc(r[2])+'</p></div><button class="secondary" data-action="business-report-export:'+r[0]+'">CSV</button></article>').join('')+'</div>'+
       (window.DalasiProfitLoss?window.DalasiProfitLoss.panel(state,{money2,esc,icon}):'')+
       (window.DalasiBalanceSheet?window.DalasiBalanceSheet.panel(state,{money2,esc,icon}):'')+
+      (window.DalasiGeneralLedger?window.DalasiGeneralLedger.panel(state,{money2,esc,icon}):'')+
       '<div class="business-report-two">'+
         '<section class="surface"><div class="card-head"><div><h3>Receivables vs payables</h3><p>Current open obligations</p></div></div><div class="report-balance-bars"><div><span>Money due in</span><b>'+money2(m.ar.outstanding)+'</b><i><em style="width:'+(Math.max(m.ar.outstanding,m.payable)?Math.round(m.ar.outstanding/Math.max(m.ar.outstanding,m.payable)*100):0)+'%"></em></i></div><div><span>Money due out</span><b>'+money2(m.payable)+'</b><i><em style="width:'+(Math.max(m.ar.outstanding,m.payable)?Math.round(m.payable/Math.max(m.ar.outstanding,m.payable)*100):0)+'%"></em></i></div></div></section>'+
         '<section class="surface"><div class="card-head"><div><h3>90-day cash outlook</h3><p>Expected customer receipts against planned outflows</p></div></div><div class="cash-report-summary"><div><span>Expected in</span><b>'+money2(m.cash.in90)+'</b></div><div><span>Planned out</span><b>'+money2(m.cash.out90)+'</b></div><div><span>'+(m.cash.need90?'Funding need':'Surplus')+'</span><b>'+money2(m.cash.need90||m.cash.surplus90)+'</b></div></div></section>'+
@@ -69,6 +72,8 @@
     const m=metrics(state,ctx),today=todayIso();let csv='',name=kind;
     if(kind==='profit-loss'){window.DalasiProfitLoss?.exportCsv(state,ctx);return;
     }else if(kind==='balance-sheet'){window.DalasiBalanceSheet?.exportCsv(state,ctx);return;
+    }else if(kind==='trial-balance'){window.DalasiGeneralLedger?.exportTrialBalance(state,ctx);return;
+    }else if(kind==='general-ledger'){window.DalasiGeneralLedger?.exportLedger(state,ctx);return;
     }else if(kind==='business-summary'){
       csv=rowsToCsv(['Metric','Value'],[['Selected P&L period',state.pnlPeriod||state.currentPeriod],['Selected-period revenue',m.pnl?.revenue||0],['Selected-period COGS',m.pnl?.cogs||0],['Selected-period gross profit',m.pnl?.grossProfit||0],['Selected-period operating expenses',m.pnl?.operatingExpenses||0],['Selected-period net profit',m.pnl?.netProfit||0],['Balance Sheet total assets',m.balanceSheet?.totalAssets||0],['Balance Sheet total liabilities',m.balanceSheet?.totalLiabilities||0],['Balance Sheet total equity',m.balanceSheet?.equity||0],['Balance Sheet difference',m.balanceSheet?.difference||0],['Cash & Bank total',m.cashBank.total],['Active cash accounts',m.cashBank.accounts],['Total revenue',m.revenue.total],['Invoice revenue',m.revenue.invoiceRevenue],['Direct non-invoice income',m.revenue.direct],['Cash received from revenue',m.revenue.cashReceived],['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Inventory at cost',m.inventory.value],['Low-stock products',m.inventory.low],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
     }else if(kind==='cash-bank-register'){window.DalasiCashBank?.exportCsv(state,ctx);return;
