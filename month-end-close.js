@@ -9,7 +9,7 @@
   }
   function periodOf(date){const s=String(date||'').slice(0,7);return /^\d{4}-\d{2}$/.test(s)?s:'';}
   function record(state,period){return (state.monthEndCloses||[]).find(x=>x.period===period&&x.status==='Closed')||null;}
-  function isClosed(state,dateOrPeriod){const p=String(dateOrPeriod||'').length===7?String(dateOrPeriod):periodOf(dateOrPeriod);return !!record(state,p);}
+  function isClosed(state,dateOrPeriod){const p=String(dateOrPeriod||'').length===7?String(dateOrPeriod):periodOf(dateOrPeriod);const y=String(p||'').slice(0,4);return !!record(state,p)||!!window.DalasiYearClose?.record?.(state,y);}
   function latestBankRecon(state,accountId){
     return (state.bankReconciliations||[]).filter(x=>x.accountId===accountId).slice().sort((a,b)=>String(b.statementDate||'').localeCompare(String(a.statementDate||'')))[0]||null;
   }
@@ -81,6 +81,7 @@
   }
   function reopen(period,state,ctx){
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can reopen a closed accounting period.');return;}
+    if(window.DalasiYearClose?.record?.(state,String(period||'').slice(0,4))){ctx.toast('Reopen the financial year before reopening one of its months.');return;}
     const rec=record(state,period);if(!rec){ctx.toast('This period is not closed.');return;}
     rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=state.session?.name||'User';
     ctx.audit('accounting.period_reopened',{period,closeId:rec.id});ctx.save();ctx.toast(label(period)+' reopened');ctx.render();
