@@ -14,7 +14,7 @@
     return window.DalasiInventory?.summary?.(state)?.value??(state.salesCatalog||[]).filter(x=>x.type==='Product').reduce((a,x)=>a+(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0),0);
   }
   function supplierPayables(state){
-    return (state.businessBills||[]).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
+    return (state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
   }
   function accruedExpenses(state){
     return (state.businessExpenses||[]).filter(x=>x.status==='Approved').reduce((a,x)=>a+(Number(x.amount)||0),0);
