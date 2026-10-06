@@ -69,7 +69,7 @@
   function createAsset(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add fixed assets.');return;}
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim(),category=String(fd.get('category')||'Other Fixed Assets'),acquisitionDate=String(fd.get('acquisitionDate')||''),inServiceDate=String(fd.get('inServiceDate')||acquisitionDate),cost=round(fd.get('cost')),residualValue=round(fd.get('residualValue')),lifeYears=Math.max(.08,Number(fd.get('usefulLifeYears'))||0),source=String(fd.get('source')||'Opening balance'),accountId=String(fd.get('accountId')||''),openingAccumDep=source==='Opening balance'?round(fd.get('openingAccumDep')):0,depreciationStartPeriod=String(fd.get('depreciationStartPeriod')||periodOf(inServiceDate||acquisitionDate)),reference=String(fd.get('reference')||'').trim();
-    if(!name||!CATEGORIES.includes(category)||!/^\d{4}-\d{2}-\d{2}$/.test(acquisitionDate)||cost<=0||residualValue<0||residualValue>=cost||lifeYears<=0||!/^\d{4}-\d{2}$/.test(depreciationStartPeriod)){ctx.toast('Complete the asset details. Residual value must be below cost.');return;}
+    if(!name||!CATEGORIES.includes(category)||!/^\d{4}-\d{2}-\d{2}$/.test(acquisitionDate)||cost<=0||residualValue<0||residualValue>=cost||lifeYears<=0||!/^\d{4}-\d{2}$/.test(depreciationStartPeriod)){ctx.toast('Complete the asset details. Residual value must be below cost.');return;}\n    if(periodIndex(depreciationStartPeriod)<periodIndex(periodOf(inServiceDate||acquisitionDate))){ctx.toast('Depreciation cannot start before the asset is placed in service.');return;}
     if(openingAccumDep<0||openingAccumDep>cost-residualValue){ctx.toast('Opening accumulated depreciation cannot exceed the depreciable amount.');return;}
     if(window.DalasiMonthClose?.isClosed(state,acquisitionDate)){ctx.toast('That accounting period is closed. Reopen it before registering this asset.');return;}
     if(source==='Cash purchase'&&!window.DalasiCashBank?.accountById?.(state,accountId)){ctx.toast('Choose the Cash & Bank account used to buy this asset.');return;}
@@ -96,7 +96,7 @@
     state.assetDisposeId=null;ctx.audit('fixed_assets.asset_disposed',{assetId:asset.id,assetNo:asset.assetNo,date,proceeds,nbv,gainLoss});ctx.save();ctx.toast(asset.assetNo+' disposed');ctx.render();
   }
   function modal(state,h){
-    const {field,icon}=h,period=state.assetPeriod||state.currentPeriod||periodOf(todayIso()),cashSelect=window.DalasiCashBank?.accountSelect?.(state,'accountId','','Cash / bank account used for purchase')||'<select name="accountId" disabled><option>No cash account</option></select>';
+    const {field,icon}=h,period=state.assetPeriod||state.currentPeriod||periodOf(todayIso()),cashSelect=(window.DalasiCashBank?.accountSelect?.(state,'accountId','','Cash / bank account used for purchase')||'<select name="accountId" disabled><option>No cash account</option></select>').replace(' required>','>');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-asset"></div><form id="fixed-asset-form" class="modal-box asset-modal">'+
       '<div class="modal-head"><div><div class="eyebrow">FIXED ASSET REGISTER</div><h2>Add fixed asset</h2><p>Register the asset cost and straight-line depreciation policy.</p></div><button type="button" class="close" data-action="close-asset">×</button></div>'+
       '<div class="form-grid">'+field('Asset name','<input name="name" placeholder="e.g. Toyota Hilux" required>')+field('Category','<select name="category">'+CATEGORIES.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select>')+
@@ -110,7 +110,7 @@
   }
   function disposeModal(state,h){
     const {field,icon}=h,asset=(state.fixedAssets||[]).find(x=>x.id===state.assetDisposeId);if(!asset)return '';
-    const cashSelect=window.DalasiCashBank?.accountSelect?.(state,'accountId','','Account receiving disposal proceeds')||'<select name="accountId" disabled><option>No cash account</option></select>';
+    const cashSelect=(window.DalasiCashBank?.accountSelect?.(state,'accountId','','Account receiving disposal proceeds')||'<select name="accountId" disabled><option>No cash account</option></select>').replace(' required>','>');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-asset-dispose"></div><form id="fixed-asset-dispose-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">ASSET DISPOSAL</div><h2>Dispose '+esc(asset.assetNo)+'</h2><p>'+esc(asset.name)+' · current net book value '+h.money2(netBookValue(state,asset))+'</p></div><button type="button" class="close" data-action="close-asset-dispose">×</button></div>'+
       '<div class="form-grid">'+field('Disposal date','<input name="disposalDate" type="date" value="'+todayIso()+'" required>')+field('Proceeds (GMD)','<input name="proceeds" type="number" min="0" step="0.01" value="0">')+field('Cash & Bank account',cashSelect)+field('Reference','<input name="reference" placeholder="Sale receipt or disposal reference">')+'</div>'+
