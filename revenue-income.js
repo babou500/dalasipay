@@ -66,6 +66,7 @@
         field('Category','<select name="category">'+CATEGORIES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
         field('Received through','<select name="method">'+METHODS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
+        field('Deposit to account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Reference','<input name="reference" placeholder="Receipt, deposit or transaction reference">')+
       '</div>'+
       field('Description','<input name="description" placeholder="What was this income for?">')+
@@ -78,7 +79,9 @@
     const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),customer=(state.customers||[]).find(x=>x.id===customerId),payer=String(fd.get('payer')||'').trim()||customer?.name||'',amount=Number(fd.get('amount')||0),revenueDate=String(fd.get('revenueDate')||'');
     if(!payer||amount<=0||!revenueDate){ctx.toast('Payer/source, amount and revenue date are required.');return;}
     state.revenueEntries=state.revenueEntries||[];const id='REV-'+Date.now().toString(36).toUpperCase(),revenueNo=nextNumber(state);
-    state.revenueEntries.unshift({id,revenueNo,customerId:customerId||null,payer,revenueDate,category:String(fd.get('category')||'Other business income'),amount,method:String(fd.get('method')||'Other'),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const accountId=String(fd.get('accountId')||'')||null,reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim();
+    state.revenueEntries.unshift({id,revenueNo,customerId:customerId||null,payer,revenueDate,category:String(fd.get('category')||'Other business income'),amount,method:String(fd.get('method')||'Other'),accountId,reference,description,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    if(accountId)window.DalasiCashBank?.post(state,{accountId,date:revenueDate,direction:'in',amount,type:'Direct income',counterparty:payer,reference:reference||revenueNo,description:description||String(fd.get('category')||'Other business income'),sourceType:'revenue',sourceId:id,sourceKey:'revenue:'+id+':in',createdBy:state.session?.name||'User'});
     state.revenueOpen=false;ctx.audit('revenue.recorded',{revenueId:id,revenueNo,payer,amount,category:String(fd.get('category')||'Other business income')});ctx.save();ctx.toast('Income '+revenueNo+' recorded');ctx.render();
   }
   function exportCsv(state,ctx){
