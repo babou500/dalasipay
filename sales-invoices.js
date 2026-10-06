@@ -154,10 +154,16 @@
     const customer=(String(q.customerName||'Customer').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Customer');ctx.pdfDownload('Quotation_'+customer+'_'+(q.quoteNo||q.id)+'.pdf',out.join('\n'),state.branding?.logoData||'');ctx.toast('Quotation PDF downloaded');
   }
 
+  function invoiceHasStockLines(state,inv){
+    return (inv.lineItems||[]).some(x=>{const item=x.catalogId?window.DalasiCatalog?.itemById(state,x.catalogId):null;return item?.type==='Product';});
+  }
   function invoiceAction(state,inv,icon){
     const s=status(state,inv);
     if(s==='Draft')return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' PDF</button><button class="primary" data-action="receivable-send:'+inv.id+'">Mark sent</button>';
-    if(s==='Paid')return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button><button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>';
+    if(s==='Paid'){
+      const needsStock=invoiceHasStockLines(state,inv);
+      return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+(needsStock&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">'+icon('check',13)+' Fulfil / issue stock</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>');
+    }
     return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button><button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>';
   }
   function invoicePanel(state,h){
@@ -234,6 +240,7 @@
   function downloadDeliveryNote(id,state,ctx){
     const inv=invoiceById(state,id);if(!inv){ctx.toast('Customer invoice not found');return;}
     if(status(state,inv)!=='Paid'){ctx.toast('Delivery note is available after the invoice is fully paid.');return;}
+    if(invoiceHasStockLines(state,inv)&&!inv.fulfilledAt){ctx.toast('Fulfil the product invoice and issue stock before generating the delivery note.');return;}
     const out=[],ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
     const safe=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
     const clip=(v,max=52)=>{const s=String(v??'');return s.length>max?s.slice(0,max-3)+'...':s};
@@ -263,5 +270,5 @@
     const customer=(String(inv.customerName||'Customer').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Customer');
     ctx.pdfDownload('Delivery_Note_'+customer+'_'+(inv.invoiceNo||inv.id)+'.pdf',out.join('\n'),state.branding?.logoData||'');ctx.toast('Delivery note downloaded');
   }
-  window.DalasiSalesInvoices={render,metrics,status,balance,paid,quoteStatus,quoteMetrics,quoteModal,createQuote,updateQuote,convertQuote,downloadQuote,exportCsv,downloadDeliveryNote};
+  window.DalasiSalesInvoices={render,metrics,status,balance,paid,invoiceHasStockLines,quoteStatus,quoteMetrics,quoteModal,createQuote,updateQuote,convertQuote,downloadQuote,exportCsv,downloadDeliveryNote};
 })();
