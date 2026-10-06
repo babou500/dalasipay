@@ -65,6 +65,8 @@
     (state.businessExpenses||[]).forEach(x=>add(x.expenseDate||x.createdAt));
     (state.businessBills||[]).forEach(x=>add(x.invoiceDate||x.createdAt));
     (state.taxAdjustments||[]).forEach(x=>add(x.date));
+    (state.customerCreditNotes||[]).forEach(x=>add(x.date));
+    (state.supplierCreditNotes||[]).forEach(x=>add(x.date));
     (state.vatReturns||[]).forEach(x=>set.add(x.period));
     if(/^\d{4}-\d{2}$/.test(String(state.currentPeriod||'')))set.add(state.currentPeriod);
     return [...set].sort().reverse();
@@ -79,16 +81,19 @@
     let stdSalesGross=0,stdSalesNet=0,outputVat=0,zeroSales=0,exemptSales=0,taxableNoVat=0,outSales=0;
     const direct=(state.revenueEntries||[]).filter(x=>inPeriod(x.revenueDate||x.createdAt));
     [...issued,...direct].forEach(inv=>{const m=meta(state,inv,'sale');if(m.taxCode==='STD'){stdSalesGross+=m.taxGross;stdSalesNet+=m.taxNet;outputVat+=m.vatAmount}else if(m.taxCode==='ZERO')zeroSales+=m.taxGross;else if(m.taxCode==='TNR')taxableNoVat+=m.taxGross;else if(m.taxCode==='EXEMPT')exemptSales+=m.taxGross;else outSales+=m.taxGross;});
+    const salesCredits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void'&&inPeriod(x.date||x.createdAt));
+    salesCredits.forEach(c=>{const m=meta(state,c,'sale');if(m.taxCode==='STD'){stdSalesGross-=m.taxGross;stdSalesNet-=m.taxNet;outputVat-=m.vatAmount}else if(m.taxCode==='ZERO')zeroSales-=m.taxGross;else if(m.taxCode==='TNR')taxableNoVat-=m.taxGross;else if(m.taxCode==='EXEMPT')exemptSales-=m.taxGross;else outSales-=m.taxGross;});
     const expenses=(state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)&&inPeriod(x.expenseDate||x.createdAt));
     const bills=(state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft'&&inPeriod(x.invoiceDate||x.createdAt));
     let inputVat=0,purchaseGross=0,purchaseNet=0;
     [...expenses,...bills].forEach(x=>{const m=meta(state,x,'purchase');purchaseGross+=m.taxGross;purchaseNet+=m.taxNet;if(m.vatRecoverable)inputVat+=m.vatAmount;});
+    const purchaseCredits=(state.supplierCreditNotes||[]).filter(x=>x.status!=='Void'&&inPeriod(x.date||x.createdAt));purchaseCredits.forEach(c=>{const m=meta(state,c,'purchase');purchaseGross-=m.taxGross;purchaseNet-=m.taxNet;if(m.vatRecoverable)inputVat-=m.vatAmount;});
     let manualOutput=0,manualInput=0;
     (state.taxAdjustments||[]).filter(x=>inPeriod(x.date)).forEach(x=>{if(x.direction==='Output')manualOutput+=Number(x.vatAmount)||0;else manualInput+=Number(x.vatAmount)||0;});
     outputVat=round(outputVat);inputVat=round(inputVat);manualOutput=round(manualOutput);manualInput=round(manualInput);
     const totalOutput=round(outputVat+manualOutput),totalInput=round(inputVat+manualInput),netVat=round(totalOutput-totalInput);
     const payments=round(paymentsForPeriod(state,period).reduce((a,x)=>a+(Number(x.amount)||0),0));
-    return {period,issued:issued.length,direct:direct.length,stdSalesGross:round(stdSalesGross),stdSalesNet:round(stdSalesNet),outputVat,zeroSales:round(zeroSales),exemptSales:round(exemptSales),taxableNoVat:round(taxableNoVat),outSales:round(outSales),purchaseGross:round(purchaseGross),purchaseNet:round(purchaseNet),inputVat,manualOutput,manualInput,totalOutput,totalInput,netVat,payments,outstanding:round(Math.max(0,netVat-payments)),credit:round(Math.max(0,-netVat)),dueDate:dueDate(period,state),filed:returnRecord(state,period)};
+    return {period,issued:issued.length,direct:direct.length,salesCredits:salesCredits.length,purchaseCredits:purchaseCredits.length,stdSalesGross:round(stdSalesGross),stdSalesNet:round(stdSalesNet),outputVat,zeroSales:round(zeroSales),exemptSales:round(exemptSales),taxableNoVat:round(taxableNoVat),outSales:round(outSales),purchaseGross:round(purchaseGross),purchaseNet:round(purchaseNet),inputVat,manualOutput,manualInput,totalOutput,totalInput,netVat,payments,outstanding:round(Math.max(0,netVat-payments)),credit:round(Math.max(0,-netVat)),dueDate:dueDate(period,state),filed:returnRecord(state,period)};
   }
   function yearTurnover(state,year){
     let taxable=0,total=0,classified=0;
@@ -98,6 +103,7 @@
       total+=Number(inv.amount)||0;const m=meta(state,inv,'sale');if(['STD','ZERO','TNR'].includes(m.taxCode))taxable+=m.taxGross;if(inv.taxCode)classified++;
     });
     (state.revenueEntries||[]).forEach(x=>{const date=String(x.revenueDate||x.createdAt||'');if(!date.startsWith(String(year)))return;total+=Number(x.amount)||0;const m=meta(state,x,'sale');if(['STD','ZERO','TNR'].includes(m.taxCode))taxable+=m.taxGross;if(x.taxCode)classified++;});
+    (state.customerCreditNotes||[]).filter(x=>x.status!=='Void').forEach(x=>{const date=String(x.date||x.createdAt||'');if(!date.startsWith(String(year)))return;const m=meta(state,x,'sale');total-=m.taxGross;if(['STD','ZERO','TNR'].includes(m.taxCode))taxable-=m.taxGross;});
     return {total:round(total),taxable:round(taxable),classified,count:(state.customerInvoices||[]).filter(inv=>String(inv.issueDate||inv.createdAt||'').startsWith(String(year))).length};
   }
   function modalSettings(state,h){
