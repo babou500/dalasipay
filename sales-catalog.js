@@ -168,11 +168,12 @@
   function fulfillInvoice(invoice,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to issue stock.');return false;}
     if(invoice.fulfilledAt){ctx.toast('This invoice has already been fulfilled.');return false;}
-    const lines=(invoice.lineItems||[]).filter(x=>x.catalogId),requirements=[];
-    lines.forEach(line=>{const item=itemById(state,line.catalogId);if(item?.type==='Product')requirements.push({item,qty:Math.max(0,Number(line.quantity)||0)});});
-    for(const r of requirements){if(stockOnHand(r.item)<r.qty){ctx.toast('Not enough stock for '+r.item.name+'. Available: '+stockOnHand(r.item));return false;}}
+    const lines=(invoice.lineItems||[]).filter(x=>x.catalogId),byItem=new Map();
+    lines.forEach(line=>{const item=itemById(state,line.catalogId);if(item?.type==='Product'){const current=byItem.get(item.id)||{item,qty:0};current.qty+=Math.max(0,Number(line.quantity)||0);byItem.set(item.id,current);}});
+    const requirements=[...byItem.values()];
+    for(const r of requirements){if(stockOnHand(r.item)<r.qty){ctx.toast('Not enough stock for '+r.item.name+'. Required: '+r.qty+', available: '+stockOnHand(r.item));return false;}}
     state.inventoryMovements=state.inventoryMovements||[];const now=new Date().toISOString();
-    requirements.forEach(r=>{const before=stockOnHand(r.item),after=Math.max(0,before-r.qty);r.item.stockOnHand=after;r.item.updatedAt=now;state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase(),catalogId:r.item.id,type:'Sales issue',quantity:-r.qty,balanceBefore:before,balanceAfter:after,reference:invoice.invoiceNo||invoice.id,note:'Fulfilled customer invoice',createdAt:now,createdBy:state.session?.name||'User'});});
+    requirements.forEach((r,i)=>{const before=stockOnHand(r.item),after=before-r.qty;r.item.stockOnHand=after;r.item.updatedAt=now;state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+'-'+String(i+1),catalogId:r.item.id,type:'Sales issue',quantity:-r.qty,balanceBefore:before,balanceAfter:after,reference:invoice.invoiceNo||invoice.id,note:'Fulfilled customer invoice',createdAt:now,createdBy:state.session?.name||'User'});});
     invoice.fulfilledAt=now;invoice.fulfilledBy=state.session?.name||'User';ctx.audit('inventory.invoice_fulfilled',{invoiceId:invoice.id,invoiceNo:invoice.invoiceNo,productLines:requirements.length});ctx.save();ctx.toast((invoice.invoiceNo||'Invoice')+' fulfilled and stock issued');ctx.render();return true;
   }
   function updateItem(id,status,state,ctx){
