@@ -1,0 +1,10 @@
+.year-close-card{margin-top:14px;padding:16px}
+.year-close-card .table-tools{margin-bottom:12px}
+.year-close-card select{height:34px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);padding:0 9px;font-size:10px;font-weight:700}
+.year-month-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:10px 0 14px}
+.year-month{border:1px solid var(--border);border-radius:8px;background:var(--panel-2);padding:9px 10px}
+.year-month span{display:block;font-size:9px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.year-month b{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:9px;color:var(--warn)}
+.year-month.done{background:var(--soft)}.year-month.done b{color:var(--good)}
+@media(max-width:900px){.year-month-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:580px){.year-month-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.year-close-card{padding:12px}.year-close-card .table-tools{align-items:flex-start;flex-direction:column}.year-close-card .inline-buttons{width:100%;flex-wrap:wrap}.year-close-card select{flex:1;min-width:0}}
