@@ -60,10 +60,11 @@
 
   function billMetrics(state){
     const rows=state.businessBills||[],today=todayIso(),week=new Date();week.setDate(week.getDate()+7);const w=week.toISOString().slice(0,10);
-    const open=rows.filter(x=>x.status!=='Paid'),sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
-    return {count:rows.length,outstanding:sum(open),overdue:sum(open.filter(x=>x.dueDate&&x.dueDate<today)),dueSoon:sum(open.filter(x=>x.dueDate&&x.dueDate>=today&&x.dueDate<=w)),paid:sum(rows.filter(x=>x.status==='Paid'))};
+    const open=rows.filter(x=>x.status!=='Paid'),bal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0),sum=xs=>xs.reduce((a,x)=>a+bal(x),0);
+    return {count:rows.length,outstanding:sum(open),overdue:sum(open.filter(x=>bal(x)>0&&x.dueDate&&x.dueDate<today)),dueSoon:sum(open.filter(x=>bal(x)>0&&x.dueDate&&x.dueDate>=today&&x.dueDate<=w)),paid:rows.filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0),credited:(state.supplierCreditNotes||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)};
   }
-  function billAction(b){
+  function billAction(state,b){
+    const balance=window.DalasiReturns?.billBalance?.(state,b)??(Number(b.amount)||0);if(balance<=.004&&b.status!=='Paid')return '<span class="payment-complete">Credited</span>';
     if(b.status==='Draft')return '<button class="secondary" data-action="bill-submit:'+b.id+'">Submit</button>';
     if(b.status==='Pending approval')return '<button class="secondary" data-action="bill-approve:'+b.id+'">Approve</button>';
     if(b.status==='Approved')return b.paymentId?'<span class="payment-complete">Payment created</span>':'<button class="primary" data-action="pay-bill:'+b.id+'">Create payment</button>';
@@ -172,14 +173,14 @@
   function customerAccount(state,id){
     const customer=customerById(state,id),invoices=customerInvoicesFor(state,id),today=todayIso();
     let invoiced=0,collected=0,outstanding=0,overdue=0;
-    invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=Math.max(0,(Number(inv.amount)||0)-paid);invoiced+=Number(inv.amount)||0;collected+=paid;outstanding+=bal;if(bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
+    invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=receivableBalance(state,inv);invoiced+=Number(inv.amount)||0;collected+=paid;outstanding+=bal;if(bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
     return {customer,invoices,invoiced,collected,outstanding,overdue};
   }
   function supplierAccount(state,id){
     const supplier=beneficiaryById(state,id),bills=(state.businessBills||[]).filter(x=>x.beneficiaryId===id),payments=beneficiaryPayments(state,id),today=todayIso();
     const totalBilled=bills.reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const outstanding=bills.filter(x=>x.status!=='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const overdue=bills.filter(x=>x.status!=='Paid'&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const outstanding=bills.filter(x=>x.status!=='Paid').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
+    const overdue=bills.filter(x=>x.status!=='Paid'&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
     const paid=payments.filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
     return {supplier,bills,payments,totalBilled,outstanding,overdue,paid};
   }
@@ -190,7 +191,7 @@
   function incomingPaymentById(state,id){return (state.incomingPayments||[]).find(x=>x.id===id)||null;}
   function incomingForInvoice(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id);}
   function receivablePaid(state,id){return incomingForInvoice(state,id).reduce((a,x)=>a+(Number(x.amount)||0),0);}
-  function receivableBalance(state,invoice){return Math.max(0,(Number(invoice?.amount)||0)-receivablePaid(state,invoice?.id));}
+  function receivableBalance(state,invoice){return window.DalasiReturns?.invoiceBalance?.(state,invoice)??Math.max(0,(Number(invoice?.amount)||0)-receivablePaid(state,invoice?.id));}
   function receivableStatus(state,invoice){
     const paid=receivablePaid(state,invoice.id),balance=Math.max(0,(Number(invoice.amount)||0)-paid);
     if(balance<=0.004)return 'Paid';
@@ -651,11 +652,11 @@
       return '<tr class="'+(overdue?'bill-overdue':'')+'>'+
         '<td><div class="payment-payee"><b>'+esc(b.supplier)+'</b><small>'+esc(b.invoiceNo||b.id)+'</small></div></td>'+
         '<td>'+esc(ben?.name||'One-off supplier')+'</td>'+
-        '<td class="payment-amount">'+money2(b.amount)+'</td>'+
+        '<td class="payment-amount"><b>'+money2(window.DalasiReturns?.billBalance?.(state,b)??b.amount)+'</b><small>'+((window.DalasiReturns?.supplierCredited?.(state,b.id)||0)?money2(window.DalasiReturns.supplierCredited(state,b.id))+' credited':'original '+money2(b.amount))+'</small></td>'+
         '<td><div class="bill-date"><b>'+dueDate(b.dueDate)+'</b><small>'+(overdue?'Overdue':dueDate(b.invoiceDate))+'</small></div></td>'+
         '<td>'+pill(b.status,billStatusClass(b.status))+'</td>'+
         '<td>'+(b.attachmentData?'<a class="text-btn" href="'+esc(b.attachmentData)+'" download="'+esc(b.attachmentName||'invoice')+'">'+icon('download',13)+' Invoice</a>':'<span class="bill-no-file">No file</span>')+'</td>'+
-        '<td><div class="payment-status-actions">'+billAction(b)+'</div></td>'+
+        '<td><div class="payment-status-actions">'+billAction(state,b)+(b.status!=='Draft'&&(window.DalasiReturns?.billRemainingCredit?.(state,b)??0)>.004?'<button class="secondary" data-action="credit-bill:'+b.id+'">Credit</button>':'')+'</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7"><div class="empty-inline">No supplier bills recorded yet. Add an invoice to start tracking what the business owes.</div></td></tr>';
     return '<div class="bill-summary">'+
@@ -727,7 +728,7 @@
     const typeOptions=TYPES.map(x=>'<option '+(x===typeValue?'selected':'')+'>'+x+'</option>').join('');
     const methodOptions=METHODS.map(x=>'<option '+(x===methodValue?'selected':'')+'>'+x+'</option>').join('');
     const beneficiaryInfo=selected?'<div class="selected-beneficiary"><b>'+esc(selected.name)+'</b><span>'+esc(destinationSummary(selected))+'</span></div>':'';
-    const billInfo=bill?'<div class="selected-bill"><b>Invoice '+esc(bill.invoiceNo||bill.id)+'</b><span>'+esc(bill.supplier)+' · '+h.money2(bill.amount)+'</span></div>':'';
+    const billBalance=bill?(window.DalasiReturns?.billBalance?.(state,bill)??(Number(bill.amount)||0)):0,billInfo=bill?'<div class="selected-bill"><b>Invoice '+esc(bill.invoiceNo||bill.id)+'</b><span>'+esc(bill.supplier)+' · balance '+h.money2(billBalance)+'</span></div>':'';
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-business-payment"></div><form id="business-payment-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">NEW BUSINESS PAYMENT</div><h2>Record payment</h2><p>Create a controlled payment record outside payroll.</p></div><button type="button" class="close" data-action="close-business-payment">×</button></div>'+
       '<div class="payment-modal-note">This creates a payment record only. It does not send funds from a bank or mobile-money account.</div>'+
@@ -735,7 +736,7 @@
       '<div class="form-grid">'+
         field('Payee / beneficiary','<input name="payee" value="'+esc(bill?.supplier||selected?.name||'')+'" placeholder="e.g. ABC Supplies Ltd" required>')+
         field('Payment type','<select name="type">'+typeOptions+'</select>')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" value="'+esc(bill?.amount||'')+'" placeholder="0.00" required>')+
+        field('Amount (GMD)','<input name="amount" type="number" min="0.01" '+(bill?'max="'+billBalance+'" ':'')+'step="0.01" value="'+esc(bill?billBalance:'')+'" placeholder="0.00" required>')+
         field('Payment method','<select name="method">'+methodOptions+'</select>')+
         field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Due date','<input name="dueDate" type="date" value="'+esc(bill?.dueDate||'')+'">')+
@@ -864,6 +865,7 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create business payments.');return;}
     const fd=new FormData(ev.target),amount=Number(fd.get('amount')||0),payee=String(fd.get('payee')||'').trim(),beneficiaryId=String(fd.get('beneficiaryId')||''),billId=String(fd.get('billId')||state.paymentBillId||'');
     if(!payee||amount<=0){ctx.toast('Enter a payee and a valid payment amount.');return;}
+    if(billId){const linked=billById(state,billId),bal=window.DalasiReturns?.billBalance?.(state,linked)??(Number(linked?.amount)||0);if(!linked||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}if(amount>bal+.004){ctx.toast('Payment amount cannot exceed the supplier bill balance after credits.');return;}}
     const id='BP-'+Date.now().toString(36).toUpperCase();
     state.businessPayments=state.businessPayments||[];
     state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),accountId:String(fd.get('accountId')||'')||null,dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
