@@ -2,8 +2,8 @@
   'use strict';
 
   const CHART=[
-    ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
-    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
+    ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1160','Supplier Refund Receivable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
+    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2070','Customer Refunds Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
     ['4000','Sales Revenue','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
     ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
@@ -76,6 +76,24 @@
       ]);
     });
 
+    // Customer credit notes and cash refunds.
+    (state.customerCreditNotes||[]).filter(x=>x.status!=='Void').forEach(c=>{
+      const gross=round(c.amount),net=round(c.taxNet??gross),vat=round(c.vatAmount),ar=round(c.arReduction),refund=round(c.refundDue);if(!gross)return;
+      pushJournal(out,'CCN-'+c.id,c.date||c.createdAt,c.creditNo||c.id,'Customer credit note',[
+        {account:'Sales Revenue',debit:net,memo:c.reason||c.note||''},
+        {account:'VAT Output Payable',debit:vat,memo:vat?'Output VAT reversed':''},
+        {account:'Accounts Receivable',credit:ar,memo:c.invoiceNo||''},
+        {account:'Customer Refunds Payable',credit:refund,memo:c.customerName||''}
+      ]);
+    });
+    (state.customerRefunds||[]).forEach(r=>{
+      const amt=round(r.amount);if(!amt)return;const c=(state.customerCreditNotes||[]).find(x=>x.id===r.creditNoteId);
+      pushJournal(out,'CREF-'+r.id,r.date||r.createdAt,r.reference||r.id,'Customer refund',[
+        {account:'Customer Refunds Payable',debit:amt,memo:c?.customerName||''},
+        {account:cashAccountName(state,r.accountId),credit:amt,memo:c?.creditNo||''}
+      ]);
+    });
+
     // Direct income
     (state.revenueEntries||[]).forEach(x=>{
       const amt=round(x.amount);if(!amt)return;
@@ -96,7 +114,11 @@
         const cost=Number.isFinite(unit)?unit:(Number(item?.costPrice)||0);amount=Math.abs(qty)*Math.max(0,cost);
       }
       amount=round(amount);if(!amount)return;
-      if(mv.type==='Sales issue'){
+      if(mv.type==='Sales return'){
+        pushJournal(out,'SRET-'+mv.id,mv.movementDate||mv.createdAt,mv.reference||mv.id,'Customer stock return',[{account:'Inventory',debit:amount,memo:mv.note||''},{account:'Cost of Goods Sold',credit:amount,memo:mv.note||''}]);
+      }else if(mv.type==='Purchase return'){
+        pushJournal(out,'PRET-'+mv.id,mv.movementDate||mv.createdAt,mv.reference||mv.id,'Supplier stock return',[{account:'Inventory Receipt Clearing',debit:amount,memo:mv.note||''},{account:'Inventory',credit:amount,memo:mv.note||''}]);
+      }else if(mv.type==='Sales issue'){
         pushJournal(out,'COGS-'+mv.id,mv.revenueDate||mv.createdAt,mv.reference||mv.id,'Inventory sale issue',[
           {account:'Cost of Goods Sold',debit:amount,memo:mv.note||''},{account:'Inventory',credit:amount,memo:mv.note||''}
         ]);
@@ -148,6 +170,24 @@
         {account:'Opening / Mapping Suspense',debit:net,memo:b.description||'Supplier bill account mapping pending'},
         {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
         {account:'Accounts Payable',credit:amt,memo:b.supplier||''}
+      ]);
+    });
+
+    // Supplier credit notes and cash refunds.
+    (state.supplierCreditNotes||[]).filter(x=>x.status!=='Void').forEach(c=>{
+      const gross=round(c.amount),net=round(c.taxNet??gross),vat=round(c.vatAmount),ap=round(c.apReduction),refund=round(c.refundReceivable);if(!gross)return;
+      pushJournal(out,'SCN-'+c.id,c.date||c.createdAt,c.creditNo||c.supplierReference||c.id,'Supplier credit note',[
+        {account:'Accounts Payable',debit:ap,memo:c.billNo||''},
+        {account:'Supplier Refund Receivable',debit:refund,memo:c.supplier||''},
+        {account:'Opening / Mapping Suspense',credit:net,memo:c.note||'Supplier bill credit'},
+        {account:'VAT Input Recoverable',credit:vat,memo:vat?'Recoverable input VAT reversed':''}
+      ]);
+    });
+    (state.supplierRefunds||[]).forEach(r=>{
+      const amt=round(r.amount);if(!amt)return;const c=(state.supplierCreditNotes||[]).find(x=>x.id===r.creditNoteId);
+      pushJournal(out,'SREF-'+r.id,r.date||r.createdAt,r.reference||r.id,'Supplier refund received',[
+        {account:cashAccountName(state,r.accountId),debit:amt,memo:c?.supplier||''},
+        {account:'Supplier Refund Receivable',credit:amt,memo:c?.creditNo||''}
       ]);
     });
 
