@@ -27,7 +27,7 @@
     }).filter(Boolean);
   }
   function payableLines(state,asOf=todayIso()){
-    return (state.businessBills||[]).filter(b=>!['Draft','Paid'].includes(b.status||'Draft')&&!b.paymentId).map(b=>{
+    return (state.businessBills||[]).filter(b=>(b.status||'Draft')!=='Draft').map(b=>{
       const amount=window.DalasiReturns?.billBalance?.(state,b)??round(b.amount),due=String(b.dueDate||b.invoiceDate||asOf),days=due<asOf?daysBetween(due,asOf):0;if(amount<=.004)return null;
       return {id:b.id,invoiceNo:b.invoiceNo||b.id,supplierId:b.beneficiaryId||'',supplier:b.supplier||supplierById(state,b.beneficiaryId)?.name||'Supplier',invoiceDate:b.invoiceDate||'',dueDate:due,balance:amount,daysPastDue:days,bucket:bucket(days),status:b.status||'Approved'};
     }).filter(Boolean);
