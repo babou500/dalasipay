@@ -26,12 +26,13 @@
   function customerCredited(state,invoiceId){return round(customerCreditsFor(state,invoiceId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function supplierCredited(state,billId){return round(supplierCreditsFor(state,billId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function invoicePayments(state,invoiceId){return round((state.incomingPayments||[]).filter(x=>x.invoiceId===invoiceId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
-  function invoiceBalance(state,invoice){return round(Math.max(0,(Number(invoice?.amount)||0)-invoicePayments(state,invoice?.id)-customerCredited(state,invoice?.id)));}
+  function invoiceBalance(state,invoice){const debits=window.DalasiDebits?.customerDebited?.(state,invoice?.id)||0;return round(Math.max(0,(Number(invoice?.amount)||0)+debits-invoicePayments(state,invoice?.id)-customerCredited(state,invoice?.id)));}
   function billPayment(state,bill){return bill?.paymentId?(state.businessPayments||[]).find(x=>x.id===bill.paymentId):null;}
+  function billPaid(state,bill){return round((state.businessPayments||[]).filter(x=>x.billId===bill?.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function billBalance(state,bill){
     if(!bill)return 0;
-    const p=billPayment(state,bill);if(bill.status==='Paid'||p?.status==='Paid')return 0;
-    return round(Math.max(0,(Number(bill.amount)||0)-supplierCredited(state,bill.id)));
+    const debits=window.DalasiDebits?.supplierDebited?.(state,bill.id)||0;
+    return round(Math.max(0,(Number(bill.amount)||0)+debits-supplierCredited(state,bill.id)-billPaid(state,bill)));
   }
   function customerRefunded(state,creditNoteId){return round((state.customerRefunds||[]).filter(x=>x.creditNoteId===creditNoteId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function supplierRefunded(state,creditNoteId){return round((state.supplierRefunds||[]).filter(x=>x.creditNoteId===creditNoteId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
@@ -39,8 +40,8 @@
   function supplierRefundDue(state,credit){return round(Math.max(0,(Number(credit?.refundReceivable)||0)-supplierRefunded(state,credit?.id)));}
   function customerRefundLiability(state){return round((state.customerCreditNotes||[]).reduce((a,x)=>a+customerRefundDue(state,x),0));}
   function supplierRefundReceivable(state){return round((state.supplierCreditNotes||[]).reduce((a,x)=>a+supplierRefundDue(state,x),0));}
-  function invoiceRemainingCredit(state,inv){return round(Math.max(0,(Number(inv?.amount)||0)-customerCredited(state,inv?.id)));}
-  function billRemainingCredit(state,bill){return round(Math.max(0,(Number(bill?.amount)||0)-supplierCredited(state,bill?.id)));}
+  function invoiceRemainingCredit(state,inv){return round(Math.max(0,(Number(inv?.amount)||0)+(window.DalasiDebits?.customerDebited?.(state,inv?.id)||0)-customerCredited(state,inv?.id)));}
+  function billRemainingCredit(state,bill){return round(Math.max(0,(Number(bill?.amount)||0)+(window.DalasiDebits?.supplierDebited?.(state,bill?.id)||0)-supplierCredited(state,bill?.id)));}
   function validDate(date,state,ctx){
     if(!date){ctx.toast('Credit note date is required.');return false;}
     if(window.DalasiMonthClose?.isClosed?.(state,date)){ctx.toast('That accounting period is closed. Reopen it before posting a credit note.');return false;}
@@ -143,7 +144,7 @@
     const fd=new FormData(ev.target),bill=billById(state,String(fd.get('billId')||'')),date=String(fd.get('date')||''),amount=round(fd.get('amount'));if(!bill||amount<=0){ctx.toast('Choose a supplier bill and enter a valid credit amount.');return;}if(!validDate(date,state,ctx))return;
     const payment=billPayment(state,bill);if(payment&&payment.status!=='Paid'){ctx.toast('Resolve or remove the linked pending payment before recording a supplier credit.');return;}
     const remaining=billRemainingCredit(state,bill);if(amount>remaining+.004){ctx.toast('Supplier credit cannot exceed the remaining creditable bill value.');return;}
-    const paid=bill.status==='Paid'||payment?.status==='Paid',apBefore=paid?0:remaining,apReduction=round(Math.min(amount,apBefore)),refundReceivable=round(amount-apReduction),tax=taxShare(state,bill,amount,'purchase'),id='SCN-'+Date.now().toString(36).toUpperCase(),creditNo=nextNo('SCN',state.supplierCreditNotes||[],'creditNo'),returnItems=[];
+    const apBefore=billBalance(state,bill),apReduction=round(Math.min(amount,apBefore)),refundReceivable=round(amount-apReduction),tax=taxShare(state,bill,amount,'purchase'),id='SCN-'+Date.now().toString(36).toUpperCase(),creditNo=nextNo('SCN',state.supplierCreditNotes||[],'creditNo'),returnItems=[];
     const allowed=new Map(supplierReturnRows(state).map(x=>[x.catalogId,x]));
     for(const [key,val] of fd.entries()){
       if(!String(key).startsWith('supplierReturn:'))continue;
@@ -285,5 +286,5 @@
       '<section class="surface employee-card returns-register"><div class="table-tools"><div><h3>'+(view==='customer'?'Customer credit-note register':'Supplier credit-note register')+'</h3><p>'+(view==='customer'?'Revenue, VAT, receivable and refund effects':'Payable, VAT, supplier-refund and stock-return effects')+'</p></div></div><div class="table-scroll"><table><thead><tr><th>CREDIT / SOURCE</th><th>DATE</th><th>'+(view==='customer'?'CUSTOMER':'SUPPLIER')+'</th><th>GROSS CREDIT</th><th>VAT</th><th>'+(view==='customer'?'AR REDUCTION':'AP REDUCTION')+'</th><th>REFUND OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+(view==='customer'?customerRows:supplierRows)+'</tbody></table></div></section>'+      '<section class="surface employee-card returns-register"><div class="table-tools"><div><h3>'+(view==='customer'?'Customer refund receipts':'Supplier refund receipts')+'</h3><p>'+(view==='customer'?'Cash refunds paid against customer credit notes':'Cash refunds received against supplier credit notes')+'</p></div></div><div class="table-scroll"><table><thead><tr><th>DATE</th><th>'+(view==='customer'?'CUSTOMER':'SUPPLIER')+' / CREDIT</th><th>AMOUNT</th><th>REFERENCE</th><th>DOCUMENT</th></tr></thead><tbody>'+(view==='customer'?customerRefundRows:supplierRefundRows)+'</tbody></table></div></section>';
   }
 
-  window.DalasiReturns={customerCreditById,supplierCreditById,customerCreditsFor,supplierCreditsFor,customerCredited,supplierCredited,invoicePayments,invoiceBalance,billBalance,customerRefunded,supplierRefunded,customerRefundDue,supplierRefundDue,customerRefundLiability,supplierRefundReceivable,invoiceRemainingCredit,billRemainingCredit,taxShare,customerCreditModal,createCustomerCredit,supplierCreditModal,createSupplierCredit,refundModal,saveRefund,summary,downloadCreditPdf,refundById,downloadRefundPdf,exportCsv,render};
+  window.DalasiReturns={customerCreditById,supplierCreditById,customerCreditsFor,supplierCreditsFor,customerCredited,supplierCredited,invoicePayments,invoiceBalance,billBalance,customerRefunded,supplierRefunded,customerRefundDue,supplierRefundDue,customerRefundLiability,supplierRefundReceivable,invoiceRemainingCredit,billRemainingCredit,billPaid,taxShare,customerCreditModal,createCustomerCredit,supplierCreditModal,createSupplierCredit,refundModal,saveRefund,summary,downloadCreditPdf,refundById,downloadRefundPdf,exportCsv,render};
 })();
