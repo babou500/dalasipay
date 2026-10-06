@@ -27,8 +27,8 @@
   }
   function assignment(row,period){return window.DalasiControls?.movementForPeriod?.(row.employee,period)||{project:row.employee?.project||'',costCentre:row.employee?.costCentre||''};}
   function matchDim(x,project,costCentre){
-    if(project&&String(x.project||'')!==String(project))return false;
-    if(costCentre&&String(x.costCentre||'')!==String(costCentre))return false;
+    if(project!==null&&project!==undefined&&String(x.project||'')!==String(project))return false;
+    if(costCentre!==null&&costCentre!==undefined&&String(x.costCentre||'')!==String(costCentre))return false;
     return true;
   }
   function cogsForInvoices(state,invoices,period){
@@ -46,7 +46,7 @@
     });
     return round(total);
   }
-  function actuals(state,period,project='',costCentre=''){
+  function actuals(state,period,project=null,costCentre=null){
     const invoices=(state.customerInvoices||[]).filter(x=>invoiceStatus(state,x)!=='Draft'&&inPeriod(x.issueDate||x.createdAt,period)&&matchDim(x,project,costCentre));
     const direct=(state.revenueEntries||[]).filter(x=>inPeriod(x.revenueDate||x.createdAt,period)&&matchDim(x,project,costCentre));
     const expenses=(state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)&&inPeriod(x.expenseDate||x.createdAt,period)&&matchDim(x,project,costCentre));
@@ -55,12 +55,12 @@
     const cogs=cogsForInvoices(state,invoices,period);
     const operating=round(expenses.reduce((a,x)=>a+taxNetPurchase(state,x),0));
     let payroll=0,employees=0;
-    payrollRows(state,period).forEach(r=>{const a=assignment(r,period);if(project&&a.project!==project)return;if(costCentre&&a.costCentre!==costCentre)return;employees++;payroll+=Number(r.employerCost)||0;});
+    payrollRows(state,period).forEach(r=>{const a=assignment(r,period);if(project!==null&&project!==undefined&&String(a.project||'')!==String(project))return;if(costCentre!==null&&costCentre!==undefined&&String(a.costCentre||'')!==String(costCentre))return;employees++;payroll+=Number(r.employerCost)||0;});
     payroll=round(payroll);
     const commitments=round(bills.reduce((a,x)=>a+(Number(x.amount)||0),0));
     return {period,project,costCentre,revenue,cogs,operating,payroll,totalCost:round(cogs+operating+payroll),profit:round(revenue-cogs-operating-payroll),margin:revenue?round((revenue-cogs-operating-payroll)/revenue*100):0,invoiceCount:invoices.length,directCount:direct.length,expenseCount:expenses.length,billCount:bills.length,commitments,employees};
   }
-  function yearActuals(state,year,project='',costCentre=''){
+  function yearActuals(state,year,project=null,costCentre=null){
     const months=[];for(let m=1;m<=12;m++)months.push(actuals(state,year+'-'+String(m).padStart(2,'0'),project,costCentre));
     const sum=k=>round(months.reduce((a,x)=>a+(Number(x[k])||0),0)),revenue=sum('revenue'),profit=sum('profit');
     return {year,project,costCentre,revenue,cogs:sum('cogs'),operating:sum('operating'),payroll:sum('payroll'),totalCost:sum('totalCost'),profit,margin:revenue?round(profit/revenue*100):0,commitments:sum('commitments'),invoiceCount:sum('invoiceCount'),expenseCount:sum('expenseCount'),billCount:sum('billCount'),months};
@@ -83,8 +83,8 @@
     // Depreciation, asset disposal and manual journals are not dimension-tagged in this version.
     return 0;
   }
-  function budgetForDimension(state,year,month,project='',costCentre=''){
-    const lines=(state.businessBudgets||[]).filter(x=>String(x.year)===String(year)&&(!project||x.project===project)&&(!costCentre||x.costCentre===costCentre));
+  function budgetForDimension(state,year,month,project=null,costCentre=null){
+    const lines=(state.businessBudgets||[]).filter(x=>String(x.year)===String(year)&&(project===null||project===undefined||String(x.project||'')===String(project))&&(costCentre===null||costCentre===undefined||String(x.costCentre||'')===String(costCentre)));
     let revenue=0,expense=0;
     const idx=Math.max(0,Number(month)-1);
     lines.forEach(line=>{
@@ -97,7 +97,7 @@
     const list=type==='project'?projects(state):costCentres(state);
     const key=type==='project'?'project':'costCentre',ids=[...list.map(x=>x.id),''];
     return ids.map(id=>{
-      const a=actuals(state,period,type==='project'?id:'',type==='costCentre'?id:'');
+      const a=actuals(state,period,type==='project'?id:null,type==='costCentre'?id:null);
       return {id,name:id?label(state,id,type):'Unassigned',...a};
     }).filter(x=>x.revenue||x.totalCost||x.commitments||x.employees||x.id);
   }
@@ -117,7 +117,7 @@
     const opts=periods(state).map(p=>'<option value="'+esc(p)+'" '+(p===period?'selected':'')+'>'+esc(p)+'</option>').join('');
     const totals=rows.reduce((a,x)=>({revenue:a.revenue+x.revenue,cost:a.cost+x.totalCost,profit:a.profit+x.profit,commitments:a.commitments+x.commitments}),{revenue:0,cost:0,profit:0,commitments:0});
     const table=rows.length?rows.map(x=>{
-      const budget=budgetForDimension(state,year,month,type==='project'?x.id:'',type==='costCentre'?x.id:'');
+      const budget=budgetForDimension(state,year,month,type==='project'?x.id:null,type==='costCentre'?x.id:null);
       const profitVar=round(x.profit-budget.profit);
       return '<tr><td><div class="payment-payee"><b>'+esc(x.id||'UNASSIGNED')+'</b><small>'+esc(x.name)+'</small></div></td><td>'+money2(x.revenue)+'</td><td>'+money2(x.cogs)+'</td><td>'+money2(x.operating)+'</td><td>'+money2(x.payroll)+'</td><td><b>'+money2(x.profit)+'</b><small class="cash-sub">'+x.margin.toFixed(1)+'% margin</small></td><td>'+money2(budget.profit)+'</td><td class="'+(profitVar<0?'dimension-bad':'dimension-good')+'">'+(profitVar>=0?'+':'')+money2(profitVar)+'</td><td>'+money2(x.commitments)+'</td><td>'+x.employees+'</td></tr>';
     }).join(''):'<tr><td colspan="10"><div class="empty-inline">No '+(type==='project'?'project':'cost-centre')+' activity for '+esc(period)+'.</div></td></tr>';
