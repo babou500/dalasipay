@@ -38,13 +38,15 @@
   function statement(state){
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0,updatedAt:'',note:''},state.balanceSheetSetup||{});
     const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),profit=currentYearProfit(state);
-    const currentAssets=money(Number(setup.cashBank)+Number(setup.pettyCash)+ar+inventory+Number(setup.otherCurrentAssets));
+    const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0;
+    const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash));
+    const currentAssets=money(cashBank+pettyCash+ar+inventory+Number(setup.otherCurrentAssets));
     const totalAssets=money(currentAssets+Number(setup.fixedAssetsNet));
     const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+Number(setup.otherLiabilities));
     const totalLiabilities=money(currentLiabilities+Number(setup.loansBorrowings));
     const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit);
     const liabilitiesEquity=money(totalLiabilities+equity);
-    return {setup,ar,inventory,ap,accrued,payroll,profit,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
+    return {setup,ar,inventory,ap,accrued,payroll,profit,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
   }
   function row(label,value,money2,total=false,sub=false){
     return '<tr class="'+(total?'bs-total ':'')+(sub?'bs-sub':'')+'"><td>'+label+'</td><td>'+money2(value)+'</td></tr>';
@@ -61,8 +63,8 @@
       '</div>'+
       '<div class="bs-columns">'+
         '<div><h4>ASSETS</h4><table><tbody>'+
-          row('Cash at bank',setup.cashBank,money2)+
-          row('Petty cash',setup.pettyCash,money2)+
+          row(s.usingCashbook?'Bank & mobile-money accounts':'Cash at bank',s.cashBank,money2)+
+          row(s.usingCashbook?'Cash accounts':'Petty cash',s.pettyCash,money2)+
           row('Accounts receivable',s.ar,money2)+
           row('Inventory at cost',s.inventory,money2)+
           row('Other current assets',setup.otherCurrentAssets,money2)+
@@ -85,17 +87,18 @@
           row('LIABILITIES + EQUITY',s.liabilitiesEquity,money2,true)+
         '</tbody></table></div>'+
       '</div>'+
-      (!s.balanced?'<div class="bs-note bs-warning-note"><b>Balance Sheet is not balanced yet.</b> Enter the actual cash/bank, fixed assets, loans, capital and opening retained earnings from the company records. DalasiPay will not invent a balancing figure.</div>':'<div class="bs-note"><b>Balanced.</b> Assets equal liabilities plus equity based on the balances currently recorded.</div>')+
+      (s.usingCashbook?'<div class="bs-note"><b>Cash & Bank linked.</b> '+s.cashbookAccounts+' active account'+(s.cashbookAccounts===1?'':'s')+' now feed the Balance Sheet automatically. Manual cash fields are ignored while accounts exist.</div>':'<div class="bs-note">No Cash & Bank accounts exist yet, so the manual cash and petty-cash setup balances are still being used.</div>')+
+      (!s.balanced?'<div class="bs-note bs-warning-note"><b>Balance Sheet is not balanced yet.</b> Enter or correct fixed assets, loans, capital and opening retained earnings from the company records. DalasiPay will not invent a balancing figure.</div>':'<div class="bs-note"><b>Balanced.</b> Assets equal liabilities plus equity based on the balances currently recorded.</div>')+
       (s.payroll.runs?'<div class="bs-note">Payroll liabilities include '+s.payroll.runs+' approved payroll run'+(s.payroll.runs===1?'':'s')+' not yet marked paid. Once payroll is marked paid, those wage liabilities leave this automatic balance.</div>':'')+
     '</section>';
   }
   function modal(state,h){
-    const field=h.field,icon=h.icon,s=statement(state),x=s.setup,canEdit=h.can('workspace.manage')||h.can('payroll.manage'),dis=canEdit?'':'disabled';
+    const field=h.field,icon=h.icon,s=statement(state),x=s.setup,canEdit=h.can('workspace.manage')||h.can('payroll.manage'),dis=canEdit?'':'disabled',cashDis=s.usingCashbook?'disabled':dis;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-balance-sheet-setup"></div><form id="balance-sheet-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">FINANCIAL POSITION</div><h2>Balance Sheet setup</h2><p>Enter balances DalasiPay cannot derive automatically. Use figures from the bank statement and accounting records.</p></div><button type="button" class="close" data-action="close-balance-sheet-setup">×</button></div>'+
       '<div class="form-grid">'+
-        field('Cash at bank (GMD)','<input name="cashBank" type="number" step="0.01" value="'+Number(x.cashBank||0)+'" '+dis+'>')+
-        field('Petty cash (GMD)','<input name="pettyCash" type="number" step="0.01" value="'+Number(x.pettyCash||0)+'" '+dis+'>')+
+        field('Cash at bank fallback (GMD)','<input name="cashBank" type="number" step="0.01" value="'+Number(x.cashBank||0)+'" '+cashDis+'>')+
+        field('Petty cash fallback (GMD)','<input name="pettyCash" type="number" step="0.01" value="'+Number(x.pettyCash||0)+'" '+cashDis+'>')+
         field('Other current assets (GMD)','<input name="otherCurrentAssets" type="number" step="0.01" value="'+Number(x.otherCurrentAssets||0)+'" '+dis+'>')+
         field('Property / equipment, net (GMD)','<input name="fixedAssetsNet" type="number" step="0.01" value="'+Number(x.fixedAssetsNet||0)+'" '+dis+'>')+
         field('Loans / borrowings (GMD)','<input name="loansBorrowings" type="number" step="0.01" value="'+Number(x.loansBorrowings||0)+'" '+dis+'>')+
@@ -104,7 +107,7 @@
         field('Opening retained earnings (GMD)','<input name="openingRetainedEarnings" type="number" step="0.01" value="'+Number(x.openingRetainedEarnings||0)+'" '+dis+'>')+
       '</div>'+
       field('Note / source','<input name="note" value="'+String(x.note||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))+'" placeholder="e.g. balances agreed to bank statement and opening accounts" '+dis+'>')+
-      '<div class="modal-note">Accounts receivable, inventory, supplier bills, approved expense accruals and approved unpaid payroll are calculated automatically. Purchase orders are commitments and are not liabilities until billed/recognized.</div>'+
+      '<div class="modal-note">'+(s.usingCashbook?'Cash and bank balances are now taken from the Cash & Bank module. The fallback cash fields above are locked while live accounts exist. ':'')+'Accounts receivable, inventory, supplier bills, approved expense accruals and approved unpaid payroll are calculated automatically. Purchase orders are commitments and are not liabilities until billed/recognized.</div>'+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-balance-sheet-setup">Cancel</button>'+(canEdit?'<button class="primary" type="submit">'+icon('save',14)+' Save balances</button>':'')+'</div>'+
     '</form></div>';
   }
@@ -120,7 +123,7 @@
     const rows=[
       ['Balance Sheet','Amount'],
       ['ASSETS',''],
-      ['Cash at bank',x.cashBank],['Petty cash',x.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',x.fixedAssetsNet],['Total assets',s.totalAssets],
+      ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',x.fixedAssetsNet],['Total assets',s.totalAssets],
       ['LIABILITIES',''],
       ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['Other current liabilities',x.otherLiabilities],['Loans / borrowings',x.loansBorrowings],['Total liabilities',s.totalLiabilities],
       ['EQUITY',''],
