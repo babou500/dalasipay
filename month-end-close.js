@@ -17,7 +17,8 @@
     const invoices=(state.customerInvoices||[]).filter(x=>(x.status||'Draft')==='Draft'&&periodOf(x.issueDate||x.createdAt)===r.period);
     const expenses=(state.businessExpenses||[]).filter(x=>(x.status||'Draft')==='Draft'&&periodOf(x.expenseDate||x.createdAt)===r.period);
     const bills=(state.businessBills||[]).filter(x=>(x.status||'Draft')==='Draft'&&periodOf(x.invoiceDate||x.createdAt)===r.period);
-    return {invoices,expenses,bills,total:invoices.length+expenses.length+bills.length};
+    const journals=(state.manualJournals||[]).filter(x=>(x.status||'Draft')==='Draft'&&periodOf(x.date||x.createdAt)===r.period);
+    return {invoices,expenses,bills,journals,total:invoices.length+expenses.length+bills.length+journals.length};
   }
   function readiness(state,period){
     const r=range(period);if(!r)return null;
@@ -34,7 +35,7 @@
       {id:'suspense',label:'Mapping suspense',done:Math.abs(Number(suspense?.balance)||0)<0.01,blocking:true,detail:Math.abs(Number(suspense?.balance)||0)<0.01?'No unresolved mapping balance':'Suspense balance '+round(Math.abs(Number(suspense?.balance)||0))},
       {id:'cogs',label:'Revenue & COGS matching',done:!(pnl?.unfulfilledProductInvoices),blocking:true,detail:pnl?.unfulfilledProductInvoices?(pnl.unfulfilledProductInvoices+' product invoice'+(pnl.unfulfilledProductInvoices===1?'':'s')+' not fulfilled'):'No issued product invoices waiting for COGS'},
       {id:'balance',label:'Balance Sheet',done:!!bs?.balanced,blocking:true,detail:bs?.balanced?'Assets equal liabilities + equity':'Balance Sheet difference '+round(Math.abs(bs?.difference||0))},
-      {id:'drafts',label:'Draft accounting documents',done:drafts.total===0,blocking:true,detail:drafts.total?(drafts.total+' draft document'+(drafts.total===1?'':'s')+' dated in this period'):'No draft invoices, expenses or supplier bills in the period'}
+      {id:'drafts',label:'Draft accounting documents',done:drafts.total===0,blocking:true,detail:drafts.total?(drafts.total+' draft document'+(drafts.total===1?'':'s')+' dated in this period'):'No draft invoices, expenses, supplier bills or journals in the period'}
     ];
     return {period,r,checks,ready:checks.filter(x=>x.blocking).every(x=>x.done),tb,suspense,pnl,bs,bankAccounts,bankMissing,drafts};
   }
