@@ -118,6 +118,7 @@
   function convertQuote(id,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to convert quotations.');return;}
     const q=quoteById(state,id);if(!q)return;
+    const saved=q.customerId?customerById(state,q.customerId):null;if(saved?.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before converting this quotation to an invoice.');return;}
     if(quoteStatus(q)!=='Accepted'){ctx.toast('Mark the quotation accepted before converting it to an invoice.');return;}
     state.customerInvoices=state.customerInvoices||[];
     const invoiceNo=nextNumber('INV',state.customerInvoices,'invoiceNo'),invoiceId='AR-'+Date.now().toString(36).toUpperCase(),issueDate=todayIso(),dueDate=addDaysIso(issueDate,Number(q.termDays)||0);
