@@ -16,7 +16,8 @@
     const invoiced=(state.customerInvoices||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),collectionRate=invoiced?Math.round(collections/invoiced*100):0;
     const expenses=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.expenseMetrics(state):{count:0,total:0,pending:0,approved:0,paid:0,receipts:0};
     const purchases=window.DalasiExpensesPurchases?window.DalasiExpensesPurchases.purchaseMetrics(state):{count:0,open:0,openValue:0,approval:0,ordered:0,received:0};
-    return {payments,ar,recurring,cash,payable,overduePayable,collections,outPaid,invoiced,collectionRate,expenses,purchases};
+    const inventory=window.DalasiCatalog?window.DalasiCatalog.inventoryMetrics(state):{products:0,active:0,low:0,value:0};
+    return {payments,ar,recurring,cash,payable,overduePayable,collections,outPaid,invoiced,collectionRate,expenses,purchases,inventory};
   }
   function customerRows(state){
     return (state.customers||[]).map(c=>{const a=window.DalasiBusinessPayments.customerAccount(state,c.id);return {id:c.id,name:c.name,terms:Number(c.termDays)||0,invoiced:a.invoiced,collected:a.collected,outstanding:a.outstanding,overdue:a.overdue,status:c.status||'Active'};}).sort((a,b)=>b.outstanding-a.outstanding);
@@ -33,6 +34,8 @@
       ['recurring-commitments','Recurring commitments','Standing obligations and their monthly equivalent','calendar'],
       ['expense-register','Expense register','Business costs, categories, receipts and approval status','file'],
       ['purchase-orders','Purchase orders','Purchase requests, supplier commitments and receiving status','building'],
+      ['inventory-summary','Inventory summary','Product stock on hand, cost value and reorder levels','building'],
+      ['inventory-movements','Inventory movements','Opening balances, receipts, corrections and sales issues','file'],
       ['cash-flow','Cash flow forecast','Expected inflows and planned outflows for the next 90 days','reports']
     ];
     return tabs(state)+pageTitle('BUSINESS REPORTING','Reports','Cross-module finance reports for money in, money out, customers, bills and cash flow.',`<button class="secondary" data-action="business-report-export:business-summary">${icon('download',14)} Export summary</button>`)+
@@ -55,7 +58,7 @@
   function exportReport(kind,state,ctx){
     const m=metrics(state,ctx),today=todayIso();let csv='',name=kind;
     if(kind==='business-summary'){
-      csv=rowsToCsv(['Metric','Value'],[['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
+      csv=rowsToCsv(['Metric','Value'],[['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Inventory at cost',m.inventory.value],['Low-stock products',m.inventory.low],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
     }else if(kind==='accounts-receivable'){
       csv=rowsToCsv(['Invoice ID','Invoice No','Customer','Issue Date','Due Date','Amount','Received','Balance','Status'],(state.customerInvoices||[]).map(inv=>[inv.id,inv.invoiceNo,inv.customerName,inv.issueDate,inv.dueDate,inv.amount,(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0),Math.max(0,(Number(inv.amount)||0)-(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0)),inv.status]));
     }else if(kind==='accounts-payable'){
@@ -72,6 +75,10 @@
       csv=rowsToCsv(['Expense No','Merchant','Supplier ID','Category','Expense Date','Amount','Method','Reference','Receipt','Status','Created By'],(state.businessExpenses||[]).map(x=>[x.expenseNo||x.id,x.merchant,x.supplierId||'',x.category,x.expenseDate,x.amount,x.method,x.reference,x.receiptName||'',x.status,x.createdBy]));
     }else if(kind==='purchase-orders'){
       csv=rowsToCsv(['PO Number','Supplier','Supplier ID','Category','Description','Request Date','Required Date','Amount','Requested By','Reference','Status'],(state.purchaseOrders||[]).map(x=>[x.poNumber||x.id,x.supplierName||'',x.supplierId||'',x.category,x.description,x.requestDate,x.requiredDate,x.amount,x.requestedBy,x.reference,x.status]));
+    }else if(kind==='inventory-summary'){
+      csv=rowsToCsv(['Code','Item','Type','Unit','Selling Price','Cost Price','Stock On Hand','Reorder Level','Stock Value','Status'],(state.salesCatalog||[]).map(x=>[x.code||x.id,x.name,x.type||'Product',x.unit||'Unit',x.unitPrice||0,x.costPrice||0,x.type==='Product'?(Number(x.stockOnHand)||0):'',x.type==='Product'?(Number(x.reorderLevel)||0):'',x.type==='Product'?((Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)):'',x.status||'Active']));
+    }else if(kind==='inventory-movements'){
+      csv=rowsToCsv(['Movement ID','Date','Item Code','Item','Type','Quantity','Balance Before','Balance After','Reference','Note','Created By'],(state.inventoryMovements||[]).map(mv=>{const item=(state.salesCatalog||[]).find(x=>x.id===mv.catalogId);return [mv.id,mv.createdAt,item?.code||'',item?.name||mv.catalogId,mv.type,mv.quantity,mv.balanceBefore??'',mv.balanceAfter??'',mv.reference||'',mv.note||'',mv.createdBy||''];}));
     }else if(kind==='cash-flow'){
       const items=window.DalasiBusinessPayments.cashFlowSummary(state,{payrollCalc:ctx.payrollCalc,periodLabel:ctx.periodLabel},90).items;
       csv=rowsToCsv(['Date','Direction','Source','Description','Detail','Amount','Status'],items.map(x=>[x.date,x.direction==='in'?'Inflow':'Outflow',x.source,x.label,x.detail,x.amount,x.status]));
