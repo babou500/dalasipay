@@ -118,6 +118,7 @@
     if(quoteStatus(q)!=='Accepted'){ctx.toast('Mark the quotation accepted before converting it to an invoice.');return;}
     state.customerInvoices=state.customerInvoices||[];
     const invoiceNo=nextNumber('INV',state.customerInvoices,'invoiceNo'),invoiceId='AR-'+Date.now().toString(36).toUpperCase(),issueDate=todayIso(),dueDate=addDaysIso(issueDate,Number(q.termDays)||0);
+    if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('The current accounting period is closed. Reopen it before converting this quotation to an invoice.');return;}
     const lines=(q.lineItems||[]).map(x=>({...x})),totals=lines.length?window.DalasiCatalog.lineTotals(lines):{subtotal:Number(q.amount)||0,discount:0,total:Number(q.amount)||0};
     state.customerInvoices.unshift({id:invoiceId,invoiceNo,customerId:q.customerId||null,customerName:q.customerName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,issueDate,dueDate,reference:q.reference||q.quoteNo,description:q.description||'Converted quotation',status:'Draft',quoteId:q.id,quoteNo:q.quoteNo,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     q.status='Converted';q.invoiceId=invoiceId;q.invoiceNo=invoiceNo;q.convertedAt=new Date().toISOString();q.convertedBy=state.session?.name||'User';q.updatedAt=q.convertedAt;
