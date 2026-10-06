@@ -79,9 +79,11 @@
     // Direct income
     (state.revenueEntries||[]).forEach(x=>{
       const amt=round(x.amount);if(!amt)return;
+      const tax=window.DalasiTax?.meta?.(state,x,'sale')||{taxNet:amt,vatAmount:0};
       pushJournal(out,'REV-'+x.id,x.revenueDate||x.createdAt,x.revenueNo||x.reference||x.id,'Direct income',[
         {account:cashAccountName(state,x.accountId),debit:amt,memo:x.payer||''},
-        {account:'Other Business Income',credit:amt,memo:x.category||x.description||''}
+        {account:'Other Business Income',credit:round(tax.taxNet),memo:x.category||x.description||''},
+        {account:'VAT Output Payable',credit:round(tax.vatAmount),memo:tax.vatAmount?'Output VAT included in direct income':''}
       ]);
     });
 
