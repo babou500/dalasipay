@@ -26,7 +26,7 @@
     const total=clean.reduce((a,x)=>a+lineAmount(x),0);
     return {subtotal:Math.round(subtotal*100)/100,discount:Math.round(discount*100)/100,total:Math.round(total*100)/100};
   }
-  function lineRow(state,line={},index=0){
+  function lineRow(state,line={},index=0,mode='sales'){
     const active=(state.salesCatalog||[]).filter(x=>(x.status||'Active')==='Active');
     const opts=['<option value="">Custom item</option>'].concat(active.map(x=>'<option value="'+esc(x.id)+'" '+(line.catalogId===x.id?'selected':'')+'>'+esc(x.code||'')+' · '+esc(x.name)+'</option>')).join('');
     const unitOpts=UNITS.map(x=>'<option '+((line.unit||'Unit')===x?'selected':'')+'>'+x+'</option>').join('');
@@ -41,11 +41,11 @@
       '<button type="button" class="line-remove" data-line-remove aria-label="Remove line">×</button>'+
     '</div>';
   }
-  function lineItemsForm(state,lines=[]){
+  function lineItemsForm(state,lines=[],mode='sales'){
     const initial=lines.length?lines:[{description:'',quantity:1,unit:'Unit',unitPrice:'',discount:0}];
-    return '<div class="sales-line-builder">'+
+    return '<div class="sales-line-builder" data-line-mode="'+esc(mode)+'">'+
       '<div class="sales-line-head"><span>PRODUCT / SERVICE</span><span>DESCRIPTION</span><span>QTY</span><span>UNIT</span><span>UNIT PRICE</span><span>DISC. %</span><span>LINE TOTAL</span><span></span></div>'+
-      '<div class="sales-lines">'+initial.map((x,i)=>lineRow(state,x,i)).join('')+'</div>'+
+      '<div class="sales-lines">'+initial.map((x,i)=>lineRow(state,x,i,mode)).join('')+'</div>'+
       '<div class="sales-line-foot"><button type="button" class="secondary tiny" data-line-add>+ Add line</button><div class="sales-line-summary"><span>Subtotal <b data-line-subtotal>D0.00</b></span><span>Discount <b data-line-discount>D0.00</b></span><strong>Total <b data-line-grand>D0.00</b></strong></div></div>'+
     '</div>';
   }
@@ -61,9 +61,9 @@
       return {catalogId:catalogId||null,description,quantity,unit,unitPrice,discount,amount:lineAmount({quantity,unitPrice,discount})};
     }).filter(x=>x.description&&x.quantity>0&&x.unitPrice>=0);
   }
-  function bindLineItems(form,state){
+  function bindLineItems(form,state,mode='sales'){
     if(!form||form.dataset.linesBound==='1')return;form.dataset.linesBound='1';
-    const wrap=form.querySelector('.sales-lines');if(!wrap)return;
+    const wrap=form.querySelector('.sales-lines');if(!wrap)return;mode=form.querySelector('.sales-line-builder')?.dataset.lineMode||mode||'sales';
     const update=()=>{
       const lines=readLines(form),t=lineTotals(lines);
       [...wrap.querySelectorAll('.sales-line')].forEach(row=>{
@@ -74,7 +74,7 @@
       if(s)s.textContent='D'+money(t.subtotal);if(di)di.textContent='D'+money(t.discount);if(g)g.textContent='D'+money(t.total);
     };
     form.addEventListener('click',ev=>{
-      const add=ev.target.closest('[data-line-add]');if(add){wrap.insertAdjacentHTML('beforeend',lineRow(state,{},wrap.querySelectorAll('.sales-line').length));update();return;}
+      const add=ev.target.closest('[data-line-add]');if(add){wrap.insertAdjacentHTML('beforeend',lineRow(state,{},wrap.querySelectorAll('.sales-line').length,mode));update();return;}
       const rem=ev.target.closest('[data-line-remove]');if(rem){const row=rem.closest('.sales-line');if(wrap.querySelectorAll('.sales-line').length>1)row.remove();else{row.querySelectorAll('input').forEach(x=>x.value=x.name==='lineQuantity'?'1':x.name==='lineDiscount'?'0':'');}update();}
     });
     form.addEventListener('change',ev=>{
@@ -82,7 +82,7 @@
         const item=itemById(state,ev.target.value),row=ev.target.closest('.sales-line');if(item&&row){
           row.querySelector('[name="lineDescription"]').value=item.name;
           row.querySelector('[name="lineUnit"]').value=item.unit||'Unit';
-          row.querySelector('[name="lineUnitPrice"]').value=Number(item.unitPrice||0).toFixed(2);
+          row.querySelector('[name="lineUnitPrice"]').value=Number(mode==='purchase'?(item.costPrice||0):(item.unitPrice||0)).toFixed(2);
         }
       }
       update();
