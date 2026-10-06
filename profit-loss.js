@@ -75,7 +75,7 @@
     const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
     const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
-    const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const manual=manualAdjustments(state,r.start,r.end),assets=fixedAssetActivity(state,r.start,r.end);
     const revenue=Math.round((invoiceRevenue+directIncome+manual.revenue)*100)/100;
     const cogsBase=cogsForRange(state,r.start,r.end),cogs={total:Math.round((cogsBase.total+manual.cogs)*100)/100,estimated:cogsBase.estimated};
