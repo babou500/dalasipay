@@ -117,6 +117,8 @@
         field('Category','<select name="category">'+EXPENSE_CATEGORIES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('Payment method','<select name="method">'+METHODS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
+        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
+        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
         field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Reference','<input name="reference" placeholder="Receipt, transfer or internal reference">')+
         field('Receipt / evidence','<input name="receipt" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
@@ -138,6 +140,8 @@
         field('Required by','<input name="requiredDate" type="date">')+
         field('Requested by','<input name="requestedBy" placeholder="Name or department">')+
         field('Internal reference','<input name="reference" placeholder="Project, department or request ref">')+
+        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
+        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
       '</div>'+
       window.DalasiCatalog.lineItemsForm(state,[],'purchase')+
       field('Purchase description','<input name="description" placeholder="Optional summary of the purchase">')+
@@ -154,7 +158,7 @@
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
     state.businessExpenses=state.businessExpenses||[];
     const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase')||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
-    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount,...tax,expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.expenseOpen=false;ctx.audit('expense.created',{expenseId:id,expenseNo,merchant,amount,category:String(fd.get('category')||'Other expense')});ctx.save();ctx.toast('Expense saved as draft');ctx.render();
   }
   function updateExpense(id,status,state,ctx){
@@ -171,7 +175,7 @@
     if(!requestDate||!lines.length||totals.total<=0){ctx.toast('Request date and at least one priced purchase line are required.');return;}
     state.purchaseOrders=state.purchaseOrders||[];
     const id='PO-'+Date.now().toString(36).toUpperCase(),poNumber=nextNumber('PO',state.purchaseOrders,'poNumber');
-    state.purchaseOrders.unshift({id,poNumber,supplierId:supplierId||null,supplierName,lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,category:String(fd.get('category')||'Other purchase'),requestDate,requiredDate:String(fd.get('requiredDate')||''),requestedBy:String(fd.get('requestedBy')||'').trim(),reference:String(fd.get('reference')||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.purchaseOrders.unshift({...((window.DalasiDimensions?.tag?.(fd))||{}),id,poNumber,supplierId:supplierId||null,supplierName,lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,category:String(fd.get('category')||'Other purchase'),requestDate,requiredDate:String(fd.get('requiredDate')||''),requestedBy:String(fd.get('requestedBy')||'').trim(),reference:String(fd.get('reference')||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.purchaseOpen=false;ctx.audit('purchase.created',{purchaseId:id,poNumber,supplierId:supplierId||null,supplierName,amount:totals.total,lineCount:lines.length});ctx.save();ctx.toast(poNumber+' saved as draft');ctx.render();
   }
   function receivePurchaseInventory(x,state,ctx){
