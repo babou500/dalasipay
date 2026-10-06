@@ -325,6 +325,7 @@
         field('Issue date','<input name="issueDate" type="date" value="'+issue+'" required>')+
         field('Due date','<input name="dueDate" type="date" value="'+due+'" required>')+
         field('Customer reference','<input name="reference" value="'+esc(selected?.reference||'')+'" placeholder="PO, contract or customer reference">')+
+        field('VAT treatment',window.DalasiTax?.salesOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
       '</div>'+
       '<div class="sales-line-note">Choose saved Products & Services or enter custom lines. The invoice total is calculated automatically.</div>'+
       window.DalasiCatalog.lineItemsForm(state,[])+
@@ -417,8 +418,8 @@
     if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
-    const id='AR-'+Date.now().toString(36).toUpperCase();state.customerInvoices=state.customerInvoices||[];
-    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    const id='AR-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,totals.total,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale')||{taxCode:'OUT',vatRate:0,taxGross:totals.total,taxNet:totals.total,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.customerInvoices=state.customerInvoices||[];
+    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.receivableOpen=false;state.receivableCustomerId=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
@@ -444,7 +445,7 @@
     const isReceipt=type==='receipt',payment=isReceipt?incomingPaymentById(state,id):null,inv=isReceipt?receivableById(state,payment?.invoiceId):receivableById(state,id);
     if(!inv){ctx.toast('Customer invoice not found');return;}
     if(isReceipt&&!payment){ctx.toast('Incoming payment record not found');return;}
-    const title=isReceipt?'PAYMENT RECEIPT':'CUSTOMER INVOICE',number=isReceipt?payment.receiptNumber:inv.invoiceNo,amount=isReceipt?payment.amount:inv.amount;
+    const tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxCode:'OUT',taxNet:Number(inv.amount)||0,vatAmount:0,vatRate:0},taxInvoice=!isReceipt&&window.DalasiTax?.settings?.(state)?.vatRegistered&&['STD','ZERO'].includes(tax.taxCode),title=isReceipt?'PAYMENT RECEIPT':(taxInvoice?'VAT INVOICE':'CUSTOMER INVOICE'),number=isReceipt?payment.receiptNumber:inv.invoiceNo,amount=isReceipt?payment.amount:inv.amount;
     const balance=receivableBalance(state,inv),paid=receivablePaid(state,inv),out=[],ink='0.06 0.13 0.11',muted='0.36 0.43 0.40',green='0.04 0.31 0.26',mint='0.92 0.97 0.95',line='0.84 0.88 0.86',white='1 1 1',soft='0.97 0.98 0.975';
     const safeText=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
     const clip=(v,max=48)=>{const s=String(v??'');return s.length>max?s.slice(0,max-3)+'...':s};
@@ -456,7 +457,7 @@
     fill(0,0,595,842,white);out.push('0.88 0.91 0.90 RG 0.75 w 24 24 547 794 re S');
     fill(24,746,547,72,green);fill(24,746,5,72,'0.37 0.82 0.68');
     if(state.branding?.logoData){out.push('q 42 0 0 42 43 765 cm /Im1 Do Q')}else{fill(43,765,42,42,'0.88 0.97 0.94');text(57,780,14,clip(state.branding?.logoText||state.company.slice(0,1),3),true,green)}
-    text(99,790,17,clip(state.company,29),true,white);text(99,771,8.2,'DALASIPAY MONEY IN',true,'0.74 0.91 0.86');
+    text(99,790,17,clip(state.company,29),true,white);text(99,771,8.2,(window.DalasiTax?.settings?.(state)?.tin?'TIN '+window.DalasiTax.settings(state).tin:'DALASIPAY MONEY IN'),true,'0.74 0.91 0.86');
     text(394,791,17,title,true,white);text(394,772,7.6,(isReceipt?'CUSTOMER COLLECTION':'AMOUNT DUE').toUpperCase(),true,'0.74 0.91 0.86');
     rect(24,695,547,38,soft,line,.55);label(40,718,isReceipt?'Receipt no.':'Invoice no.');text(40,703,10,number,true);stroke(218,701,218,726,line,.55);label(235,718,isReceipt?'Date received':'Issue date');text(235,703,9.4,dueDate(isReceipt?payment.receivedDate:inv.issueDate),true);stroke(391,701,391,726,line,.55);label(408,718,isReceipt?'Invoice':'Due date');text(408,703,9.4,isReceipt?inv.invoiceNo:dueDate(inv.dueDate),true);
     rect(24,607,547,73,'0.945 0.97 0.96',line,.55);label(40,662,'Customer');text(40,644,13,clip(inv.customerName,42),true);text(40,628,8.4,clip([inv.customerEmail,inv.customerPhone].filter(Boolean).join(' · ')||'Customer account',58),false,muted);label(385,662,isReceipt?'Amount received':'Invoice amount');text(385,638,19,ctx.money2(amount),true,green);
@@ -473,10 +474,10 @@
     }
     rect(24,335,547,80,mint,line,.55);
     if(isReceipt){label(40,396,'Invoice collection summary');text(40,374,9,'Invoice total',false,muted);text(160,374,10,ctx.money2(inv.amount),true);text(300,374,9,'Total received',false,muted);text(410,374,10,ctx.money2(paid),true,green);text(40,352,9,'Balance remaining',false,muted);text(160,352,13,ctx.money2(balance),true,balance>0?ink:green);}
-    else{const it=invLines.length?window.DalasiCatalog.lineTotals(invLines):{subtotal:inv.amount,discount:0,total:inv.amount};label(40,396,'Invoice totals');text(40,374,8.6,'Subtotal',false,muted);text(120,374,9.2,ctx.money2(it.subtotal),true);text(230,374,8.6,'Discount',false,muted);text(305,374,9.2,ctx.money2(it.discount),true);text(400,374,8.6,'Amount due',false,muted);text(477,371,14,ctx.money2(balance),true,green);text(40,351,8,paid>0?'Payments received '+ctx.money2(paid):'No payments recorded yet',true,muted);}
+    else{label(40,396,'Invoice totals');text(40,374,8.6,'Net value',false,muted);text(120,374,9.2,ctx.money2(tax.taxNet),true);text(230,374,8.6,'VAT '+(tax.vatRate?tax.vatRate+'%':''),false,muted);text(305,374,9.2,ctx.money2(tax.vatAmount),true);text(400,374,8.6,'Amount due',false,muted);text(477,371,14,ctx.money2(balance),true,green);text(40,351,8,(window.DalasiTax?.code?.(tax.taxCode)?.short||tax.taxCode)+(paid>0?' · Payments received '+ctx.money2(paid):''),true,muted);}
     rect(24,230,547,82,soft,line,.55);label(40,291,isReceipt?'Collection record':'Payment instructions');text(40,269,8.5,isReceipt?'Recorded by':'Invoice prepared by',false,muted);text(175,269,9.2,clip(isReceipt?(payment.createdBy||'Workspace user'):(inv.createdBy||'Workspace user'),38),true);text(40,249,8.5,isReceipt?'Recorded on':'Invoice status',false,muted);text(175,249,9.2,isReceipt?new Date(payment.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):receivableStatus(state,inv),true);
     fill(24,146,547,59,green);text(42,182,8.2,isReceipt?'PAYMENT RECEIVED':'CUSTOMER AMOUNT DUE',true,'0.74 0.91 0.86');text(42,160,20,ctx.money2(isReceipt?payment.amount:balance),true,white);text(356,166,8,clip(isReceipt?(payment.method||''):(inv.dueDate?'Due '+dueDate(inv.dueDate):''),26),true,'0.84 0.95 0.91');
-    stroke(24,82,571,82,line,.55);text(24,63,7.3,isReceipt?'This receipt records a customer payment received in DalasiPay.':'This invoice records an amount due to the business.',true,'0.45 0.51 0.49');text(24,48,6.9,isReceipt?'Bank or mobile-money settlement is not independently verified unless a payment-provider integration confirms it.':'Please use the invoice number as the payment reference unless otherwise agreed.',false,'0.53 0.58 0.56');text(421,63,7.3,'Generated by DalasiPay',true,green);
+    stroke(24,82,571,82,line,.55);text(24,63,7.3,isReceipt?'This receipt records a customer payment received in DalasiPay.':(taxInvoice?'VAT is included in the invoice total according to the saved tax treatment.':'This invoice records an amount due to the business.'),true,'0.45 0.51 0.49');text(24,48,6.9,isReceipt?'Bank or mobile-money settlement is not independently verified unless a payment-provider integration confirms it.':'Please use the invoice number as the payment reference unless otherwise agreed.',false,'0.53 0.58 0.56');text(421,63,7.3,'Generated by DalasiPay',true,green);
     const safe=(String(inv.customerName||'Customer').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Customer'),filename=(isReceipt?'Customer_Receipt_':'Customer_Invoice_')+safe+'_'+number+'.pdf';
     ctx.pdfDownload(filename,out.join('\n'),state.branding?.logoData||'');ctx.toast((isReceipt?'Customer receipt':'Customer invoice')+' downloaded');
   }
@@ -827,6 +828,7 @@
         field('Invoice date','<input name="invoiceDate" type="date">')+
         field('Due date','<input name="dueDate" type="date" required>')+
         field('Category','<select name="category"><option>Supplies / inventory</option><option>Professional services</option><option>Rent / utilities</option><option>Government / statutory</option><option>Travel / logistics</option><option>Other expense</option></select>')+
+        field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
         field('Invoice document','<input name="attachment" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
       '</div>'+
       field('Description / purpose','<input name="description" placeholder="What was purchased or billed?">')+
@@ -841,8 +843,8 @@
     const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
     if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
-    const id='BILL-'+Date.now().toString(36).toUpperCase();state.businessBills=state.businessBills||[];
-    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    const id='BILL-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase')||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
+    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,...tax,invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
