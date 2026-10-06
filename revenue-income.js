@@ -22,10 +22,10 @@
   function ledgerRows(state){
     const rows=[];
     invoiceRows(state).forEach(inv=>{
-      const s=window.DalasiSalesInvoices?.status?window.DalasiSalesInvoices.status(state,inv):(inv.status||'Sent');
-      rows.push({id:inv.id,date:inv.issueDate,source:'Invoice',reference:inv.invoiceNo||inv.id,party:inv.customerName||'Customer',category:'Sales revenue',description:inv.description||'Customer invoice',method:'Accounts receivable',amount:Number(inv.amount)||0,status:s});
+      const s=window.DalasiSalesInvoices?.status?window.DalasiSalesInvoices.status(state,inv):(inv.status||'Sent'),tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:Number(inv.amount)||0,taxGross:Number(inv.amount)||0,vatAmount:0,taxCode:'OUT'};
+      rows.push({id:inv.id,date:inv.issueDate,source:'Invoice',reference:inv.invoiceNo||inv.id,party:inv.customerName||'Customer',category:'Sales revenue',description:inv.description||'Customer invoice',method:'Accounts receivable',amount:Number(tax.taxNet)||0,gross:Number(tax.taxGross)||0,vat:Number(tax.vatAmount)||0,taxCode:tax.taxCode,status:s});
     });
-    (state.revenueEntries||[]).forEach(x=>rows.push({id:x.id,date:x.revenueDate,source:'Direct income',reference:x.reference||x.revenueNo||x.id,party:x.payer||'Direct income',category:x.category||'Other business income',description:x.description||'',method:x.method||'Other',amount:Number(x.amount)||0,status:'Recorded'}));
+    (state.revenueEntries||[]).forEach(x=>{const tax=window.DalasiTax?.meta?.(state,x,'sale')||{taxNet:Number(x.amount)||0,taxGross:Number(x.amount)||0,vatAmount:0,taxCode:'OUT'};rows.push({id:x.id,date:x.revenueDate,source:'Direct income',reference:x.reference||x.revenueNo||x.id,party:x.payer||'Direct income',category:x.category||'Other business income',description:x.description||'',method:x.method||'Other',amount:Number(tax.taxNet)||0,gross:Number(tax.taxGross)||0,vat:Number(tax.vatAmount)||0,taxCode:tax.taxCode,status:'Recorded'});});
     return rows.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.id).localeCompare(String(a.id)));
   }
   function nextNumber(state){
@@ -41,7 +41,7 @@
       '<td>'+esc(x.category)+'</td>'+
       '<td>'+esc(x.source)+'</td>'+
       '<td>'+esc(x.method)+'</td>'+
-      '<td class="payment-amount">'+money2(x.amount)+'</td>'+
+      '<td class="payment-amount"><b>'+money2(x.amount)+'</b><small class="cash-sub">'+(x.vat?('VAT '+money2(x.vat)+' · gross '+money2(x.gross)):window.DalasiTax?.code?.(x.taxCode)?.short||'No VAT')+'</small></td>'+
       '<td>'+pill(x.status,x.status==='Paid'||x.status==='Recorded'?'paid':x.status==='Sent'?'approved':'neutral')+'</td>'+
     '</tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No recognized revenue yet. Issued invoices will appear here automatically, and direct income can be recorded manually.</div></td></tr>';
     return '<div class="sales-summary">'+
@@ -87,7 +87,7 @@
     state.revenueOpen=false;ctx.audit('revenue.recorded',{revenueId:id,revenueNo,payer,amount,category:String(fd.get('category')||'Other business income')});ctx.save();ctx.toast('Income '+revenueNo+' recorded');ctx.render();
   }
   function exportCsv(state,ctx){
-    const rows=ledgerRows(state),csv=[['Date','Origin','Reference','Customer / Source','Category','Description','Method','Amount','Status'],...rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.status])].map(r=>r.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+    const rows=ledgerRows(state),csv=[['Date','Origin','Reference','Customer / Source','Category','Description','Method','Net Revenue','VAT','Gross Amount','VAT Treatment','Status'],...rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.vat||0,x.gross??x.amount,window.DalasiTax?.code?.(x.taxCode)?.label||x.taxCode||'Out of scope',x.status])].map(r=>r.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
     ctx.downloadText('dalasipay-revenue-register-'+todayIso()+'.csv',csv);ctx.toast('Revenue register downloaded');
   }
 
