@@ -14,8 +14,8 @@
   }
   function metrics(state){
     const invoices=invoiceRows(state);
-    const invoiceRevenue=invoices.reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const direct=(state.revenueEntries||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const invoiceRevenue=invoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
+    const direct=(state.revenueEntries||[]).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const collections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
     return {invoiceRevenue,direct,total:invoiceRevenue+direct,cashReceived:collections+direct,invoiceCount:invoices.length,directCount:(state.revenueEntries||[]).length};
   }
@@ -66,6 +66,7 @@
         field('Category','<select name="category">'+CATEGORIES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
         field('Received through','<select name="method">'+METHODS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
+        field('VAT treatment',window.DalasiTax?.salesOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
         field('Deposit to account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Reference','<input name="reference" placeholder="Receipt, deposit or transaction reference">')+
       '</div>'+
@@ -80,8 +81,8 @@
     if(!payer||amount<=0||!revenueDate){ctx.toast('Payer/source, amount and revenue date are required.');return;}
     if(window.DalasiMonthClose?.isClosed(state,revenueDate)){ctx.toast('That accounting period is closed. Reopen it before recording this income.');return;}
     state.revenueEntries=state.revenueEntries||[];const id='REV-'+Date.now().toString(36).toUpperCase(),revenueNo=nextNumber(state);
-    const accountId=String(fd.get('accountId')||'')||null,reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim();
-    state.revenueEntries.unshift({id,revenueNo,customerId:customerId||null,payer,revenueDate,category:String(fd.get('category')||'Other business income'),amount,method:String(fd.get('method')||'Other'),accountId,reference,description,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const accountId=String(fd.get('accountId')||'')||null,reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim(),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale')||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
+    state.revenueEntries.unshift({id,revenueNo,customerId:customerId||null,payer,revenueDate,category:String(fd.get('category')||'Other business income'),amount,...tax,method:String(fd.get('method')||'Other'),accountId,reference,description,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     if(accountId)window.DalasiCashBank?.post(state,{accountId,date:revenueDate,direction:'in',amount,type:'Direct income',counterparty:payer,reference:reference||revenueNo,description:description||String(fd.get('category')||'Other business income'),sourceType:'revenue',sourceId:id,sourceKey:'revenue:'+id+':in',createdBy:state.session?.name||'User'});
     state.revenueOpen=false;ctx.audit('revenue.recorded',{revenueId:id,revenueNo,payer,amount,category:String(fd.get('category')||'Other business income')});ctx.save();ctx.toast('Income '+revenueNo+' recorded');ctx.render();
   }
