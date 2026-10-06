@@ -92,7 +92,7 @@
     }else if(kind==='year-end-close'){const y=state.yearCloseYear||String(state.currentPeriod||'').slice(0,4);if(window.DalasiYearClose?.record(state,y))window.DalasiYearClose.exportRecord(y,state,ctx);else ctx.toast('Close the selected financial year before exporting its close record.');return;
     }else if(kind==='revenue-register'){
       const rows=window.DalasiRevenueIncome?window.DalasiRevenueIncome.ledgerRows(state):[];
-      csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Amount','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.status]));
+      csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Net Revenue','VAT','Gross Amount','VAT Treatment','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.vat||0,x.gross??x.amount,window.DalasiTax?.code?.(x.taxCode)?.label||x.taxCode||'Out of scope',x.status]));
     }else if(kind==='accounts-receivable'){
       csv=rowsToCsv(['Invoice ID','Invoice No','Customer','Issue Date','Due Date','Amount','Received','Balance','Status'],(state.customerInvoices||[]).map(inv=>[inv.id,inv.invoiceNo,inv.customerName,inv.issueDate,inv.dueDate,inv.amount,(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0),Math.max(0,(Number(inv.amount)||0)-(state.incomingPayments||[]).filter(p=>p.invoiceId===inv.id).reduce((a,p)=>a+(Number(p.amount)||0),0)),inv.status]));
     }else if(kind==='accounts-payable'){
