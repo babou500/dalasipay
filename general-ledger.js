@@ -94,6 +94,16 @@
       ]);
     });
 
+    // Customer debit notes.
+    (state.customerDebitNotes||[]).filter(x=>x.status!=='Void').forEach(d=>{
+      const gross=round(d.amount),net=round(d.taxNet??gross),vat=round(d.vatAmount);if(!gross)return;
+      pushJournal(out,'CDN-'+d.id,d.date||d.createdAt,d.debitNo||d.id,'Customer debit note',[
+        {account:'Accounts Receivable',debit:gross,memo:d.customerName||''},
+        {account:'Sales Revenue',credit:net,memo:d.reason||d.note||''},
+        {account:'VAT Output Payable',credit:vat,memo:vat?'Output VAT added':''}
+      ]);
+    });
+
     // Direct income
     (state.revenueEntries||[]).forEach(x=>{
       const amt=round(x.amount);if(!amt)return;
@@ -188,6 +198,16 @@
       pushJournal(out,'SREF-'+r.id,r.date||r.createdAt,r.reference||r.id,'Supplier refund received',[
         {account:cashAccountName(state,r.accountId),debit:amt,memo:c?.supplier||''},
         {account:'Supplier Refund Receivable',credit:amt,memo:c?.creditNo||''}
+      ]);
+    });
+
+    // Supplier debit notes / additional charges.
+    (state.supplierDebitNotes||[]).filter(x=>x.status!=='Void').forEach(d=>{
+      const gross=round(d.amount),net=round(d.taxNet??gross),vat=round(d.vatRecoverable?d.vatAmount:0);if(!gross)return;
+      pushJournal(out,'SDN-'+d.id,d.date||d.createdAt,d.debitNo||d.supplierReference||d.id,'Supplier debit note',[
+        {account:'Opening / Mapping Suspense',debit:round(d.vatRecoverable?net:gross),memo:d.note||'Supplier additional charge'},
+        {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT added':''},
+        {account:'Accounts Payable',credit:gross,memo:d.supplier||''}
       ]);
     });
 
