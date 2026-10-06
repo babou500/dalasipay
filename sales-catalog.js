@@ -168,6 +168,7 @@
   function fulfillInvoice(invoice,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to issue stock.');return false;}
     if(invoice.fulfilledAt){ctx.toast('This invoice has already been fulfilled.');return false;}
+    if(window.DalasiMonthClose?.isClosed(state,invoice.issueDate||invoice.createdAt)){ctx.toast('This invoice belongs to a closed accounting period. Reopen it before issuing stock and posting COGS.');return false;}
     const lines=(invoice.lineItems||[]).filter(x=>x.catalogId),byItem=new Map();
     lines.forEach(line=>{const item=itemById(state,line.catalogId);if(item?.type==='Product'){const current=byItem.get(item.id)||{item,qty:0};current.qty+=Math.max(0,Number(line.quantity)||0);byItem.set(item.id,current);}});
     const requirements=[...byItem.values()];
