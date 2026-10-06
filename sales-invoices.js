@@ -8,7 +8,13 @@
   function customerById(state,id){return (state.customers||[]).find(x=>x.id===id)||null;}
   function paymentsFor(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id);}
   function addDaysIso(date,days){const d=new Date((date||todayIso())+'T12:00:00');d.setDate(d.getDate()+(Number(days)||0));return d.toISOString().slice(0,10);}
-  function nextNumber(prefix,rows,key){const year=new Date().getFullYear(),n=(rows||[]).filter(x=>String(x[key]||'').startsWith(prefix+'-'+year+'-')).length+1;return prefix+'-'+year+'-'+String(n).padStart(5,'0');}
+  function nextNumber(prefix,rows,key){
+    const year=new Date().getFullYear(),base=prefix+'-'+year+'-',list=rows||[];
+    let max=0;list.forEach(x=>{const v=String(x[key]||'');if(v.startsWith(base)){const n=Number(v.slice(base.length));if(Number.isFinite(n)&&n>max)max=n;}});
+    let n=max+1,number=base+String(n).padStart(5,'0');
+    while(list.some(x=>String(x[key]||'').toLowerCase()===number.toLowerCase())){n++;number=base+String(n).padStart(5,'0');}
+    return number;
+  }
   function quoteStatus(q){if(!q)return 'Draft';const s=q.status||'Draft';if(['Accepted','Declined','Converted'].includes(s))return s;if(q.validUntil&&q.validUntil<todayIso()&&s!=='Draft')return 'Expired';return s;}
   function paid(state,inv){return paymentsFor(state,inv.id).reduce((a,x)=>a+(Number(x.amount)||0),0);}
   function balance(state,inv){return Math.max(0,(Number(inv.amount)||0)-paid(state,inv));}
