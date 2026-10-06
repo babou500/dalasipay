@@ -1,0 +1,17 @@
+
+.pnl-card{margin-top:14px;padding:16px}
+.pnl-card .table-tools{margin-bottom:12px}
+.pnl-card select{height:34px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);padding:0 9px;font-size:10px;font-weight:700}
+.pnl-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 14px}
+.pnl-kpis>div{border:1px solid var(--border);border-radius:10px;background:var(--panel-2);padding:12px 13px}
+.pnl-kpis span{display:block;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:800}
+.pnl-kpis b{display:block;margin:5px 0 2px;font-size:16px}
+.pnl-kpis small{font-size:9px;color:var(--muted)}
+.pnl-kpis .pnl-loss{background:var(--warn-bg)}
+.pnl-table td:nth-child(2),.pnl-table td:nth-child(3),.pnl-table th:nth-child(2),.pnl-table th:nth-child(3){text-align:right}
+.pnl-table .pnl-total td{font-weight:800;border-top:1px solid var(--border);background:var(--panel-2)}
+.pnl-table .pnl-sub td:first-child{padding-left:28px;color:var(--muted);font-size:10px}
+.pnl-note{margin-top:10px;padding:9px 11px;border-radius:8px;background:var(--panel-2);color:var(--muted);font-size:9.5px;line-height:1.45}
+.pnl-note.pnl-warning{background:var(--warn-bg);color:var(--warn)}
+@media(max-width:900px){.pnl-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.pnl-kpis{grid-template-columns:1fr}.pnl-card{padding:12px}.pnl-card .table-tools{align-items:flex-start;flex-direction:column}.pnl-card .inline-buttons{width:100%}.pnl-card select{flex:1;min-width:0}}
