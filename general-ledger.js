@@ -101,15 +101,15 @@
           {account:'Cost of Goods Sold',debit:amount,memo:mv.note||''},{account:'Inventory',credit:amount,memo:mv.note||''}
         ]);
       }else if(mv.type==='Purchase receipt'){
-        pushJournal(out,'RCV-'+mv.id,mv.createdAt,mv.reference||mv.id,'Inventory purchase receipt',[
+        pushJournal(out,'RCV-'+mv.id,mv.movementDate||mv.createdAt,mv.reference||mv.id,'Inventory purchase receipt',[
           {account:'Inventory',debit:amount,memo:mv.note||''},{account:'Inventory Receipt Clearing',credit:amount,memo:'Awaiting supplier bill / purchase matching'}
         ]);
       }else if(mv.type==='Opening balance'){
-        pushJournal(out,'INVOPEN-'+mv.id,mv.createdAt,mv.reference||mv.id,'Inventory opening',[
+        pushJournal(out,'INVOPEN-'+mv.id,mv.movementDate||mv.createdAt,mv.reference||mv.id,'Inventory opening',[
           {account:'Inventory',debit:amount,memo:mv.note||''},{account:'Opening Balance Equity',credit:amount,memo:'Opening inventory contra'}
         ]);
       }else if(qty<0){
-        pushJournal(out,'INVADJ-'+mv.id,mv.createdAt,mv.reference||mv.id,'Inventory adjustment',[
+        pushJournal(out,'INVADJ-'+mv.id,mv.movementDate||mv.createdAt,mv.reference||mv.id,'Inventory adjustment',[
           {account:'Operating Expenses',debit:amount,memo:mv.type||'Inventory write-off'},{account:'Inventory',credit:amount,memo:mv.note||''}
         ]);
       }else if(qty>0){
