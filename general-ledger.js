@@ -183,12 +183,21 @@
       }
     });
 
+    // Posted manual journals and reversals
+    (state.manualJournals||[]).filter(j=>j.status==='Posted').forEach(j=>{
+      (j.lines||[]).forEach(x=>{
+        if(!(Number(x.debit)||0)&&!(Number(x.credit)||0))return;
+        out.push({journalId:j.journalNo||j.id,date:dateOnly(j.date||j.postedAt||today),reference:String(j.reference||j.journalNo||j.id),source:j.reversalOf?'Journal reversal':'Manual journal',accountCode:String(x.accountCode||'9999'),account:String(x.account||'Unmapped account'),accountType:String(x.accountType||'Other'),debit:round(x.debit),credit:round(x.credit),memo:String(x.memo||j.memo||'')});
+      });
+    });
+
     // Cash transfers do not affect total cash but preserve account-level audit in cashbook; general ledger uses one pooled cash account, so omitted.
     return out.sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.journalId).localeCompare(String(b.journalId))||a.accountCode.localeCompare(b.accountCode));
   }
   function trialBalance(state){
     const rows=journals(state),map=new Map();
     CHART.forEach(([code,name,type])=>map.set(name,{code,name,type,debit:0,credit:0}));
+    (state.customAccounts||[]).forEach(a=>{if(!map.has(a.name))map.set(a.name,{code:String(a.code||'9999'),name:a.name,type:a.type||'Other',debit:0,credit:0});});
     rows.forEach(x=>{if(!map.has(x.account))map.set(x.account,{code:x.accountCode,name:x.account,type:x.accountType,debit:0,credit:0});const a=map.get(x.account);a.debit+=x.debit;a.credit+=x.credit;});
     const accounts=[...map.values()].map(x=>({...x,debit:round(x.debit),credit:round(x.credit),balance:round(x.debit-x.credit)})).filter(x=>x.debit||x.credit).sort((a,b)=>a.code.localeCompare(b.code));
     const debit=round(accounts.reduce((a,x)=>a+x.debit,0)),credit=round(accounts.reduce((a,x)=>a+x.credit,0));
