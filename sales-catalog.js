@@ -16,7 +16,7 @@
   function inventoryMetrics(state){
     const products=(state.salesCatalog||[]).filter(x=>x.type==='Product'),active=products.filter(x=>(x.status||'Active')==='Active');
     const low=active.filter(x=>Number(x.stockOnHand||0)<=Number(x.reorderLevel||0));
-    const value=active.reduce((a,x)=>a+(Number(x.stockOnHand||0)*Number(x.costPrice||0)),0);
+    const value=window.DalasiInventory?.summary?.(state)?.value??active.reduce((a,x)=>a+(Number(x.stockOnHand||0)*Number(x.costPrice||0)),0);
     return {products:products.length,active:active.length,low:low.length,value};
   }
   function lineTotals(lines){
@@ -100,7 +100,7 @@
       '<td>'+esc(x.type||'Product')+'</td>'+
       '<td>'+esc(x.unit||'Unit')+'</td>'+
       '<td class="payment-amount">'+money2(x.unitPrice)+'</td>'+
-      '<td>'+(isProduct?'<div class="receivable-balance"><b>'+stock.toLocaleString('en-GB')+' '+esc(x.unit||'Unit')+'</b><small>'+(low?'Low stock · reorder '+reorder:'Cost '+money2(x.costPrice||0))+'</small></div>':'<span class="bill-no-file">Non-stock service</span>')+'</td>'+
+      '<td>'+(isProduct?'<div class="receivable-balance"><b>'+stock.toLocaleString('en-GB')+' '+esc(x.unit||'Unit')+'</b><small>'+(low?'Low stock · reorder '+reorder:(window.DalasiInventory?.method?.(x)||'Weighted Average')+' · cost '+money2((window.DalasiInventory?.valuation?.(state,x)?.unitCost??x.costPrice)||0))+'</small></div>':'<span class="bill-no-file">Non-stock service</span>')+'</td>'+
       '<td>'+pill(x.status||'Active',(x.status||'Active')==='Active'?'ready':'neutral')+'</td>'+
       '<td><div class="payment-status-actions">'+(isProduct?'<button class="secondary" data-action="stock-adjust:'+x.id+'">Adjust stock</button>':'')+'<button class="secondary" data-action="catalog-status:'+x.id+':'+((x.status||'Active')==='Active'?'Inactive':'Active')+'">'+((x.status||'Active')==='Active'?'Deactivate':'Activate')+'</button></div></td>'+
     '</tr>';}).join(''):'<tr><td colspan="7"><div class="empty-inline">No products or services yet. Add frequently sold items so quotations and invoices can reuse them.</div></td></tr>';
@@ -125,6 +125,7 @@
         field('Unit','<select name="unit">'+UNITS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('Default selling price (GMD)','<input name="unitPrice" type="number" min="0" step="0.01" placeholder="0.00" required>')+
         field('Cost price (GMD)','<input name="costPrice" type="number" min="0" step="0.01" placeholder="Products only">')+
+        field('Costing method','<select name="costingMethod"><option>Weighted Average</option><option>FIFO</option></select>')+
         field('Opening stock','<input name="stockOnHand" type="number" min="0" step="0.01" placeholder="Products only">')+
         field('Reorder level','<input name="reorderLevel" type="number" min="0" step="0.01" placeholder="Products only">')+
       '</div>'+
@@ -137,8 +138,8 @@
     const fd=new FormData(ev.target),type=String(fd.get('type')||'Product'),name=String(fd.get('name')||'').trim(),unitPrice=Number(fd.get('unitPrice')||0),costPrice=Math.max(0,Number(fd.get('costPrice')||0)),stockOnHand=Math.max(0,Number(fd.get('stockOnHand')||0)),reorderLevel=Math.max(0,Number(fd.get('reorderLevel')||0));if(!name||unitPrice<0){ctx.toast('Item name and a valid selling price are required.');return;}
     state.salesCatalog=state.salesCatalog||[];let code=String(fd.get('code')||'').trim()||nextCode(state,type);
     if(state.salesCatalog.some(x=>String(x.code||'').toLowerCase()===code.toLowerCase())){ctx.toast('That product/service code already exists.');return;}
-    const id='CAT-'+Date.now().toString(36).toUpperCase();state.salesCatalog.push({id,type,name,code,unit:String(fd.get('unit')||'Unit'),unitPrice,costPrice:type==='Product'?costPrice:0,stockOnHand:type==='Product'?stockOnHand:0,reorderLevel:type==='Product'?reorderLevel:0,description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.inventoryMovements=state.inventoryMovements||[];if(type==='Product'&&stockOnHand>0)state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase(),catalogId:id,type:'Opening balance',quantity:stockOnHand,balanceAfter:stockOnHand,reference:code,note:'Opening stock',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const id='CAT-'+Date.now().toString(36).toUpperCase(),costingMethod=String(fd.get('costingMethod'))==='FIFO'?'FIFO':'Weighted Average';state.salesCatalog.push({id,type,name,code,unit:String(fd.get('unit')||'Unit'),unitPrice,costPrice:type==='Product'?costPrice:0,costingMethod:type==='Product'?costingMethod:'',stockOnHand:type==='Product'?stockOnHand:0,reorderLevel:type==='Product'?reorderLevel:0,description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.inventoryMovements=state.inventoryMovements||[];if(type==='Product'&&stockOnHand>0){const now=new Date().toISOString();state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase(),catalogId:id,type:'Opening balance',quantity:stockOnHand,unitCost:costPrice,costAmount:Math.round(stockOnHand*costPrice*100)/100,balanceBefore:0,balanceAfter:stockOnHand,movementDate:now.slice(0,10),reference:code,note:'Opening stock',createdAt:now,createdBy:state.session?.name||'User'});}
     state.catalogOpen=false;ctx.audit('sales.catalog_created',{catalogId:id,code,type,name,unitPrice,costPrice,stockOnHand,reorderLevel});ctx.save();ctx.toast(name+' added to Products & Services');ctx.render();
   }
   function stockAdjustModal(state,h){
@@ -149,6 +150,8 @@
       '<div class="form-grid">'+
         field('Adjustment type','<select name="movementType"><option>Stock received</option><option>Stock correction increase</option><option>Stock correction decrease</option><option>Damaged / written off</option></select>')+
         field('Quantity','<input name="quantity" type="number" min="0.01" step="0.01" required>')+
+        field('Movement date','<input name="movementDate" type="date" value="'+new Date().toISOString().slice(0,10)+'" required>')+
+        field('Unit cost for increases (GMD)','<input name="unitCost" type="number" min="0" step="0.01" value="'+Number(item.costPrice||0)+'">')+
         field('Reference','<input name="reference" placeholder="PO, supplier invoice or internal ref">')+
       '</div>'+
       field('Note','<input name="note" placeholder="Reason for this stock movement">')+
@@ -158,11 +161,15 @@
   function adjustStock(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to adjust stock.');return;}
     const fd=new FormData(ev.target),item=itemById(state,String(fd.get('catalogId')||''));if(!item||item.type!=='Product')return;
-    const qty=Math.max(0,Number(fd.get('quantity')||0));if(qty<=0){ctx.toast('Enter a quantity greater than zero.');return;}
+    const qty=Math.max(0,Number(fd.get('quantity')||0)),movementDate=String(fd.get('movementDate')||new Date().toISOString().slice(0,10));if(qty<=0){ctx.toast('Enter a quantity greater than zero.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,movementDate)){ctx.toast('That accounting period is closed. Reopen it before adjusting inventory.');return;}
     const movementType=String(fd.get('movementType')||'Stock received'),decrease=['Stock correction decrease','Damaged / written off'].includes(movementType),before=stockOnHand(item);
     if(decrease&&qty>before){ctx.toast('Adjustment cannot reduce stock below zero.');return;}
-    const after=Math.max(0,before+(decrease?-qty:qty));item.stockOnHand=after;item.updatedAt=new Date().toISOString();item.updatedBy=state.session?.name||'User';
-    state.inventoryMovements=state.inventoryMovements||[];const id='MOV-'+Date.now().toString(36).toUpperCase();state.inventoryMovements.unshift({id,catalogId:item.id,type:movementType,quantity:decrease?-qty:qty,balanceBefore:before,balanceAfter:after,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const after=Math.max(0,before+(decrease?-qty:qty)),enteredCost=Math.max(0,Number(fd.get('unitCost'))||0),issue=window.DalasiInventory?.issueCost?.(state,item,qty)||{unitCost:Number(item.costPrice)||0,amount:qty*(Number(item.costPrice)||0)},unitCost=decrease?issue.unitCost:enteredCost,costAmount=Math.round(qty*unitCost*100)/100;
+    if(!decrease&&movementType==='Stock received'&&unitCost<=0&&qty>0){ctx.toast('Enter the unit cost of the stock received.');return;}
+    if(!decrease&&window.DalasiInventory?.method?.(item)!=='FIFO'){const oldValue=before*Math.max(0,Number(item.costPrice)||0),newValue=qty*unitCost;item.costPrice=after?Math.round(((oldValue+newValue)/after)*100)/100:unitCost;}
+    item.stockOnHand=after;item.updatedAt=new Date().toISOString();item.updatedBy=state.session?.name||'User';
+    state.inventoryMovements=state.inventoryMovements||[];const id='MOV-'+Date.now().toString(36).toUpperCase();state.inventoryMovements.unshift({id,catalogId:item.id,type:movementType,quantity:decrease?-qty:qty,unitCost:Math.round(unitCost*100)/100,costAmount,balanceBefore:before,balanceAfter:after,movementDate,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     state.stockAdjustId=null;ctx.audit('inventory.adjusted',{movementId:id,catalogId:item.id,type:movementType,quantity:decrease?-qty:qty,balanceAfter:after});ctx.save();ctx.toast(item.name+' stock updated to '+after+' '+(item.unit||'Unit'));ctx.render();
   }
   function fulfillInvoice(invoice,state,ctx){
@@ -174,7 +181,7 @@
     const requirements=[...byItem.values()];
     for(const r of requirements){if(stockOnHand(r.item)<r.qty){ctx.toast('Not enough stock for '+r.item.name+'. Required: '+r.qty+', available: '+stockOnHand(r.item));return false;}}
     state.inventoryMovements=state.inventoryMovements||[];const now=new Date().toISOString();
-    requirements.forEach((r,i)=>{const before=stockOnHand(r.item),after=before-r.qty,unitCost=Math.max(0,Number(r.item.costPrice)||0),costAmount=Math.round(r.qty*unitCost*100)/100;r.item.stockOnHand=after;r.item.updatedAt=now;state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+'-'+String(i+1),catalogId:r.item.id,type:'Sales issue',quantity:-r.qty,unitCost,costAmount,balanceBefore:before,balanceAfter:after,reference:invoice.invoiceNo||invoice.id,revenueDate:invoice.issueDate||now.slice(0,10),note:'Fulfilled customer invoice',createdAt:now,createdBy:state.session?.name||'User'});});
+    requirements.forEach((r,i)=>{const before=stockOnHand(r.item),after=before-r.qty,cost=window.DalasiInventory?.issueCost?.(state,r.item,r.qty)||{unitCost:Math.max(0,Number(r.item.costPrice)||0),amount:Math.round(r.qty*Math.max(0,Number(r.item.costPrice)||0)*100)/100},unitCost=cost.unitCost,costAmount=cost.amount;r.item.stockOnHand=after;r.item.updatedAt=now;state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+'-'+String(i+1),catalogId:r.item.id,type:'Sales issue',quantity:-r.qty,unitCost,costAmount,balanceBefore:before,balanceAfter:after,movementDate:invoice.issueDate||now.slice(0,10),reference:invoice.invoiceNo||invoice.id,revenueDate:invoice.issueDate||now.slice(0,10),note:'Fulfilled customer invoice',createdAt:now,createdBy:state.session?.name||'User'});});
     invoice.fulfilledAt=now;invoice.fulfilledBy=state.session?.name||'User';ctx.audit('inventory.invoice_fulfilled',{invoiceId:invoice.id,invoiceNo:invoice.invoiceNo,productLines:requirements.length});ctx.save();ctx.toast((invoice.invoiceNo||'Invoice')+' fulfilled and stock issued');ctx.render();return true;
   }
   function updateItem(id,status,state,ctx){
