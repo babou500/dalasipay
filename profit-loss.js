@@ -48,27 +48,42 @@
     const items=[...map.entries()].map(([category,amount])=>({category,amount:Math.round(amount*100)/100})).sort((a,b)=>b.amount-a.amount);
     return {total:Math.round(items.reduce((a,x)=>a+x.amount,0)*100)/100,items,count:rows.length};
   }
+  function manualAdjustments(state,start,end){
+    let revenue=0,cogs=0,payroll=0,operating=0;
+    (state.manualJournals||[]).filter(j=>j.status==='Posted'&&inRange(j.date,start,end)).forEach(j=>(j.lines||[]).forEach(x=>{
+      const debit=Number(x.debit)||0,credit=Number(x.credit)||0,type=x.accountType||'',name=x.account||'';
+      if(type==='Revenue')revenue+=credit-debit;
+      else if(type==='Expense'){
+        const amount=debit-credit;
+        if(name==='Cost of Goods Sold')cogs+=amount;
+        else if(name==='Payroll & Employer Costs')payroll+=amount;
+        else operating+=amount;
+      }
+    }));
+    return {revenue:Math.round(revenue*100)/100,cogs:Math.round(cogs*100)/100,payroll:Math.round(payroll*100)/100,operating:Math.round(operating*100)/100};
+  }
   function statement(state,period){
     const r=periodRange(period);if(!r)return null;
     const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
     const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(x.amount)||0),0);
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const revenue=Math.round((invoiceRevenue+directIncome)*100)/100;
-    const cogs=cogsForRange(state,r.start,r.end);
+    const manual=manualAdjustments(state,r.start,r.end);
+    const revenue=Math.round((invoiceRevenue+directIncome+manual.revenue)*100)/100;
+    const cogsBase=cogsForRange(state,r.start,r.end),cogs={total:Math.round((cogsBase.total+manual.cogs)*100)/100,estimated:cogsBase.estimated};
     const grossProfit=Math.round((revenue-cogs.total)*100)/100;
     const exp=expenseBreakdown(state,r.start,r.end);
-    const payroll=payrollForPeriod(state,period);
-    const operatingExpenses=Math.round((exp.total+payroll)*100)/100;
+    const basePayroll=payrollForPeriod(state,period),payroll=Math.round((basePayroll+manual.payroll)*100)/100;
+    const operatingExpenses=Math.round((exp.total+manual.operating+payroll)*100)/100;
     const netProfit=Math.round((grossProfit-operatingExpenses)*100)/100;
     return {
       period,start:r.start,end:r.end,
       invoiceRevenue:Math.round(invoiceRevenue*100)/100,
-      directIncome:Math.round(directIncome*100)/100,
-      revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,
+      directIncome:Math.round(directIncome*100)/100,manualRevenue:manual.revenue,
+      revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,manualCogs:manual.cogs,
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
-      businessExpenses:exp.total,expenseBreakdown:exp.items,expenseCount:exp.count,
-      payroll,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
+      businessExpenses:exp.total,manualOperatingExpenses:manual.operating,expenseBreakdown:exp.items,expenseCount:exp.count,
+      basePayroll,manualPayroll:manual.payroll,payroll,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       unfulfilledProductInvoices
     };
   }
@@ -78,9 +93,9 @@
     const sum=k=>Math.round(rows.reduce((a,x)=>a+(Number(x?.[k])||0),0)*100)/100;
     const revenue=sum('revenue'),grossProfit=sum('grossProfit'),netProfit=sum('netProfit');
     return {
-      period:r.year+' YTD',invoiceRevenue:sum('invoiceRevenue'),directIncome:sum('directIncome'),revenue,cogs:sum('cogs'),
+      period:r.year+' YTD',invoiceRevenue:sum('invoiceRevenue'),directIncome:sum('directIncome'),manualRevenue:sum('manualRevenue'),revenue,cogs:sum('cogs'),manualCogs:sum('manualCogs'),
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
-      businessExpenses:sum('businessExpenses'),payroll:sum('payroll'),operatingExpenses:sum('operatingExpenses'),
+      businessExpenses:sum('businessExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),operatingExpenses:sum('operatingExpenses'),
       netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       cogsEstimated:rows.reduce((a,x)=>a+(Number(x?.cogsEstimated)||0),0)
     };
@@ -96,6 +111,7 @@
     (state.revenueEntries||[]).forEach(x=>addDate(x.revenueDate||x.createdAt));
     (state.businessExpenses||[]).forEach(x=>addDate(x.expenseDate||x.createdAt));
     (state.inventoryMovements||[]).forEach(x=>addDate(x.createdAt));
+    (state.manualJournals||[]).filter(x=>x.status==='Posted').forEach(x=>addDate(x.date||x.postedAt));
     const current=String(state.currentPeriod||'').match(/^\d{4}-\d{2}$/)?.[0];if(current)set.add(current);
     return [...set].sort().reverse();
   }
@@ -119,11 +135,13 @@
       '<div class="table-scroll"><table class="pnl-table"><thead><tr><th>PROFIT & LOSS</th><th>'+esc(periodLabel(period).toUpperCase())+'</th><th>'+esc(String(period).slice(0,4)+' YTD')+'</th></tr></thead><tbody>'+
         row('Invoice sales revenue',m.invoiceRevenue,y.invoiceRevenue,money2,true)+
         row('Direct / other income',m.directIncome,y.directIncome,money2)+
+        (m.manualRevenue||y.manualRevenue?row('Manual journal revenue adjustments',m.manualRevenue,y.manualRevenue,money2):'')+
         row('Total revenue',m.revenue,y.revenue,money2,true)+
         row('Cost of goods sold',-m.cogs,-y.cogs,money2)+
         row('Gross profit',m.grossProfit,y.grossProfit,money2,true)+
         row('Business operating expenses',-m.businessExpenses,-y.businessExpenses,money2)+
         expenseRows+
+        (m.manualOperatingExpenses||y.manualOperatingExpenses?row('Manual journal operating adjustments',-m.manualOperatingExpenses,-y.manualOperatingExpenses,money2):'')+
         row('Payroll & employer costs',-m.payroll,-y.payroll,money2)+
         row('Total operating expenses',-m.operatingExpenses,-y.operatingExpenses,money2,true)+
         row('Net profit',m.netProfit,y.netProfit,money2,true)+
