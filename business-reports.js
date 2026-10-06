@@ -10,7 +10,7 @@
     const ar=window.DalasiBusinessPayments.receivableSummary(state);
     const recurring=window.DalasiBusinessPayments.recurringSummary(state);
     const cash=window.DalasiBusinessPayments.cashFlowSummary(state,{payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},90),cashForecast=window.DalasiCashFlow?.forecast?.(state,{payrollCalc:h.payrollCalc},90)||{start:0,inflows:0,outflows:0,closing:0,minBalance:0,firstDeficit:''};
-    const today=todayIso(),bills=(state.businessBills||[]),billBal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0);
+    const today=todayIso(),bills=(state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft'),billBal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0);
     const payable=bills.reduce((a,x)=>a+billBal(x),0),overduePayable=bills.filter(x=>billBal(x)>0&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+billBal(x),0);
     const grossCollections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),customerRefunds=(state.customerRefunds||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),collections=Math.max(0,grossCollections-customerRefunds),outPaid=(state.businessPayments||[]).filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
     const grossInvoiced=(state.customerInvoices||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),invoiceCredits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),invoiceDebits=(state.customerDebitNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),invoiced=Math.max(0,grossInvoiced+invoiceDebits-invoiceCredits),collectionRate=invoiced?Math.round(collections/invoiced*100):0;
