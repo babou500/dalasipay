@@ -23,7 +23,7 @@
   function cogsForRange(state,start,end){
     let total=0,estimated=0;
     (state.inventoryMovements||[]).forEach(mv=>{
-      if(mv.type!=='Sales issue'||!inRange(mv.createdAt,start,end))return;
+      if(mv.type!=='Sales issue'||!inRange(mv.revenueDate||mv.createdAt,start,end))return;
       let amount=Number(mv.costAmount);
       if(!Number.isFinite(amount)||amount<0){
         const qty=Math.abs(Number(mv.quantity)||0);
