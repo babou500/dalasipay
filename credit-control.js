@@ -11,7 +11,7 @@
   function supplierById(state,id){return (state.paymentBeneficiaries||[]).find(x=>x.id===id)||null;}
   function received(state,invoiceId){return round((state.incomingPayments||[]).filter(x=>x.invoiceId===invoiceId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function invoiceStatus(state,inv){return window.DalasiSalesInvoices?.status?.(state,inv)||(inv.status||'Draft');}
-  function invoiceBalance(state,inv){return round(Math.max(0,(Number(inv.amount)||0)-received(state,inv.id)));}
+  function invoiceBalance(state,inv){return window.DalasiReturns?.invoiceBalance?.(state,inv)??round(Math.max(0,(Number(inv.amount)||0)-received(state,inv.id)));}
   function bucket(daysPastDue){
     if(daysPastDue<=0)return 'Current';
     if(daysPastDue<=30)return '1-30';
@@ -28,9 +28,9 @@
   }
   function payableLines(state,asOf=todayIso()){
     return (state.businessBills||[]).filter(b=>!['Draft','Paid'].includes(b.status||'Draft')&&!b.paymentId).map(b=>{
-      const amount=round(b.amount),due=String(b.dueDate||b.invoiceDate||asOf),days=due<asOf?daysBetween(due,asOf):0;
+      const amount=window.DalasiReturns?.billBalance?.(state,b)??round(b.amount),due=String(b.dueDate||b.invoiceDate||asOf),days=due<asOf?daysBetween(due,asOf):0;if(amount<=.004)return null;
       return {id:b.id,invoiceNo:b.invoiceNo||b.id,supplierId:b.beneficiaryId||'',supplier:b.supplier||supplierById(state,b.beneficiaryId)?.name||'Supplier',invoiceDate:b.invoiceDate||'',dueDate:due,balance:amount,daysPastDue:days,bucket:bucket(days),status:b.status||'Approved'};
-    });
+    }).filter(Boolean);
   }
   function bucketTotals(lines){
     const out={Current:0,'1-30':0,'31-60':0,'61-90':0,'90+':0,total:0,overdue:0};
