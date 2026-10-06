@@ -61,15 +61,16 @@
   function statement(state){
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0,updatedAt:'',note:''},state.balanceSheetSetup||{});
     const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),vat=vatPosition(state),profit=currentYearProfit(state);
-    const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0,fixedAssets=window.DalasiFixedAssets?.summary?.(state)||{count:0,cost:0,accumulated:0,netBookValue:0},usingAssetRegister=fixedAssets.count>0;
+    const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0,fixedAssets=window.DalasiFixedAssets?.summary?.(state)||{count:0,cost:0,accumulated:0,netBookValue:0},usingAssetRegister=fixedAssets.count>0,loanSummary=window.DalasiLoans?.summary?.(state)||{count:0,outstanding:0,interestPayable:0},usingLoanRegister=loanSummary.count>0;
     const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash)),fixedAssetsNet=money(usingAssetRegister?fixedAssets.netBookValue:Number(setup.fixedAssetsNet)),manual=manualBalanceAdjustments(state);
     const currentAssets=money(cashBank+pettyCash+ar+inventory+vat.input+Number(setup.otherCurrentAssets));
     const totalAssets=money(currentAssets+fixedAssetsNet+manual.assets);
-    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+vat.output+Number(setup.otherLiabilities));
-    const totalLiabilities=money(currentLiabilities+Number(setup.loansBorrowings)+manual.liabilities);
+    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+vat.output+Number(setup.otherLiabilities)+loanSummary.interestPayable);
+    const loanPrincipal=money(usingLoanRegister?loanSummary.outstanding:Number(setup.loansBorrowings));
+    const totalLiabilities=money(currentLiabilities+loanPrincipal+manual.liabilities);
     const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit+manual.equity);
     const liabilitiesEquity=money(totalLiabilities+equity);
-    return {setup,ar,inventory,ap,accrued,payroll,vat,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
+    return {setup,ar,inventory,ap,accrued,payroll,vat,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,loanSummary,usingLoanRegister,loanPrincipal,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
   }
   function row(label,value,money2,total=false,sub=false){
     return '<tr class="'+(total?'bs-total ':'')+(sub?'bs-sub':'')+'"><td>'+label+'</td><td>'+money2(value)+'</td></tr>';
@@ -104,7 +105,8 @@
           row('Payroll/statutory payable',s.payroll.statutory,money2)+
           (s.vat.output?row('VAT output payable',s.vat.output,money2):'')+
           row('Other current liabilities',setup.otherLiabilities,money2)+
-          row('Loans / borrowings',setup.loansBorrowings,money2)+
+          (s.loanSummary.interestPayable?row('Accrued interest payable',s.loanSummary.interestPayable,money2):'')+
+          row(s.usingLoanRegister?'Loans / borrowings (loan register)':'Loans / borrowings',s.loanPrincipal,money2)+
           (s.manual.liabilities?row('Manual journal liability adjustments',s.manual.liabilities,money2):'')+
           row('Total liabilities',s.totalLiabilities,money2,true)+
           row('Owner / share capital',setup.ownerCapital,money2)+
@@ -123,7 +125,7 @@
     '</section>';
   }
   function modal(state,h){
-    const field=h.field,icon=h.icon,s=statement(state),x=s.setup,canEdit=h.can('workspace.manage')||h.can('payroll.manage'),dis=canEdit?'':'disabled',cashDis=s.usingCashbook?'disabled':dis,assetDis=s.usingAssetRegister?'disabled':dis;
+    const field=h.field,icon=h.icon,s=statement(state),x=s.setup,canEdit=h.can('workspace.manage')||h.can('payroll.manage'),dis=canEdit?'':'disabled',cashDis=s.usingCashbook?'disabled':dis,assetDis=s.usingAssetRegister?'disabled':dis,loanDis=s.usingLoanRegister?'disabled':dis;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-balance-sheet-setup"></div><form id="balance-sheet-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">FINANCIAL POSITION</div><h2>Balance Sheet setup</h2><p>Enter balances DalasiPay cannot derive automatically. Use figures from the bank statement and accounting records.</p></div><button type="button" class="close" data-action="close-balance-sheet-setup">×</button></div>'+
       '<div class="form-grid">'+
@@ -131,7 +133,7 @@
         field('Petty cash fallback (GMD)','<input name="pettyCash" type="number" step="0.01" value="'+Number(x.pettyCash||0)+'" '+cashDis+'>')+
         field('Other current assets (GMD)','<input name="otherCurrentAssets" type="number" step="0.01" value="'+Number(x.otherCurrentAssets||0)+'" '+dis+'>')+
         field('Property / equipment, net fallback (GMD)','<input name="fixedAssetsNet" type="number" step="0.01" value="'+Number(x.fixedAssetsNet||0)+'" '+assetDis+'>')+
-        field('Loans / borrowings (GMD)','<input name="loansBorrowings" type="number" step="0.01" value="'+Number(x.loansBorrowings||0)+'" '+dis+'>')+
+        field('Loans / borrowings fallback (GMD)','<input name="loansBorrowings" type="number" step="0.01" value="'+Number(x.loansBorrowings||0)+'" '+loanDis+'>')+
         field('Other current liabilities (GMD)','<input name="otherLiabilities" type="number" step="0.01" value="'+Number(x.otherLiabilities||0)+'" '+dis+'>')+
         field('Owner / share capital (GMD)','<input name="ownerCapital" type="number" step="0.01" value="'+Number(x.ownerCapital||0)+'" '+dis+'>')+
         field('Opening retained earnings (GMD)','<input name="openingRetainedEarnings" type="number" step="0.01" value="'+Number(x.openingRetainedEarnings||0)+'" '+dis+'>')+
@@ -155,7 +157,7 @@
       ['ASSETS',''],
       ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['VAT input recoverable',s.vat.input],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',s.fixedAssetsNet],['Total assets',s.totalAssets],
       ['LIABILITIES',''],
-      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['VAT output payable',s.vat.output],['Other current liabilities',x.otherLiabilities],['Loans / borrowings',x.loansBorrowings],['Total liabilities',s.totalLiabilities],
+      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['VAT output payable',s.vat.output],['Other current liabilities',x.otherLiabilities],['Accrued interest payable',s.loanSummary.interestPayable],['Loans / borrowings',s.loanPrincipal],['Total liabilities',s.totalLiabilities],
       ['EQUITY',''],
       ['Owner / share capital',x.ownerCapital],['Opening retained earnings',x.openingRetainedEarnings],['Current-year profit',s.profit],['Total equity',s.equity],['Liabilities + equity',s.liabilitiesEquity],['Balance difference',s.difference]
     ];
