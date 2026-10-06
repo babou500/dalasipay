@@ -62,20 +62,28 @@
     }));
     return {revenue:Math.round(revenue*100)/100,cogs:Math.round(cogs*100)/100,payroll:Math.round(payroll*100)/100,operating:Math.round(operating*100)/100};
   }
+  function fixedAssetActivity(state,start,end){
+    let depreciation=0,gain=0,loss=0;
+    (state.fixedAssetDepreciation||[]).filter(x=>x.status==='Posted'&&inRange(x.date||((x.period||'')+'-28'),start,end)).forEach(x=>{depreciation+=Number(x.amount)||0;});
+    (state.fixedAssets||[]).filter(x=>x.status==='Disposed'&&inRange(x.disposalDate,start,end)).forEach(x=>{
+      const gl=Number(x.disposalGainLoss)||0;if(gl>=0)gain+=gl;else loss+=Math.abs(gl);
+    });
+    return {depreciation:Math.round(depreciation*100)/100,gain:Math.round(gain*100)/100,loss:Math.round(loss*100)/100};
+  }
   function statement(state,period){
     const r=periodRange(period);if(!r)return null;
     const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
     const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(x.amount)||0),0);
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const manual=manualAdjustments(state,r.start,r.end);
+    const manual=manualAdjustments(state,r.start,r.end),assets=fixedAssetActivity(state,r.start,r.end);
     const revenue=Math.round((invoiceRevenue+directIncome+manual.revenue)*100)/100;
     const cogsBase=cogsForRange(state,r.start,r.end),cogs={total:Math.round((cogsBase.total+manual.cogs)*100)/100,estimated:cogsBase.estimated};
     const grossProfit=Math.round((revenue-cogs.total)*100)/100;
     const exp=expenseBreakdown(state,r.start,r.end);
     const basePayroll=payrollForPeriod(state,period),payroll=Math.round((basePayroll+manual.payroll)*100)/100;
-    const operatingExpenses=Math.round((exp.total+manual.operating+payroll)*100)/100;
-    const netProfit=Math.round((grossProfit-operatingExpenses)*100)/100;
+    const operatingExpenses=Math.round((exp.total+manual.operating+payroll+assets.depreciation)*100)/100;
+    const netProfit=Math.round((grossProfit-operatingExpenses+assets.gain-assets.loss)*100)/100;
     return {
       period,start:r.start,end:r.end,
       invoiceRevenue:Math.round(invoiceRevenue*100)/100,
@@ -83,7 +91,7 @@
       revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,manualCogs:manual.cogs,
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
       businessExpenses:exp.total,manualOperatingExpenses:manual.operating,expenseBreakdown:exp.items,expenseCount:exp.count,
-      basePayroll,manualPayroll:manual.payroll,payroll,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
+      basePayroll,manualPayroll:manual.payroll,payroll,depreciationExpense:assets.depreciation,assetDisposalGain:assets.gain,assetDisposalLoss:assets.loss,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       unfulfilledProductInvoices
     };
   }
@@ -95,7 +103,7 @@
     return {
       period:r.year+' YTD',invoiceRevenue:sum('invoiceRevenue'),directIncome:sum('directIncome'),manualRevenue:sum('manualRevenue'),revenue,cogs:sum('cogs'),manualCogs:sum('manualCogs'),
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
-      businessExpenses:sum('businessExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),operatingExpenses:sum('operatingExpenses'),
+      businessExpenses:sum('businessExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),depreciationExpense:sum('depreciationExpense'),assetDisposalGain:sum('assetDisposalGain'),assetDisposalLoss:sum('assetDisposalLoss'),operatingExpenses:sum('operatingExpenses'),
       netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       cogsEstimated:rows.reduce((a,x)=>a+(Number(x?.cogsEstimated)||0),0)
     };
@@ -112,6 +120,8 @@
     (state.businessExpenses||[]).forEach(x=>addDate(x.expenseDate||x.createdAt));
     (state.inventoryMovements||[]).forEach(x=>addDate(x.createdAt));
     (state.manualJournals||[]).filter(x=>x.status==='Posted').forEach(x=>addDate(x.date||x.postedAt));
+    (state.fixedAssetDepreciation||[]).filter(x=>x.status==='Posted').forEach(x=>addDate(x.date||x.period));
+    (state.fixedAssets||[]).filter(x=>x.status==='Disposed').forEach(x=>addDate(x.disposalDate));
     const current=String(state.currentPeriod||'').match(/^\d{4}-\d{2}$/)?.[0];if(current)set.add(current);
     return [...set].sort().reverse();
   }
@@ -143,7 +153,10 @@
         expenseRows+
         (m.manualOperatingExpenses||y.manualOperatingExpenses?row('Manual journal operating adjustments',-m.manualOperatingExpenses,-y.manualOperatingExpenses,money2):'')+
         row('Payroll & employer costs',-m.payroll,-y.payroll,money2)+
+        (m.depreciationExpense||y.depreciationExpense?row('Depreciation expense',-m.depreciationExpense,-y.depreciationExpense,money2):'')+
         row('Total operating expenses',-m.operatingExpenses,-y.operatingExpenses,money2,true)+
+        (m.assetDisposalGain||y.assetDisposalGain?row('Gain on asset disposal',m.assetDisposalGain,y.assetDisposalGain,money2):'')+
+        (m.assetDisposalLoss||y.assetDisposalLoss?row('Loss on asset disposal',-m.assetDisposalLoss,-y.assetDisposalLoss,money2):'')+
         row('Net profit',m.netProfit,y.netProfit,money2,true)+
       '</tbody></table></div>'+
       (m.unfulfilledProductInvoices?'<div class="pnl-note pnl-warning">Attention: '+m.unfulfilledProductInvoices+' product invoice'+(m.unfulfilledProductInvoices===1?' is':'s are')+' issued but not yet fulfilled. Revenue is included, but matching COGS will post when stock is issued.</div>':'')+
@@ -162,7 +175,10 @@
       ['Gross margin %',m.grossMargin,y.grossMargin],
       ['Business operating expenses',m.businessExpenses,y.businessExpenses],
       ['Payroll & employer costs',m.payroll,y.payroll],
+      ['Depreciation expense',m.depreciationExpense,y.depreciationExpense],
       ['Total operating expenses',m.operatingExpenses,y.operatingExpenses],
+      ['Gain on asset disposal',m.assetDisposalGain,y.assetDisposalGain],
+      ['Loss on asset disposal',m.assetDisposalLoss,y.assetDisposalLoss],
       ['Net profit',m.netProfit,y.netProfit],
       ['Net margin %',m.netMargin,y.netMargin]
     ];
