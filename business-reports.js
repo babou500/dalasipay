@@ -37,6 +37,7 @@
       ['cash-bank-register','Cash & Bank register','Bank, mobile-money and cash-account balances and movements','bank'],
       ['bank-reconciliations','Bank reconciliations','Finalized statement reconciliations, cleared items and outstanding differences','check'],
       ['month-end-close','Month-End Close','Review accounting controls, lock completed periods and preserve close snapshots','shield'],
+      ['year-end-close','Year-End Close','Manually close the financial year after all 12 monthly periods are closed','shield'],
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
       ['accounts-payable','Accounts payable','Supplier bills, due dates, approval state and amounts owed','file'],
       ['customer-balances','Customer balances','Outstanding and overdue balances by saved customer','employees'],
@@ -62,6 +63,7 @@
       (window.DalasiBalanceSheet?window.DalasiBalanceSheet.panel(state,{money2,esc,icon}):'')+
       (window.DalasiGeneralLedger?window.DalasiGeneralLedger.panel(state,{money2,esc,icon}):'')+
       (window.DalasiMonthClose?window.DalasiMonthClose.panel(state,{money2,esc,icon,pill}):'')+
+      (window.DalasiYearClose?window.DalasiYearClose.panel(state,{money2,esc,icon,pill}):'')+
       '<div class="business-report-two">'+
         '<section class="surface"><div class="card-head"><div><h3>Receivables vs payables</h3><p>Current open obligations</p></div></div><div class="report-balance-bars"><div><span>Money due in</span><b>'+money2(m.ar.outstanding)+'</b><i><em style="width:'+(Math.max(m.ar.outstanding,m.payable)?Math.round(m.ar.outstanding/Math.max(m.ar.outstanding,m.payable)*100):0)+'%"></em></i></div><div><span>Money due out</span><b>'+money2(m.payable)+'</b><i><em style="width:'+(Math.max(m.ar.outstanding,m.payable)?Math.round(m.payable/Math.max(m.ar.outstanding,m.payable)*100):0)+'%"></em></i></div></div></section>'+
         '<section class="surface"><div class="card-head"><div><h3>90-day cash outlook</h3><p>Expected customer receipts against planned outflows</p></div></div><div class="cash-report-summary"><div><span>Expected in</span><b>'+money2(m.cash.in90)+'</b></div><div><span>Planned out</span><b>'+money2(m.cash.out90)+'</b></div><div><span>'+(m.cash.need90?'Funding need':'Surplus')+'</span><b>'+money2(m.cash.need90||m.cash.surplus90)+'</b></div></div></section>'+
@@ -82,6 +84,7 @@
     }else if(kind==='cash-bank-register'){window.DalasiCashBank?.exportCsv(state,ctx);return;
     }else if(kind==='bank-reconciliations'){window.DalasiBankReconciliation?.exportRegister(state,ctx);return;
     }else if(kind==='month-end-close'){const p=state.monthClosePeriod||state.currentPeriod;if(window.DalasiMonthClose?.record(state,p))window.DalasiMonthClose.exportRecord(p,state,ctx);else ctx.toast('Close the selected accounting period before exporting its close record.');return;
+    }else if(kind==='year-end-close'){const y=state.yearCloseYear||String(state.currentPeriod||'').slice(0,4);if(window.DalasiYearClose?.record(state,y))window.DalasiYearClose.exportRecord(y,state,ctx);else ctx.toast('Close the selected financial year before exporting its close record.');return;
     }else if(kind==='revenue-register'){
       const rows=window.DalasiRevenueIncome?window.DalasiRevenueIncome.ledgerRows(state):[];
       csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Amount','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.status]));
