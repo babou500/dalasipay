@@ -192,10 +192,12 @@
     state.inventoryMovements=state.inventoryMovements||[];const now=new Date().toISOString();
     [...groups.values()].forEach((g,i)=>{
       const before=Math.max(0,Number(g.item.stockOnHand)||0),oldCost=Math.max(0,Number(g.item.costPrice)||0),after=before+g.qty;
-      const incomingUnitCost=g.qty?g.totalCost/g.qty:oldCost;
-      const weighted=after?((before*oldCost)+(g.qty*incomingUnitCost))/after:incomingUnitCost;
-      g.item.stockOnHand=Math.round(after*100)/100;g.item.costPrice=Math.round(weighted*100)/100;g.item.updatedAt=now;g.item.updatedBy=state.session?.name||'User';
-      state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+'-P'+String(i+1),catalogId:g.item.id,type:'Purchase receipt',quantity:g.qty,balanceBefore:before,balanceAfter:g.item.stockOnHand,unitCost:Math.round(incomingUnitCost*100)/100,reference:x.poNumber||x.id,note:'Received from purchase order',createdAt:now,createdBy:state.session?.name||'User'});
+      const incomingUnitCost=g.qty?g.totalCost/g.qty:oldCost,costAmount=Math.round(g.qty*incomingUnitCost*100)/100;
+      if((window.DalasiInventory?.method?.(g.item)||'Weighted Average')!=='FIFO'){
+        const weighted=after?((before*oldCost)+(g.qty*incomingUnitCost))/after:incomingUnitCost;g.item.costPrice=Math.round(weighted*100)/100;
+      }
+      g.item.stockOnHand=Math.round(after*100)/100;g.item.updatedAt=now;g.item.updatedBy=state.session?.name||'User';
+      state.inventoryMovements.unshift({id:'MOV-'+Date.now().toString(36).toUpperCase()+'-P'+String(i+1),catalogId:g.item.id,type:'Purchase receipt',quantity:g.qty,balanceBefore:before,balanceAfter:g.item.stockOnHand,unitCost:Math.round(incomingUnitCost*100)/100,costAmount,movementDate:now.slice(0,10),reference:x.poNumber||x.id,note:'Received from purchase order',createdAt:now,createdBy:state.session?.name||'User'});
     });
     x.inventoryReceivedAt=now;x.inventoryReceivedBy=state.session?.name||'User';
     ctx.audit('inventory.purchase_received',{purchaseId:x.id,poNumber:x.poNumber,productCount:groups.size});
