@@ -74,11 +74,11 @@
   function statement(state,period){
     const r=periodRange(period);if(!r)return null;
     const periodInvoices=issuedInvoices(state).filter(x=>inRange(x.issueDate||x.createdAt,r.start,r.end));
-    const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0),salesCredits=round((state.customerCreditNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0));
+    const invoiceRevenue=periodInvoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0),salesCredits=round((state.customerCreditNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0)),salesDebits=round((state.customerDebitNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0));
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const manual=manualAdjustments(state,r.start,r.end),assets=fixedAssetActivity(state,r.start,r.end),financeCosts=round((state.loanInterestAccruals||[]).filter(x=>x.status==='Posted'&&inRange(x.date||((x.period||'')+'-28'),r.start,r.end)).reduce((a,x)=>a+(Number(x.amount)||0),0));
-    const revenue=Math.round((invoiceRevenue-salesCredits+directIncome+manual.revenue)*100)/100;
+    const revenue=Math.round((invoiceRevenue-salesCredits+salesDebits+directIncome+manual.revenue)*100)/100;
     const cogsBase=cogsForRange(state,r.start,r.end),cogs={total:Math.round((cogsBase.total+manual.cogs)*100)/100,estimated:cogsBase.estimated};
     const grossProfit=Math.round((revenue-cogs.total)*100)/100;
     const exp=expenseBreakdown(state,r.start,r.end);
@@ -87,7 +87,7 @@
     const netProfit=Math.round((grossProfit-operatingExpenses-financeCosts+assets.gain-assets.loss)*100)/100;
     return {
       period,start:r.start,end:r.end,
-      invoiceRevenue:Math.round(invoiceRevenue*100)/100,salesCredits,
+      invoiceRevenue:Math.round(invoiceRevenue*100)/100,salesCredits,salesDebits,
       directIncome:Math.round(directIncome*100)/100,manualRevenue:manual.revenue,
       revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,manualCogs:manual.cogs,
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
@@ -102,7 +102,7 @@
     const sum=k=>Math.round(rows.reduce((a,x)=>a+(Number(x?.[k])||0),0)*100)/100;
     const revenue=sum('revenue'),grossProfit=sum('grossProfit'),netProfit=sum('netProfit');
     return {
-      period:r.year+' YTD',invoiceRevenue:sum('invoiceRevenue'),salesCredits:sum('salesCredits'),directIncome:sum('directIncome'),manualRevenue:sum('manualRevenue'),revenue,cogs:sum('cogs'),manualCogs:sum('manualCogs'),
+      period:r.year+' YTD',invoiceRevenue:sum('invoiceRevenue'),salesCredits:sum('salesCredits'),salesDebits:sum('salesDebits'),directIncome:sum('directIncome'),manualRevenue:sum('manualRevenue'),revenue,cogs:sum('cogs'),manualCogs:sum('manualCogs'),
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
       businessExpenses:sum('businessExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),depreciationExpense:sum('depreciationExpense'),assetDisposalGain:sum('assetDisposalGain'),assetDisposalLoss:sum('assetDisposalLoss'),financeCosts:sum('financeCosts'),operatingExpenses:sum('operatingExpenses'),
       netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
