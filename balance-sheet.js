@@ -32,6 +32,17 @@
     });
     return {wages:money(wages),statutory:money(statutory),runs:approvedRuns,statutoryRuns};
   }
+  function vatPosition(state){
+    let input=0,output=0;
+    (state.customerInvoices||[]).forEach(inv=>{
+      const st=window.DalasiSalesInvoices?.status?window.DalasiSalesInvoices.status(state,inv):(inv.status||'Draft');if(st==='Draft')return;
+      output+=Number(window.DalasiTax?.meta?.(state,inv,'sale')?.vatAmount)||0;
+    });
+    (state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)).forEach(x=>{const t=window.DalasiTax?.meta?.(state,x,'purchase');if(t?.vatRecoverable)input+=Number(t.vatAmount)||0;});
+    (state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').forEach(x=>{const t=window.DalasiTax?.meta?.(state,x,'purchase');if(t?.vatRecoverable)input+=Number(t.vatAmount)||0;});
+    const paid=(state.vatPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
+    return {input:money(input),output:money(Math.max(0,output-paid)),outputGross:money(output),paid:money(paid)};
+  }
   function currentYearProfit(state){
     const period=String(state.currentPeriod||'').match(/^\d{4}-\d{2}$/)?.[0];
     const y=window.DalasiProfitLoss?.ytd?.(state,period);
@@ -49,16 +60,16 @@
   }
   function statement(state){
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0,updatedAt:'',note:''},state.balanceSheetSetup||{});
-    const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),profit=currentYearProfit(state);
+    const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),vat=vatPosition(state),profit=currentYearProfit(state);
     const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0,fixedAssets=window.DalasiFixedAssets?.summary?.(state)||{count:0,cost:0,accumulated:0,netBookValue:0},usingAssetRegister=fixedAssets.count>0;
     const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash)),fixedAssetsNet=money(usingAssetRegister?fixedAssets.netBookValue:Number(setup.fixedAssetsNet)),manual=manualBalanceAdjustments(state);
-    const currentAssets=money(cashBank+pettyCash+ar+inventory+Number(setup.otherCurrentAssets));
+    const currentAssets=money(cashBank+pettyCash+ar+inventory+vat.input+Number(setup.otherCurrentAssets));
     const totalAssets=money(currentAssets+fixedAssetsNet+manual.assets);
-    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+Number(setup.otherLiabilities));
+    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+vat.output+Number(setup.otherLiabilities));
     const totalLiabilities=money(currentLiabilities+Number(setup.loansBorrowings)+manual.liabilities);
     const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit+manual.equity);
     const liabilitiesEquity=money(totalLiabilities+equity);
-    return {setup,ar,inventory,ap,accrued,payroll,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
+    return {setup,ar,inventory,ap,accrued,payroll,vat,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
   }
   function row(label,value,money2,total=false,sub=false){
     return '<tr class="'+(total?'bs-total ':'')+(sub?'bs-sub':'')+'"><td>'+label+'</td><td>'+money2(value)+'</td></tr>';
@@ -79,6 +90,7 @@
           row(s.usingCashbook?'Cash accounts':'Petty cash',s.pettyCash,money2)+
           row('Accounts receivable',s.ar,money2)+
           row('Inventory at cost',s.inventory,money2)+
+          (s.vat.input?row('VAT input recoverable',s.vat.input,money2):'')+
           row('Other current assets',setup.otherCurrentAssets,money2)+
           row('Total current assets',s.currentAssets,money2,true)+
           row(s.usingAssetRegister?'Property / equipment, net (asset register)':'Property / equipment, net',s.fixedAssetsNet,money2)+
@@ -90,6 +102,7 @@
           row('Approved expense accruals',s.accrued,money2)+
           row('Payroll payable',s.payroll.wages,money2)+
           row('Payroll/statutory payable',s.payroll.statutory,money2)+
+          (s.vat.output?row('VAT output payable',s.vat.output,money2):'')+
           row('Other current liabilities',setup.otherLiabilities,money2)+
           row('Loans / borrowings',setup.loansBorrowings,money2)+
           (s.manual.liabilities?row('Manual journal liability adjustments',s.manual.liabilities,money2):'')+
@@ -140,9 +153,9 @@
     const rows=[
       ['Balance Sheet','Amount'],
       ['ASSETS',''],
-      ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',s.fixedAssetsNet],['Total assets',s.totalAssets],
+      ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['VAT input recoverable',s.vat.input],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',s.fixedAssetsNet],['Total assets',s.totalAssets],
       ['LIABILITIES',''],
-      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['Other current liabilities',x.otherLiabilities],['Loans / borrowings',x.loansBorrowings],['Total liabilities',s.totalLiabilities],
+      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['VAT output payable',s.vat.output],['Other current liabilities',x.otherLiabilities],['Loans / borrowings',x.loansBorrowings],['Total liabilities',s.totalLiabilities],
       ['EQUITY',''],
       ['Owner / share capital',x.ownerCapital],['Opening retained earnings',x.openingRetainedEarnings],['Current-year profit',s.profit],['Total equity',s.equity],['Liabilities + equity',s.liabilitiesEquity],['Balance difference',s.difference]
     ];
