@@ -94,6 +94,7 @@
           row('Accounts receivable',s.ar,money2)+
           row('Inventory at cost',s.inventory,money2)+
           (s.vat.input?row('VAT input recoverable',s.vat.input,money2):'')+
+          (s.supplierRefundReceivable?row('Supplier refund receivable',s.supplierRefundReceivable,money2):'')+
           row('Other current assets',setup.otherCurrentAssets,money2)+
           row('Total current assets',s.currentAssets,money2,true)+
           row(s.usingAssetRegister?'Property / equipment, net (asset register)':'Property / equipment, net',s.fixedAssetsNet,money2)+
@@ -106,6 +107,7 @@
           row('Payroll payable',s.payroll.wages,money2)+
           row('Payroll/statutory payable',s.payroll.statutory,money2)+
           (s.vat.output?row('VAT output payable',s.vat.output,money2):'')+
+          (s.customerRefundPayable?row('Customer refunds payable',s.customerRefundPayable,money2):'')+
           row('Other current liabilities',setup.otherLiabilities,money2)+
           (s.loanSummary.interestPayable?row('Accrued interest payable',s.loanSummary.interestPayable,money2):'')+
           row(s.usingLoanRegister?'Loans / borrowings (loan register)':'Loans / borrowings',s.loanPrincipal,money2)+
@@ -157,9 +159,9 @@
     const rows=[
       ['Balance Sheet','Amount'],
       ['ASSETS',''],
-      ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['VAT input recoverable',s.vat.input],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',s.fixedAssetsNet],['Total assets',s.totalAssets],
+      ['Cash / bank accounts',s.cashBank],['Petty cash / cash accounts',s.pettyCash],['Accounts receivable',s.ar],['Inventory at cost',s.inventory],['VAT input recoverable',s.vat.input],['Supplier refund receivable',s.supplierRefundReceivable],['Other current assets',x.otherCurrentAssets],['Total current assets',s.currentAssets],['Property / equipment, net',s.fixedAssetsNet],['Total assets',s.totalAssets],
       ['LIABILITIES',''],
-      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['VAT output payable',s.vat.output],['Other current liabilities',x.otherLiabilities],['Accrued interest payable',s.loanSummary.interestPayable],['Loans / borrowings',s.loanPrincipal],['Total liabilities',s.totalLiabilities],
+      ['Supplier payables',s.ap],['Approved expense accruals',s.accrued],['Payroll payable',s.payroll.wages],['Payroll/statutory payable',s.payroll.statutory],['VAT output payable',s.vat.output],['Customer refunds payable',s.customerRefundPayable],['Other current liabilities',x.otherLiabilities],['Accrued interest payable',s.loanSummary.interestPayable],['Loans / borrowings',s.loanPrincipal],['Total liabilities',s.totalLiabilities],
       ['EQUITY',''],
       ['Owner / share capital',x.ownerCapital],['Opening retained earnings',x.openingRetainedEarnings],['Current-year profit',s.profit],['Total equity',s.equity],['Liabilities + equity',s.liabilitiesEquity],['Balance difference',s.difference]
     ];
