@@ -35,6 +35,7 @@
       ['trial-balance','Trial Balance','Debit and credit balances across the generated chart of accounts','reports'],
       ['general-ledger','General Ledger','Journal lines by account, source document and reference','file'],
       ['cash-bank-register','Cash & Bank register','Bank, mobile-money and cash-account balances and movements','bank'],
+      ['bank-reconciliations','Bank reconciliations','Finalized statement reconciliations, cleared items and outstanding differences','check'],
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
       ['accounts-payable','Accounts payable','Supplier bills, due dates, approval state and amounts owed','file'],
       ['customer-balances','Customer balances','Outstanding and overdue balances by saved customer','employees'],
@@ -77,6 +78,7 @@
     }else if(kind==='business-summary'){
       csv=rowsToCsv(['Metric','Value'],[['Selected P&L period',state.pnlPeriod||state.currentPeriod],['Selected-period revenue',m.pnl?.revenue||0],['Selected-period COGS',m.pnl?.cogs||0],['Selected-period gross profit',m.pnl?.grossProfit||0],['Selected-period operating expenses',m.pnl?.operatingExpenses||0],['Selected-period net profit',m.pnl?.netProfit||0],['Balance Sheet total assets',m.balanceSheet?.totalAssets||0],['Balance Sheet total liabilities',m.balanceSheet?.totalLiabilities||0],['Balance Sheet total equity',m.balanceSheet?.equity||0],['Balance Sheet difference',m.balanceSheet?.difference||0],['Cash & Bank total',m.cashBank.total],['Active cash accounts',m.cashBank.accounts],['Total revenue',m.revenue.total],['Invoice revenue',m.revenue.invoiceRevenue],['Direct non-invoice income',m.revenue.direct],['Cash received from revenue',m.revenue.cashReceived],['Outstanding receivables',m.ar.outstanding],['Overdue receivables',m.ar.overdue],['Outstanding payables',m.payable],['Overdue payables',m.overduePayable],['Collections recorded',m.collections],['Outgoing payments paid',m.outPaid],['Paid expenses',m.expenses.paid],['Expenses recorded',m.expenses.total],['Open purchase commitments',m.purchases.openValue],['Inventory at cost',m.inventory.value],['Low-stock products',m.inventory.low],['Recurring monthly equivalent',m.recurring.monthly],['30-day expected inflows',m.cash.in30],['30-day planned outflows',m.cash.out30],['30-day funding need',m.cash.need30],['30-day projected surplus',m.cash.surplus30]]);
     }else if(kind==='cash-bank-register'){window.DalasiCashBank?.exportCsv(state,ctx);return;
+    }else if(kind==='bank-reconciliations'){window.DalasiBankReconciliation?.exportRegister(state,ctx);return;
     }else if(kind==='revenue-register'){
       const rows=window.DalasiRevenueIncome?window.DalasiRevenueIncome.ledgerRows(state):[];
       csv=rowsToCsv(['Date','Origin','Reference','Customer / Source','Category','Description','Method','Amount','Status'],rows.map(x=>[x.date,x.source,x.reference,x.party,x.category,x.description,x.method,x.amount,x.status]));
