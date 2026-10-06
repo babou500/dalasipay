@@ -116,6 +116,7 @@
         field('Expense date','<input name="expenseDate" type="date" value="'+todayIso()+'" required>')+
         field('Category','<select name="category">'+EXPENSE_CATEGORIES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('Payment method','<select name="method">'+METHODS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
+        field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Reference','<input name="reference" placeholder="Receipt, transfer or internal reference">')+
         field('Receipt / evidence','<input name="receipt" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
       '</div>'+
@@ -151,14 +152,14 @@
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
     state.businessExpenses=state.businessExpenses||[];
     const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo');
-    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount,expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount,expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.expenseOpen=false;ctx.audit('expense.created',{expenseId:id,expenseNo,merchant,amount,category:String(fd.get('category')||'Other expense')});ctx.save();ctx.toast('Expense saved as draft');ctx.render();
   }
   function updateExpense(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update expenses.');return;}
     const x=expenseById(state,id);if(!x)return;x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
     if(status==='Approved'){x.approvedAt=x.approvedAt||x.updatedAt;x.approvedBy=x.approvedBy||x.updatedBy}
-    if(status==='Paid'){x.paidAt=x.paidAt||x.updatedAt;x.paidBy=x.paidBy||x.updatedBy}
+    if(status==='Paid'){x.paidAt=x.paidAt||x.updatedAt;x.paidBy=x.paidBy||x.updatedBy;if(x.accountId)window.DalasiCashBank?.post(state,{accountId:x.accountId,date:(x.paidAt||x.expenseDate||new Date().toISOString()).slice(0,10),direction:'out',amount:x.amount,type:'Business expense',counterparty:x.merchant,reference:x.reference||x.expenseNo||'',description:x.description||x.category,sourceType:'expense',sourceId:x.id,sourceKey:'expense:'+x.id+':out',createdBy:state.session?.name||'User'});}
     ctx.audit('expense.status_updated',{expenseId:id,status,amount:x.amount,merchant:x.merchant});ctx.save();ctx.toast((x.expenseNo||x.id)+': '+status);ctx.render();
   }
   function createPurchase(ev,state,ctx){
