@@ -35,7 +35,7 @@
   }
   function tabs(state){
     const tab=state.salesTab||'invoices';
-    return '<div class="sales-tabs"><button class="'+(tab==='quotes'?'active':'')+'" data-action="sales-tab:quotes">Quotations</button><button class="'+(tab==='invoices'?'active':'')+'" data-action="sales-tab:invoices">Invoices</button><button class="'+(tab==='collections'?'active':'')+'" data-action="sales-tab:collections">Collections & receipts</button></div>';
+    return '<div class="sales-tabs"><button class="'+(tab==='catalog'?'active':'')+'" data-action="sales-tab:catalog">Products & services</button><button class="'+(tab==='quotes'?'active':'')+'" data-action="sales-tab:quotes">Quotations</button><button class="'+(tab==='invoices'?'active':'')+'" data-action="sales-tab:invoices">Invoices</button><button class="'+(tab==='collections'?'active':'')+'" data-action="sales-tab:collections">Collections & receipts</button></div>';
   }
   function quoteMetrics(state){
     const rows=state.salesQuotes||[],sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
@@ -57,7 +57,7 @@
       '<td>'+dateLabel(q.quoteDate)+'</td>'+
       '<td>'+dateLabel(q.validUntil)+'</td>'+
       '<td class="payment-amount">'+money2(q.amount)+'</td>'+
-      '<td>'+esc(q.description||'Quotation')+'</td>'+
+      '<td><div class="payment-payee"><b>'+esc(q.description||'Quotation')+'</b><small>'+((q.lineItems||[]).length?((q.lineItems||[]).length+' line item'+((q.lineItems||[]).length===1?'':'s')):'Legacy total')+'</small></div></td>'+
       '<td>'+pill(s,statusClass(s))+'</td>'+
       '<td><div class="payment-status-actions">'+quoteAction(q,icon)+'</div></td>'+
     '</tr>';}).join(''):'<tr><td colspan="7"><div class="empty-inline">No quotations yet. Create an estimate before raising a customer invoice.</div></td></tr>';
@@ -74,8 +74,8 @@
   function quoteModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),issue=todayIso(),valid=addDaysIso(issue,14);
     const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>')).join('');
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-quote"></div><form id="quote-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">SALES QUOTATION</div><h2>Create quotation</h2><p>Prepare an estimate that can later become a customer invoice.</p></div><button type="button" class="close" data-action="close-quote">×</button></div>'+
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-quote"></div><form id="quote-form" class="modal-box sales-document-modal">'+
+      '<div class="modal-head"><div><div class="eyebrow">SALES QUOTATION</div><h2>Create quotation</h2><p>Build a detailed estimate that can later become a customer invoice.</p></div><button type="button" class="close" data-action="close-quote">×</button></div>'+
       '<div class="form-grid">'+
         field('Saved customer','<select name="customerId">'+options+'</select>')+
         field('Customer / client name','<input name="customerName" placeholder="e.g. Kaira Trading Ltd">')+
@@ -83,11 +83,12 @@
         field('Customer phone','<input name="customerPhone" placeholder="+220 ...">')+
         field('Quotation date','<input name="quoteDate" type="date" value="'+issue+'" required>')+
         field('Valid until','<input name="validUntil" type="date" value="'+valid+'" required>')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
         field('Payment terms after invoice','<select name="termDays"><option value="0">Due on receipt</option><option value="7">Net 7 days</option><option value="14">Net 14 days</option><option value="30" selected>Net 30 days</option><option value="60">Net 60 days</option></select>')+
         field('Customer reference','<input name="reference" placeholder="RFQ, PO, contract or customer reference">')+
       '</div>'+
-      field('Goods / service description','<input name="description" placeholder="What are you quoting for?" required>')+
+      '<div class="sales-line-note">Add products/services from your catalog or enter a custom line. Discounts are applied per line.</div>'+
+      window.DalasiCatalog.lineItemsForm(state,[])+
+      field('Overall scope / summary','<input name="description" placeholder="Optional short summary for the quotation">')+
       field('Terms / notes','<input name="notes" placeholder="Optional quotation terms or commercial note">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-quote">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save quotation</button></div>'+
     '</form></div>';
@@ -95,12 +96,12 @@
   function createQuote(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create quotations.');return;}
-    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',amount=Number(fd.get('amount')||0),quoteDate=String(fd.get('quoteDate')||''),validUntil=String(fd.get('validUntil')||''),description=String(fd.get('description')||'').trim();
-    if(!customerName||amount<=0||!quoteDate||!validUntil||!description){ctx.toast('Customer, amount, quotation date, validity date and description are required.');return;}
+    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',quoteDate=String(fd.get('quoteDate')||''),validUntil=String(fd.get('validUntil')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
+    if(!customerName||totals.total<=0||!quoteDate||!validUntil||!lines.length){ctx.toast('Customer, at least one priced line item, quotation date and validity date are required.');return;}
     state.salesQuotes=state.salesQuotes||[];
     const id='QUO-'+Date.now().toString(36).toUpperCase(),quoteNo=nextNumber('QUO',state.salesQuotes,'quoteNo');
-    state.salesQuotes.unshift({id,quoteNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),amount,quoteDate,validUntil,termDays:Number(fd.get('termDays')||saved?.termDays||30),reference:String(fd.get('reference')||saved?.reference||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.salesQuoteOpen=false;ctx.audit('quote.created',{quoteId:id,quoteNo,customerName,amount,validUntil});ctx.save();ctx.toast('Quotation '+quoteNo+' saved as draft');ctx.render();
+    state.salesQuotes.unshift({id,quoteNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,quoteDate,validUntil,termDays:Number(fd.get('termDays')||saved?.termDays||30),reference:String(fd.get('reference')||saved?.reference||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.salesQuoteOpen=false;ctx.audit('quote.created',{quoteId:id,quoteNo,customerName,amount:totals.total,lineCount:lines.length,validUntil});ctx.save();ctx.toast('Quotation '+quoteNo+' saved as draft');ctx.render();
   }
   function updateQuote(id,newStatus,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update quotations.');return;}
@@ -117,9 +118,10 @@
     if(quoteStatus(q)!=='Accepted'){ctx.toast('Mark the quotation accepted before converting it to an invoice.');return;}
     state.customerInvoices=state.customerInvoices||[];
     const invoiceNo=nextNumber('INV',state.customerInvoices,'invoiceNo'),invoiceId='AR-'+Date.now().toString(36).toUpperCase(),issueDate=todayIso(),dueDate=addDaysIso(issueDate,Number(q.termDays)||0);
-    state.customerInvoices.unshift({id:invoiceId,invoiceNo,customerId:q.customerId||null,customerName:q.customerName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',amount:Number(q.amount)||0,issueDate,dueDate,reference:q.reference||q.quoteNo,description:q.description||'Converted quotation',status:'Draft',quoteId:q.id,quoteNo:q.quoteNo,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    const lines=(q.lineItems||[]).map(x=>({...x})),totals=lines.length?window.DalasiCatalog.lineTotals(lines):{subtotal:Number(q.amount)||0,discount:0,total:Number(q.amount)||0};
+    state.customerInvoices.unshift({id:invoiceId,invoiceNo,customerId:q.customerId||null,customerName:q.customerName,customerEmail:q.customerEmail||'',customerPhone:q.customerPhone||'',lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,issueDate,dueDate,reference:q.reference||q.quoteNo,description:q.description||'Converted quotation',status:'Draft',quoteId:q.id,quoteNo:q.quoteNo,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     q.status='Converted';q.invoiceId=invoiceId;q.invoiceNo=invoiceNo;q.convertedAt=new Date().toISOString();q.convertedBy=state.session?.name||'User';q.updatedAt=q.convertedAt;
-    ctx.audit('quote.converted',{quoteId:q.id,quoteNo:q.quoteNo,invoiceId,invoiceNo,amount:q.amount});ctx.save();ctx.toast(q.quoteNo+' converted to '+invoiceNo);state.salesTab='invoices';ctx.render();
+    ctx.audit('quote.converted',{quoteId:q.id,quoteNo:q.quoteNo,invoiceId,invoiceNo,amount:totals.total,lineCount:lines.length});ctx.save();ctx.toast(q.quoteNo+' converted to '+invoiceNo);state.salesTab='invoices';ctx.render();
   }
   function downloadQuote(id,state,ctx){
     const q=quoteById(state,id);if(!q){ctx.toast('Quotation not found');return;}
@@ -203,15 +205,16 @@
   }
   function render(state,h){
     const pageTitle=h.pageTitle,icon=h.icon,tab=state.salesTab||'invoices';
-    const action=tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
-    return tabs(state)+pageTitle('SALES & RECEIVABLES','Invoices','Manage quotations, customer invoices, collections, receipts and delivery notes.',action)+(tab==='quotes'?quotePanel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h));
+    const action=tab==='catalog'?'<button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button>':tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
+    const body=tab==='catalog'?window.DalasiCatalog.catalogPanel(state,h):tab==='quotes'?quotePanel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h);
+    return tabs(state)+pageTitle('SALES & RECEIVABLES','Invoices','Manage products & services, quotations, customer invoices, collections, receipts and delivery notes.',action)+body;
   }
   function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
   function rowsToCsv(headers,rows){return [headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');}
   function exportCsv(kind,state,ctx){
     let csv='';
     if(kind==='quotes'){
-      csv=rowsToCsv(['Quotation No','Customer','Quotation Date','Valid Until','Amount','Status','Description','Reference','Invoice No'],(state.salesQuotes||[]).map(q=>[q.quoteNo||q.id,q.customerName,q.quoteDate,q.validUntil,q.amount,quoteStatus(q),q.description||'',q.reference||'',q.invoiceNo||'']));
+      csv=rowsToCsv(['Quotation No','Customer','Quotation Date','Valid Until','Lines','Subtotal','Discount','Amount','Status','Description','Reference','Invoice No'],(state.salesQuotes||[]).map(q=>[q.quoteNo||q.id,q.customerName,q.quoteDate,q.validUntil,(q.lineItems||[]).length,q.subtotal??q.amount,q.discountTotal||0,q.amount,quoteStatus(q),q.description||'',q.reference||'',q.invoiceNo||'']));
     }else if(kind==='invoices'){
       csv=rowsToCsv(['Invoice No','Customer','Issue Date','Due Date','Amount','Collected','Balance','Status','Description','Reference'],(state.customerInvoices||[]).map(inv=>[inv.invoiceNo||inv.id,inv.customerName,inv.issueDate,inv.dueDate,inv.amount,paid(state,inv),balance(state,inv),status(state,inv),inv.description||'',inv.reference||'']));
     }else if(kind==='collections'){
