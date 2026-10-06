@@ -45,3 +45,6 @@
   .sales-line-foot{flex-direction:column}
   .sales-line-summary{width:100%;justify-content:space-between}
 }
+
+.sales-document-modal{width:min(1120px,calc(100vw - 32px));max-width:1120px;max-height:calc(100vh - 32px);overflow:auto}
+@media(max-width:720px){.sales-document-modal{width:calc(100vw - 18px);max-height:calc(100vh - 18px)}}
