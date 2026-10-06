@@ -27,7 +27,7 @@
     return (state.customers||[]).map(c=>{const a=window.DalasiBusinessPayments.customerAccount(state,c.id);return {id:c.id,name:c.name,terms:Number(c.termDays)||0,invoiced:a.invoiced,collected:a.collected,outstanding:a.outstanding,overdue:a.overdue,status:c.status||'Active'};}).sort((a,b)=>b.outstanding-a.outstanding);
   }
   function render(state,h){
-    const icon=h.icon,money2=h.money2,esc=h.esc,pageTitle=h.pageTitle,m=metrics(state,h),customers=customerRows(state),topCustomers=customers.slice(0,6);
+    const icon=h.icon,money2=h.money2,pill=h.pill,esc=h.esc,pageTitle=h.pageTitle,m=metrics(state,h),customers=customerRows(state),topCustomers=customers.slice(0,6);
     const reports=[
       ['business-summary','Business summary','High-level inflows, outflows, receivables, payables and cash position','reports'],
       ['profit-loss','Profit & Loss','Revenue, cost of goods sold, operating expenses and net profit','chart'],
