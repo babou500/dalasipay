@@ -35,7 +35,7 @@
   }
   function tabs(state){
     const tab=state.salesTab||'invoices';
-    return '<div class="sales-tabs"><button class="'+(tab==='catalog'?'active':'')+'" data-action="sales-tab:catalog">Products & services</button><button class="'+(tab==='quotes'?'active':'')+'" data-action="sales-tab:quotes">Quotations</button><button class="'+(tab==='invoices'?'active':'')+'" data-action="sales-tab:invoices">Invoices</button><button class="'+(tab==='collections'?'active':'')+'" data-action="sales-tab:collections">Collections & receipts</button></div>';
+    return '<div class="sales-tabs"><button class="'+(tab==='revenue'?'active':'')+'" data-action="sales-tab:revenue">Revenue</button><button class="'+(tab==='catalog'?'active':'')+'" data-action="sales-tab:catalog">Products & services</button><button class="'+(tab==='quotes'?'active':'')+'" data-action="sales-tab:quotes">Quotations</button><button class="'+(tab==='invoices'?'active':'')+'" data-action="sales-tab:invoices">Invoices</button><button class="'+(tab==='collections'?'active':'')+'" data-action="sales-tab:collections">Collections & receipts</button></div>';
   }
   function quoteMetrics(state){
     const rows=state.salesQuotes||[],sum=xs=>xs.reduce((a,x)=>a+(Number(x.amount)||0),0);
@@ -220,15 +220,16 @@
   }
   function render(state,h){
     const pageTitle=h.pageTitle,icon=h.icon,tab=state.salesTab||'invoices';
-    const action=tab==='catalog'?'<button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button>':tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
-    const body=tab==='catalog'?window.DalasiCatalog.catalogPanel(state,h):tab==='quotes'?quotePanel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h);
-    return tabs(state)+pageTitle('SALES & RECEIVABLES','Invoices','Manage products & services, quotations, customer invoices, collections, receipts and delivery notes.',action)+body;
+    const action=tab==='revenue'?'<button class="primary" data-action="open-revenue">'+icon('plus',14)+' Record income</button>':tab==='catalog'?'<button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button>':tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
+    const body=tab==='revenue'?window.DalasiRevenueIncome.panel(state,h):tab==='catalog'?window.DalasiCatalog.catalogPanel(state,h):tab==='quotes'?quotePanel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h);
+    return tabs(state)+pageTitle('SALES & RECEIVABLES','Sales','Revenue, products, quotations, customer invoices, collections, receipts and delivery notes.',action)+body;
   }
   function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
   function rowsToCsv(headers,rows){return [headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');}
   function exportCsv(kind,state,ctx){
     let csv='';
-    if(kind==='quotes'){
+    if(kind==='revenue'){window.DalasiRevenueIncome.exportCsv(state,ctx);return;
+    }else if(kind==='quotes'){
       csv=rowsToCsv(['Quotation No','Customer','Quotation Date','Valid Until','Lines','Subtotal','Discount','Amount','Status','Description','Reference','Invoice No'],(state.salesQuotes||[]).map(q=>[q.quoteNo||q.id,q.customerName,q.quoteDate,q.validUntil,(q.lineItems||[]).length,q.subtotal??q.amount,q.discountTotal||0,q.amount,quoteStatus(q),q.description||'',q.reference||'',q.invoiceNo||'']));
     }else if(kind==='invoices'){
       csv=rowsToCsv(['Invoice No','Customer','Issue Date','Due Date','Lines','Subtotal','Discount','Amount','Collected','Balance','Status','Description','Reference'],(state.customerInvoices||[]).map(inv=>[inv.invoiceNo||inv.id,inv.customerName,inv.issueDate,inv.dueDate,(inv.lineItems||[]).length,inv.subtotal??inv.amount,inv.discountTotal||0,inv.amount,paid(state,inv),balance(state,inv),status(state,inv),inv.description||'',inv.reference||'']));
