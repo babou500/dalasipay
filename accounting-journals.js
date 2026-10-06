@@ -62,9 +62,11 @@
     const form=ev.target,fd=new FormData(form),date=String(fd.get('journalDate')||''),reference=String(fd.get('reference')||'').trim(),memo=String(fd.get('memo')||'').trim(),lines=readLines(form),t=journalTotals(lines);
     if(!date||lines.length<2||!t.balanced){ctx.toast('Journal must have a date, at least two lines, and equal debits and credits.');return;}
     if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before creating this journal.');return;}
+    const protectedControls=new Set(['Cash & Bank','Undeposited Funds','Accounts Receivable','Accounts Payable','Inventory']);
     for(const x of lines){
       if(x.debit>0&&x.credit>0){ctx.toast('Each journal line must contain either a debit or a credit, not both.');return;}
       const a=accountByName(state,x.account);if(!a||(a.status||'Active')!=='Active'){ctx.toast('Choose active accounts for every journal line.');return;}
+      if(protectedControls.has(a.name)){ctx.toast(a.name+' is a protected control account. Use its operational module instead of a manual journal.');return;}
       x.accountCode=a.code;x.accountType=a.type;
     }
     const id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),now=new Date().toISOString();
