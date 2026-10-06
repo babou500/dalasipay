@@ -14,7 +14,7 @@
     return window.DalasiInventory?.summary?.(state)?.value??(state.salesCatalog||[]).filter(x=>x.type==='Product').reduce((a,x)=>a+(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0),0);
   }
   function supplierPayables(state){
-    return (state.businessBills||[]).filter(x=>x.status!=='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
+    return (state.businessBills||[]).filter(x=>x.status!=='Paid').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
   }
   function accruedExpenses(state){
     return (state.businessExpenses||[]).filter(x=>x.status==='Approved').reduce((a,x)=>a+(Number(x.amount)||0),0);
@@ -40,6 +40,8 @@
     });
     (state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)).forEach(x=>{const t=window.DalasiTax?.meta?.(state,x,'purchase');if(t?.vatRecoverable)input+=Number(t.vatAmount)||0;});
     (state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').forEach(x=>{const t=window.DalasiTax?.meta?.(state,x,'purchase');if(t?.vatRecoverable)input+=Number(t.vatAmount)||0;});
+    (state.customerCreditNotes||[]).filter(x=>x.status!=='Void').forEach(x=>{output-=Number(x.vatAmount)||0;});
+    (state.supplierCreditNotes||[]).filter(x=>x.status!=='Void'&&x.vatRecoverable).forEach(x=>{input-=Number(x.vatAmount)||0;});
     const paid=(state.vatPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0);
     return {input:money(input),output:money(Math.max(0,output-paid)),outputGross:money(output),paid:money(paid)};
   }
@@ -60,17 +62,17 @@
   }
   function statement(state){
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0,updatedAt:'',note:''},state.balanceSheetSetup||{});
-    const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),vat=vatPosition(state),profit=currentYearProfit(state);
+    const ar=money(invoiceOutstanding(state)),inventory=money(inventoryValue(state)),ap=money(supplierPayables(state)),accrued=money(accruedExpenses(state)),payroll=payrollLiabilities(state),vat=vatPosition(state),profit=currentYearProfit(state),supplierRefundReceivable=money(window.DalasiReturns?.supplierRefundReceivable?.(state)||0),customerRefundPayable=money(window.DalasiReturns?.customerRefundLiability?.(state)||0);
     const cashTotals=window.DalasiCashBank?.totals?.(state)||{accounts:0,total:0,bank:0,mobile:0,cash:0},usingCashbook=cashTotals.accounts>0,fixedAssets=window.DalasiFixedAssets?.summary?.(state)||{count:0,cost:0,accumulated:0,netBookValue:0},usingAssetRegister=fixedAssets.count>0,loanSummary=window.DalasiLoans?.summary?.(state)||{count:0,outstanding:0,interestPayable:0},usingLoanRegister=loanSummary.count>0;
     const cashBank=money(usingCashbook?(cashTotals.bank+cashTotals.mobile):Number(setup.cashBank)),pettyCash=money(usingCashbook?cashTotals.cash:Number(setup.pettyCash)),fixedAssetsNet=money(usingAssetRegister?fixedAssets.netBookValue:Number(setup.fixedAssetsNet)),manual=manualBalanceAdjustments(state);
-    const currentAssets=money(cashBank+pettyCash+ar+inventory+vat.input+Number(setup.otherCurrentAssets));
+    const currentAssets=money(cashBank+pettyCash+ar+inventory+vat.input+supplierRefundReceivable+Number(setup.otherCurrentAssets));
     const totalAssets=money(currentAssets+fixedAssetsNet+manual.assets);
-    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+vat.output+Number(setup.otherLiabilities)+loanSummary.interestPayable);
+    const currentLiabilities=money(ap+accrued+payroll.wages+payroll.statutory+vat.output+customerRefundPayable+Number(setup.otherLiabilities)+loanSummary.interestPayable);
     const loanPrincipal=money(usingLoanRegister?loanSummary.outstanding:Number(setup.loansBorrowings));
     const totalLiabilities=money(currentLiabilities+loanPrincipal+manual.liabilities);
     const equity=money(Number(setup.ownerCapital)+Number(setup.openingRetainedEarnings)+profit+manual.equity);
     const liabilitiesEquity=money(totalLiabilities+equity);
-    return {setup,ar,inventory,ap,accrued,payroll,vat,profit,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,loanSummary,usingLoanRegister,loanPrincipal,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
+    return {setup,ar,inventory,ap,accrued,payroll,vat,profit,supplierRefundReceivable,customerRefundPayable,manual,cashBank,pettyCash,cashbookAccounts:cashTotals.accounts,usingCashbook,fixedAssets,usingAssetRegister,fixedAssetsNet,loanSummary,usingLoanRegister,loanPrincipal,currentAssets,totalAssets,currentLiabilities,totalLiabilities,equity,liabilitiesEquity,difference:money(totalAssets-liabilitiesEquity),balanced:Math.abs(totalAssets-liabilitiesEquity)<0.01};
   }
   function row(label,value,money2,total=false,sub=false){
     return '<tr class="'+(total?'bs-total ':'')+(sub?'bs-sub':'')+'"><td>'+label+'</td><td>'+money2(value)+'</td></tr>';
