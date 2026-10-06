@@ -61,10 +61,10 @@
     (inv?.lineItems||[]).forEach(line=>{
       const item=line.catalogId?window.DalasiCatalog?.itemById?.(state,line.catalogId):null;
       if(!item||item.type!=='Product')return;
-      const x=map.get(item.id)||{catalogId:item.id,code:item.code||item.id,name:item.name,unit:item.unit||'Unit',sold:0};
-      x.sold+=Number(line.quantity)||0;map.set(item.id,x);
+      const x=map.get(item.id)||{catalogId:item.id,code:item.code||item.id,name:item.name,unit:item.unit||'Unit',sold:0,gross:0};
+      x.sold+=Number(line.quantity)||0;x.gross+=Number(line.amount)||0;map.set(item.id,x);
     });
-    return [...map.values()].map(x=>({...x,sold:round(x.sold),returned:alreadyCustomerReturned(state,inv.id,x.catalogId),available:round(Math.max(0,x.sold-alreadyCustomerReturned(state,inv.id,x.catalogId)))})).filter(x=>x.available>0);
+    return [...map.values()].map(x=>({...x,sold:round(x.sold),gross:round(x.gross),grossUnit:x.sold?round(x.gross/x.sold):0,returned:alreadyCustomerReturned(state,inv.id,x.catalogId),available:round(Math.max(0,x.sold-alreadyCustomerReturned(state,inv.id,x.catalogId)))})).filter(x=>x.available>0);
   }
   function customerCreditModal(state,h){
     const {field,icon,money2}=h,eligible=(state.customerInvoices||[]).filter(x=>{
@@ -92,6 +92,7 @@
     if(!inv||amount<=0){ctx.toast('Choose an invoice and enter a valid credit amount.');return;}if(!validDate(date,state,ctx))return;
     const remaining=invoiceRemainingCredit(state,inv);if(amount>remaining+.004){ctx.toast('Credit amount cannot exceed the remaining creditable invoice value.');return;}
     const paid=invoicePayments(state,inv.id),prior=customerCredited(state,inv.id),outstandingBefore=Math.max(0,(Number(inv.amount)||0)-paid-prior),arReduction=round(Math.min(amount,outstandingBefore)),refundDue=round(amount-arReduction),tax=taxShare(state,inv,amount,'sale'),id='CCN-'+Date.now().toString(36).toUpperCase(),creditNo=nextNo('CN',state.customerCreditNotes||[],'creditNo'),returnItems=[];
+    let returnedSalesGross=0;
     if(inv.fulfilledAt){
       const allowed=new Map(customerReturnRows(state,inv).map(x=>[x.catalogId,x]));
       for(const [key,val] of fd.entries()){
@@ -99,9 +100,10 @@
         const catalogId=String(key).slice(7),qty=Math.max(0,Number(val)||0),row=allowed.get(catalogId);if(!qty)continue;
         if(!row||qty>row.available+.0001){ctx.toast('Returned quantity exceeds the remaining issued quantity for '+(row?.name||catalogId)+'.');return;}
         const product=window.DalasiCatalog?.itemById?.(state,catalogId),cost=issueCostForOriginal(state,inv,catalogId);if(!product){continue;}
-        returnItems.push({catalogId,code:product.code||catalogId,name:product.name,quantity:round(qty),unitCost:cost.unitCost,costAmount:round(qty*cost.unitCost)});
+        returnedSalesGross+=qty*(Number(row.grossUnit)||0);returnItems.push({catalogId,code:product.code||catalogId,name:product.name,quantity:round(qty),unitCost:cost.unitCost,costAmount:round(qty*cost.unitCost),salesGross:round(qty*(Number(row.grossUnit)||0))});
       }
     }
+    if(returnedSalesGross>amount+.01){ctx.toast('Returned product value cannot exceed the customer credit amount. Increase the credit or reduce the returned quantities.');return;}
     const now=new Date().toISOString(),rec={id,creditNo,invoiceId:inv.id,invoiceNo:inv.invoiceNo||inv.id,customerId:inv.customerId||null,customerName:inv.customerName||'Customer',date,amount,...tax,arReduction,refundDue,reason:String(fd.get('reason')||'Other'),note:String(fd.get('note')||'').trim(),returnItems,status:'Issued',createdAt:now,createdBy:state.session?.name||'User'};
     state.customerCreditNotes=state.customerCreditNotes||[];state.customerCreditNotes.unshift(rec);
     state.inventoryMovements=state.inventoryMovements||[];
