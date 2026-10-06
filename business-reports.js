@@ -38,6 +38,7 @@
       ['cash-bank-register','Cash & Bank register','Bank, mobile-money and cash-account balances and movements','bank'],
       ['bank-reconciliations','Bank reconciliations','Finalized statement reconciliations, cleared items and outstanding differences','check'],
       ['fixed-assets','Fixed asset register','Asset cost, accumulated depreciation, net book value and disposal status','building'],
+      ['vat-return','VAT return working paper','Output VAT, recoverable input VAT, filing due date and net GRA position','shield'],
       ['month-end-close','Month-End Close','Review accounting controls, lock completed periods and preserve close snapshots','shield'],
       ['year-end-close','Year-End Close','Manually close the financial year after all 12 monthly periods are closed','shield'],
       ['accounts-receivable','Accounts receivable','Customer invoices, balances, due dates and collection status','send'],
@@ -86,6 +87,7 @@
     }else if(kind==='cash-bank-register'){window.DalasiCashBank?.exportCsv(state,ctx);return;
     }else if(kind==='bank-reconciliations'){window.DalasiBankReconciliation?.exportRegister(state,ctx);return;
     }else if(kind==='fixed-assets'){window.DalasiFixedAssets?.exportCsv(state,ctx);return;
+    }else if(kind==='vat-return'){window.DalasiTax?.exportReturn(state,state.taxPeriod||state.currentPeriod,ctx);return;
     }else if(kind==='month-end-close'){const p=state.monthClosePeriod||state.currentPeriod;if(window.DalasiMonthClose?.record(state,p))window.DalasiMonthClose.exportRecord(p,state,ctx);else ctx.toast('Close the selected accounting period before exporting its close record.');return;
     }else if(kind==='year-end-close'){const y=state.yearCloseYear||String(state.currentPeriod||'').slice(0,4);if(window.DalasiYearClose?.record(state,y))window.DalasiYearClose.exportRecord(y,state,ctx);else ctx.toast('Close the selected financial year before exporting its close record.');return;
     }else if(kind==='revenue-register'){
