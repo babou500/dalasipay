@@ -3,10 +3,10 @@
 
   const CHART=[
     ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
-    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
+    ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
     ['4000','Sales Revenue','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
-    ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense']
+    ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
   ];
   const ACCOUNT=Object.fromEntries(CHART.map(x=>[x[1],{code:x[0],name:x[1],type:x[2]}]));
   const round=n=>Math.round((Number(n)||0)*100)/100;
@@ -28,14 +28,14 @@
 
     // Opening / manually supplied financial-position balances
     const setup=Object.assign({cashBank:0,pettyCash:0,otherCurrentAssets:0,fixedAssetsNet:0,loansBorrowings:0,otherLiabilities:0,ownerCapital:0,openingRetainedEarnings:0},state.balanceSheetSetup||{});
-    const hasCashAccounts=(state.cashAccounts||[]).length>0,hasFixedAssetRegister=(state.fixedAssets||[]).length>0;
+    const hasCashAccounts=(state.cashAccounts||[]).length>0,hasFixedAssetRegister=(state.fixedAssets||[]).length>0,hasLoanRegister=(state.businessLoans||[]).length>0;
     let openDebit=0,openCredit=0;
     const opening=[];
     const addOpen=(account,debit=0,credit=0,memo='')=>{opening.push({account,debit,credit,memo});openDebit+=Number(debit)||0;openCredit+=Number(credit)||0;};
     if(!hasCashAccounts){addOpen('Cash & Bank',Math.max(0,Number(setup.cashBank)||0),0,'Manual opening bank balance');addOpen('Cash & Bank',Math.max(0,Number(setup.pettyCash)||0),0,'Manual opening petty cash balance');}
     addOpen('Other Current Assets',Math.max(0,Number(setup.otherCurrentAssets)||0),0,'Opening financial-position setup');
     if(!hasFixedAssetRegister)addOpen('Property & Equipment, Net',Math.max(0,Number(setup.fixedAssetsNet)||0),0,'Opening financial-position setup');
-    addOpen('Loans & Borrowings',0,Math.max(0,Number(setup.loansBorrowings)||0),'Opening financial-position setup');
+    if(!hasLoanRegister)addOpen('Loans & Borrowings',0,Math.max(0,Number(setup.loansBorrowings)||0),'Opening financial-position setup');
     addOpen('Other Liabilities',0,Math.max(0,Number(setup.otherLiabilities)||0),'Opening financial-position setup');
     addOpen('Owner / Share Capital',0,Math.max(0,Number(setup.ownerCapital)||0),'Opening financial-position setup');
     addOpen('Opening Retained Earnings',0,Math.max(0,Number(setup.openingRetainedEarnings)||0),'Opening financial-position setup');
@@ -167,6 +167,30 @@
       pushJournal(out,'VATPAY-'+p.id,p.date||p.createdAt,p.reference||p.id,'VAT payment',[
         {account:'VAT Output Payable',debit:amt,memo:'VAT settlement for '+(p.period||'')},
         {account:cashAccountName(state,p.accountId),credit:amt,memo:'Gambia Revenue Authority'}
+      ]);
+    });
+
+    // Business loans: drawdowns/opening balances, interest accruals and repayments.
+    (state.businessLoans||[]).forEach(l=>{
+      const principal=round(l.principal);if(!principal)return;
+      pushJournal(out,'LOAN-'+l.id,l.startDate||l.createdAt,l.reference||l.id,'Loan recognition',[
+        {account:l.source==='Cash drawdown'?'Cash & Bank':'Opening Balance Equity',debit:principal,memo:l.lender||''},
+        {account:'Loans & Borrowings',credit:principal,memo:l.lender||''}
+      ]);
+    });
+    (state.loanInterestAccruals||[]).filter(x=>x.status==='Posted').forEach(x=>{
+      const amount=round(x.amount);if(!amount)return;
+      pushJournal(out,'LINT-'+x.id,x.date||((x.period||'')+'-28'),x.period||x.id,'Loan interest accrual',[
+        {account:'Finance Costs / Interest Expense',debit:amount,memo:x.lender||''},
+        {account:'Accrued Interest Payable',credit:amount,memo:x.lender||''}
+      ]);
+    });
+    (state.loanRepayments||[]).forEach(x=>{
+      const principal=round(x.principal),interest=round(x.interest),amount=round(x.amount);if(!amount)return;
+      pushJournal(out,'LRP-'+x.id,x.date||x.createdAt,x.reference||x.id,'Loan repayment',[
+        {account:'Loans & Borrowings',debit:principal,memo:x.lender||''},
+        {account:'Accrued Interest Payable',debit:interest,memo:x.lender||''},
+        {account:cashAccountName(state,x.accountId),credit:amount,memo:x.lender||''}
       ]);
     });
 
