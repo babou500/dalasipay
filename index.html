@@ -2036,6 +2036,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     customerOpen: false,
     customerAccountId: null,
     receivableCustomerId: null,
+    receivableDraft: null,
+    customerCreateContext: null,
     paymentOpen: false,
     recurringOpen: false,
     receivableOpen: false,
@@ -3215,7 +3217,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const brsf=document.getElementById('bank-reconciliation-start-form');if(brsf)brsf.addEventListener('submit',startBankReconciliation);
     window.DalasiBankReconciliation?.bind?.(state,{money2});
     const rif2=document.getElementById('receivable-form');if(rif2)window.DalasiCatalog.bindLineItems(rif2,state);
-    const ics=document.getElementById('invoice-customer-select');if(ics)ics.addEventListener('change',e=>{state.receivableCustomerId=e.target.value||null;render()});
+    const ics=document.getElementById('invoice-customer-select');if(ics)ics.addEventListener('change',e=>{const form=document.getElementById('receivable-form');if(form){const fd=new FormData(form);state.receivableDraft={customerName:String(fd.get('customerName')||''),invoiceNo:String(fd.get('invoiceNo')||''),customerEmail:String(fd.get('customerEmail')||''),customerPhone:String(fd.get('customerPhone')||''),issueDate:String(fd.get('issueDate')||''),dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||''),taxCode:String(fd.get('taxCode')||''),project:String(fd.get('project')||''),costCentre:String(fd.get('costCentre')||''),description:String(fd.get('description')||''),lineItems:window.DalasiCatalog?.readLines?.(form)||[]};}if(e.target.value==='__add_customer__'){state.customerCreateContext='invoice';state.customerOpen=true;}else{state.receivableCustomerId=e.target.value||null;}render()});
     const cnis=document.getElementById('credit-note-invoice-select');if(cnis)cnis.addEventListener('change',e=>{state.creditNoteInvoiceId=e.target.value||null;render()});
     const scbs=document.getElementById('supplier-credit-bill-select');if(scbs)scbs.addEventListener('change',e=>{state.supplierCreditBillId=e.target.value||null;render()});
     const cdis=document.getElementById('customer-debit-invoice-select');if(cdis)cdis.addEventListener('change',e=>{state.customerDebitInvoiceId=e.target.value||null;render()});
@@ -3501,7 +3503,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a.startsWith('recurring-status:')){const parts=a.split(':');updateRecurringBusinessPayment(parts[1],parts[2]||'Active')}
     else if(a.startsWith('recurring-generate:'))generateRecurringBusinessPayment(a.split(':')[1])
     else if(a==='open-receivable'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to create customer invoices.');return}state.receivableCustomerId=null;state.receivableOpen=true;render()}
-    else if(a==='close-receivable'){state.receivableOpen=false;state.receivableCustomerId=null;render()}
+    else if(a==='close-receivable'){state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;state.customerCreateContext=null;render()}
     else if(a==='open-recurring-invoice'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to create recurring invoice schedules.');return}state.recurringInvoiceOpen=true;render()}
     else if(a==='close-recurring-invoice'){state.recurringInvoiceOpen=false;render()}
     else if(a.startsWith('recurring-invoice-status:')){const parts=a.split(':');window.DalasiRecurringInvoices.updateStatus(parts[1],parts[2]||'Active',state,{can,audit,save,toast,render})}
@@ -3514,8 +3516,9 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a.startsWith('record-incoming:')){state.incomingPaymentInvoiceId=a.split(':')[1];state.incomingPaymentOpen=true;render()}
     else if(a==='close-incoming-payment'){state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;render()}
     else if(a.startsWith('receivable-doc:')){const parts=a.split(':');downloadReceivableDocument(parts[2],parts[1])}
-    else if(a==='open-customer'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to add customers.');return}state.customerOpen=true;render()}
-    else if(a==='close-customer'){state.customerOpen=false;render()}
+    else if(a==='open-customer'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to add customers.');return}state.customerCreateContext=null;state.customerOpen=true;render()}
+    else if(a==='invoice-add-customer'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to add customers.');return}const form=document.getElementById('receivable-form');if(form){const fd=new FormData(form);state.receivableDraft={customerName:String(fd.get('customerName')||''),invoiceNo:String(fd.get('invoiceNo')||''),customerEmail:String(fd.get('customerEmail')||''),customerPhone:String(fd.get('customerPhone')||''),issueDate:String(fd.get('issueDate')||''),dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||''),taxCode:String(fd.get('taxCode')||''),project:String(fd.get('project')||''),costCentre:String(fd.get('costCentre')||''),description:String(fd.get('description')||''),lineItems:window.DalasiCatalog?.readLines?.(form)||[]};}state.customerCreateContext='invoice';state.customerOpen=true;render()}
+    else if(a==='close-customer'){state.customerOpen=false;state.customerCreateContext=null;render()}
     else if(a.startsWith('customer-view:')){state.customerAccountId=a.split(':')[1];render()}
     else if(a==='close-customer-account'){state.customerAccountId=null;render()}
     else if(a.startsWith('invoice-customer:')){state.customerAccountId=null;state.receivableCustomerId=a.split(':')[1];state.receivableOpen=true;render()}
