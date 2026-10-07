@@ -1108,3 +1108,57 @@ body{background:
   .story-changes{grid-template-columns:1fr 1fr}
 }
 @media(max-width:420px){.story-changes{grid-template-columns:1fr}}
+
+/* DalasiPay v0.74 — transparent business health score */
+.health-score-card{margin:14px 0;padding:0;border-radius:16px;overflow:hidden}
+.health-score-main{
+  display:grid;grid-template-columns:132px minmax(0,1fr);gap:18px;align-items:center;
+  padding:18px;border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--soft-2) 58%,var(--panel)),var(--panel))
+}
+.health-score-ring{
+  --score:0;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--primary) calc(var(--score)*1%),var(--border) 0);
+  position:relative
+}
+.health-score-ring:before{
+  content:"";position:absolute;inset:9px;border-radius:50%;background:var(--panel)
+}
+.health-score-ring>div{position:relative;z-index:1;text-align:center}
+.health-score-ring b{font-size:28px;letter-spacing:-1px;display:block;line-height:1}
+.health-score-ring span{font-size:8.5px;color:var(--muted);font-weight:750}
+.health-score-copy h3{font-size:18px;letter-spacing:-.35px;margin:3px 0}
+.health-score-copy p{font-size:9.8px;line-height:1.5;color:var(--muted);margin:0 0 10px;max-width:520px}
+.health-score-copy button{
+  border:0;background:transparent;color:var(--primary);padding:0;font-size:9.4px;font-weight:820;
+  display:flex;align-items:center;gap:3px
+}
+.health-score-breakdown{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;background:var(--panel)}
+.health-score-breakdown>button{
+  border:0;border-right:1px solid var(--border);background:transparent;padding:13px;text-align:left;color:var(--text)
+}
+.health-score-breakdown>button:last-child{border-right:0}
+.health-score-breakdown>button:hover{background:var(--panel-2)}
+.health-score-breakdown>button>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.health-score-breakdown span{font-size:8.5px;color:var(--muted);font-weight:780}
+.health-score-breakdown b{font-size:11px}
+.health-score-breakdown i{
+  display:block;height:4px;border-radius:999px;background:var(--border);overflow:hidden;margin:8px 0
+}
+.health-score-breakdown i em{display:block;height:100%;background:var(--primary);border-radius:inherit}
+.health-score-breakdown small{display:block;font-size:8.4px;line-height:1.4;color:var(--muted)}
+.health-score-note{
+  padding:8px 13px;border-top:1px solid var(--border);background:var(--panel-2);
+  color:var(--muted);font-size:8px;text-align:right
+}
+.health-score-card.watch .health-score-ring{background:conic-gradient(#c58a2a calc(var(--score)*1%),var(--border) 0)}
+.health-score-card.urgent .health-score-ring{background:conic-gradient(#c84f48 calc(var(--score)*1%),var(--border) 0)}
+@media(max-width:1050px){.health-score-breakdown{grid-template-columns:repeat(2,1fr)}.health-score-breakdown>button{border-bottom:1px solid var(--border)}}
+@media(max-width:620px){
+  .health-score-main{grid-template-columns:92px minmax(0,1fr);gap:12px;padding:14px}
+  .health-score-ring{width:82px;height:82px}
+  .health-score-ring b{font-size:22px}
+  .health-score-breakdown{grid-template-columns:1fr}
+  .health-score-breakdown>button{border-right:0}
+  .health-score-note{text-align:left}
+}
