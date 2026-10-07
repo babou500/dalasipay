@@ -171,9 +171,9 @@
     return (inv.lineItems||[]).some(x=>{const item=x.catalogId?window.DalasiCatalog?.itemById(state,x.catalogId):null;return item?.type==='Product';});
   }
   function invoiceAction(state,inv,icon){
-    const s=status(state,inv),invoice='<button data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>';
-    if(s==='Draft')return actionMenu('<button class="primary tiny" data-action="receivable-send:'+inv.id+'">Mark sent</button>',[invoice]);
-    const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),extras=[invoice];
+    const s=status(state,inv),invoice='<button data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>',view='<button data-action="invoice-view:'+inv.id+'">View details</button>';
+    if(s==='Draft')return actionMenu('<button class="secondary tiny" data-action="invoice-view:'+inv.id+'">View</button>',[invoice,'<button data-action="receivable-send:'+inv.id+'">Mark sent</button>']);
+    const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),extras=[view,invoice];
     if(remainingCredit>.004)extras.push('<button data-action="credit-invoice:'+inv.id+'">Create credit note</button>');
     extras.push('<button data-action="debit-invoice:'+inv.id+'">Create debit note</button>');
     if(s==='Paid'){
@@ -183,6 +183,25 @@
       return actionMenu('<span class="payment-complete">Paid</span>',extras);
     }
     return actionMenu('<button class="primary tiny" data-action="record-incoming:'+inv.id+'">Record payment</button>',extras);
+  }
+  function invoiceDetailModal(state,h){
+    const inv=invoiceById(state,state.invoiceDetailId);if(!inv)return '';
+    const s=status(state,inv),p=paid(state,inv),b=balance(state,inv),lines=inv.lineItems||[],icon=h.icon,esc=h.esc,money2=h.money2,pill=h.pill;
+    const lineRows=lines.length?lines.map(x=>'<div class="record-line"><div><b>'+esc(x.description||'Item')+'</b><small>'+esc(x.unit||'Unit')+' · '+Number(x.quantity||0).toLocaleString('en-GB')+'</small></div><span>'+money2(x.unitPrice||0)+'</span><strong>'+money2(x.amount??((Number(x.quantity)||0)*(Number(x.unitPrice)||0)))+'</strong></div>').join(''):'<div class="empty-inline">No itemized lines on this invoice.</div>';
+    const payments=paymentsFor(state,inv.id).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||'')));
+    const timeline=[
+      {label:'Invoice created',at:inv.createdAt,by:inv.createdBy},
+      inv.sentAt?{label:'Marked sent',at:inv.sentAt,by:inv.sentBy}:null,
+      ...payments.map(x=>({label:'Payment '+(x.receiptNumber||x.id)+' · '+money2(x.amount),at:x.receivedDate||x.createdAt,by:x.createdBy})),
+      inv.fulfilledAt?{label:'Order fulfilled / stock issued',at:inv.fulfilledAt,by:inv.fulfilledBy}:null
+    ].filter(Boolean).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-invoice-detail"></div><aside class="record-drawer"><div class="record-drawer-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>'+esc(inv.invoiceNo||inv.id)+'</h2><p>'+esc(inv.customerName||'Customer')+'</p></div><button class="close" data-action="close-invoice-detail">×</button></div>'+
+      '<div class="record-hero"><div><span>Outstanding</span><b>'+money2(b)+'</b><small>'+money2(p)+' collected of '+money2(inv.amount)+'</small></div>'+pill(s,statusClass(s))+'</div>'+
+      '<div class="record-facts"><div><span>Issue date</span><b>'+dateLabel(inv.issueDate)+'</b></div><div><span>Due date</span><b>'+dateLabel(inv.dueDate)+'</b></div><div><span>Reference</span><b>'+esc(inv.reference||'—')+'</b></div><div><span>Project</span><b>'+esc(inv.project||'Unassigned')+'</b></div><div><span>Cost centre</span><b>'+esc(inv.costCentre||'Unassigned')+'</b></div><div><span>Source</span><b>'+esc(inv.salesOrderNo||inv.quoteNo||'Direct invoice')+'</b></div></div>'+
+      '<section class="record-section"><div class="record-section-head"><b>Invoice lines</b><span>'+lines.length+' item'+(lines.length===1?'':'s')+'</span></div><div class="record-lines">'+lineRows+'</div></section>'+
+      '<section class="record-section"><div class="record-section-head"><b>Activity</b><span>'+timeline.length+' event'+(timeline.length===1?'':'s')+'</span></div><div class="record-timeline">'+(timeline.length?timeline.map(x=>'<div><i></i><span><b>'+esc(x.label)+'</b><small>'+esc(x.at?String(x.at).slice(0,10):'')+(x.by?' · '+esc(x.by):'')+'</small></span></div>').join(''):'<div class="empty-inline">No activity yet.</div>')+'</div></section>'+
+      '<div class="record-drawer-actions"><button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>'+(b>.004?'<button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>':(invoiceHasStockLines(state,inv)&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">Fulfil order</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">Delivery note</button>'))+'</div>'+
+    '</aside></div>';
   }
   function invoicePanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=metrics(state),filter=state.salesFilter||'all';
@@ -289,5 +308,5 @@
     const customer=(String(inv.customerName||'Customer').replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'Customer');
     ctx.pdfDownload('Delivery_Note_'+customer+'_'+(inv.invoiceNo||inv.id)+'.pdf',out.join('\n'),state.branding?.logoData||'');ctx.toast('Delivery note downloaded');
   }
-  window.DalasiSalesInvoices={render,metrics,status,balance,paid,invoiceHasStockLines,quoteStatus,quoteMetrics,quoteModal,createQuote,updateQuote,convertQuote,downloadQuote,exportCsv,downloadDeliveryNote};
+  window.DalasiSalesInvoices={render,metrics,status,balance,paid,invoiceHasStockLines,quoteStatus,quoteMetrics,quoteModal,createQuote,updateQuote,convertQuote,downloadQuote,exportCsv,downloadDeliveryNote,invoiceDetailModal};
 })();
