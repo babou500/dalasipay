@@ -44,13 +44,19 @@
     const active=rows.filter(x=>['Draft','Sent','Accepted'].includes(quoteStatus(x)));
     return {count:rows.length,total:sum(rows),active:active.length,activeValue:sum(active),accepted:sum(rows.filter(x=>quoteStatus(x)==='Accepted')),converted:sum(rows.filter(x=>quoteStatus(x)==='Converted')),convertedCount:rows.filter(x=>quoteStatus(x)==='Converted').length};
   }
+  function actionMenu(primary,items,label='More'){
+    return '<div class="row-action-shell">'+(primary||'')+(items&&items.length?'<details class="row-actions-menu"><summary>'+label+'</summary><div class="row-actions-popover">'+items.join('')+'</div></details>':'')+'</div>';
+  }
   function quoteAction(q,icon){
-    const s=quoteStatus(q);
-    if(s==='Draft')return '<button class="secondary" data-action="quote-doc:'+q.id+'">'+icon('download',13)+' PDF</button><button class="primary" data-action="quote-status:'+q.id+':Sent">Mark sent</button>';
-    if(s==='Sent')return '<button class="secondary" data-action="quote-doc:'+q.id+'">'+icon('download',13)+' PDF</button><button class="primary" data-action="quote-status:'+q.id+':Accepted">Accept</button><button class="secondary" data-action="quote-status:'+q.id+':Declined">Decline</button>';
-    if(s==='Accepted')return '<button class="secondary" data-action="quote-doc:'+q.id+'">'+icon('download',13)+' PDF</button>'+(q.salesOrderId?'<span class="payment-complete">'+esc(q.salesOrderNo||'Order created')+'</span>':'<button class="primary" data-action="quote-to-order:'+q.id+'">Create sales order</button>')+'<button class="secondary" data-action="quote-convert:'+q.id+'">Invoice now</button>';
-    if(s==='Converted')return '<button class="secondary" data-action="quote-doc:'+q.id+'">'+icon('download',13)+' PDF</button><span class="payment-complete">'+(q.invoiceNo?'Invoice '+q.invoiceNo:'Converted')+'</span>';
-    return '<button class="secondary" data-action="quote-doc:'+q.id+'">'+icon('download',13)+' PDF</button><span class="payment-complete">'+s+'</span>';
+    const s=quoteStatus(q),pdf='<button data-action="quote-doc:'+q.id+'">'+icon('download',13)+' Download PDF</button>';
+    if(s==='Draft')return actionMenu('<button class="primary tiny" data-action="quote-status:'+q.id+':Sent">Mark sent</button>',[pdf]);
+    if(s==='Sent')return actionMenu('<button class="primary tiny" data-action="quote-status:'+q.id+':Accepted">Accept</button>',[pdf,'<button data-action="quote-status:'+q.id+':Declined">Decline</button>']);
+    if(s==='Accepted'){
+      const primary=q.salesOrderId?'<span class="payment-complete">'+esc(q.salesOrderNo||'Order created')+'</span>':'<button class="primary tiny" data-action="quote-to-order:'+q.id+'">Create order</button>';
+      return actionMenu(primary,[pdf,'<button data-action="quote-convert:'+q.id+'">Create invoice now</button>']);
+    }
+    if(s==='Converted')return actionMenu('<span class="payment-complete">'+(q.invoiceNo?'Invoice '+q.invoiceNo:'Converted')+'</span>',[pdf]);
+    return actionMenu('<span class="payment-complete">'+s+'</span>',[pdf]);
   }
   function quotePanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=quoteMetrics(state),rows=(state.salesQuotes||[]).slice().sort((a,b)=>String(b.quoteDate||b.createdAt||'').localeCompare(String(a.quoteDate||a.createdAt||'')));
@@ -165,14 +171,18 @@
     return (inv.lineItems||[]).some(x=>{const item=x.catalogId?window.DalasiCatalog?.itemById(state,x.catalogId):null;return item?.type==='Product';});
   }
   function invoiceAction(state,inv,icon){
-    const s=status(state,inv);
-    if(s==='Draft')return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' PDF</button><button class="primary" data-action="receivable-send:'+inv.id+'">Mark sent</button>';
-    const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),creditBtn=remainingCredit>.004?'<button class="secondary" data-action="credit-invoice:'+inv.id+'">Credit</button>':'',debitBtn='<button class="secondary" data-action="debit-invoice:'+inv.id+'">Debit</button>';
+    const s=status(state,inv),invoice='<button data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>';
+    if(s==='Draft')return actionMenu('<button class="primary tiny" data-action="receivable-send:'+inv.id+'">Mark sent</button>',[invoice]);
+    const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),extras=[invoice];
+    if(remainingCredit>.004)extras.push('<button data-action="credit-invoice:'+inv.id+'">Create credit note</button>');
+    extras.push('<button data-action="debit-invoice:'+inv.id+'">Create debit note</button>');
     if(s==='Paid'){
       const needsStock=invoiceHasStockLines(state,inv);
-      return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+creditBtn+debitBtn+(needsStock&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">'+icon('check',13)+' Fulfil / issue stock</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>');
+      if(needsStock&&!inv.fulfilledAt)return actionMenu('<button class="primary tiny" data-action="invoice-fulfill:'+inv.id+'">'+icon('check',13)+' Fulfil</button>',extras);
+      extras.push('<button data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>');
+      return actionMenu('<span class="payment-complete">Paid</span>',extras);
     }
-    return '<button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice</button>'+creditBtn+debitBtn+'<button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>';
+    return actionMenu('<button class="primary tiny" data-action="record-incoming:'+inv.id+'">Record payment</button>',extras);
   }
   function invoicePanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=metrics(state),filter=state.salesFilter||'all';
