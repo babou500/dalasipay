@@ -272,12 +272,37 @@
     ];
     return '<section class="surface sales-pipeline"><div class="sales-pipeline-head"><div><span class="eyebrow">DALASIPAY SALES FLOW</span><h3>Quotation to cash</h3><p>Follow customer revenue from opportunity through fulfilment.</p></div><span class="sales-pipeline-total">'+issued.length+' issued invoice'+(issued.length===1?'':'s')+'</span></div><div class="sales-pipeline-track">'+stages.map((x,i)=>'<button class="sales-pipeline-stage" data-action="sales-tab:'+x.tab+'"><span class="sales-stage-number">'+String(i+1).padStart(2,'0')+'</span><span class="sales-stage-icon">'+icon(x.icon,15)+'</span><span class="sales-stage-copy"><small>'+esc(x.label)+'</small><b>'+money2(x.value)+'</b><em>'+x.count+' · '+esc(x.copy)+'</em></span>'+(i<stages.length-1?'<i class="sales-stage-arrow">'+icon('chevron',12)+'</i>':'')+'</button>').join('')+'</div></section>';
   }
+  function salesConversionIntelligence(state,h){
+    const {icon,esc}=h,quotes=state.salesQuotes||[],orders=state.salesOrders||[],invoices=(state.customerInvoices||[]).filter(x=>status(state,x)!=='Draft'),payments=state.incomingPayments||[];
+    const acceptedQuotes=quotes.filter(q=>['Accepted','Converted'].includes(quoteStatus(q))||q.salesOrderId||q.invoiceNo).length;
+    const quoteRate=quotes.length?Math.round(acceptedQuotes/quotes.length*100):null;
+    const invoicedOrders=orders.filter(o=>(o.status||'Draft')==='Invoiced'||o.invoiceId).length;
+    const orderRate=orders.length?Math.round(invoicedOrders/orders.length*100):null;
+    const paidInvoices=invoices.filter(inv=>status(state,inv)==='Paid').length;
+    const cashRate=invoices.length?Math.round(paidInvoices/invoices.length*100):null;
+    const paidDays=invoices.filter(inv=>status(state,inv)==='Paid').map(inv=>{
+      const dates=payments.filter(p=>p.invoiceId===inv.id).map(p=>String(p.receivedDate||p.createdAt||'').slice(0,10)).filter(Boolean).sort();
+      const paidDate=dates[dates.length-1],issue=String(inv.issueDate||inv.createdAt||'').slice(0,10);
+      if(!paidDate||!issue)return null;
+      return Math.max(0,Math.round((new Date(paidDate+'T00:00:00')-new Date(issue+'T00:00:00'))/86400000));
+    }).filter(x=>x!==null);
+    const avgDays=paidDays.length?Math.round(paidDays.reduce((a,x)=>a+x,0)/paidDays.length):null;
+    const stages=[
+      {label:'Quote acceptance',score:quoteRate,copy:quotes.length?acceptedQuotes+' of '+quotes.length+' quotations accepted':'No quotation history yet',tab:'quotes'},
+      {label:'Order → invoice',score:orderRate,copy:orders.length?invoicedOrders+' of '+orders.length+' sales orders invoiced':'No sales order history yet',tab:'orders'},
+      {label:'Invoice → cash',score:cashRate,copy:invoices.length?paidInvoices+' of '+invoices.length+' issued invoices fully paid':'No issued invoice history yet',tab:'invoices'}
+    ];
+    const measurable=stages.filter(x=>x.score!==null),weakest=measurable.length?measurable.slice().sort((a,b)=>a.score-b.score)[0]:null;
+    const overall=measurable.length?Math.round(measurable.reduce((a,x)=>a+x.score,0)/measurable.length):null;
+    const label=overall===null?'Building history':overall>=80?'Strong conversion':overall>=60?'Healthy pipeline':overall>=40?'Conversion opportunity':'Needs attention';
+    return '<section class="surface sales-intelligence"><div class="sales-intel-head"><div><span class="eyebrow">SALES CONVERSION INTELLIGENCE</span><h3>'+esc(label)+'</h3><p>See where customer revenue is moving smoothly and where it is slowing down.</p></div><div class="sales-intel-score"><b>'+(overall===null?'—':overall+'%')+'</b><span>conversion health</span></div></div><div class="sales-intel-grid">'+stages.map(x=>'<button data-action="sales-tab:'+x.tab+'"><div><span>'+esc(x.label)+'</span><b>'+(x.score===null?'—':x.score+'%')+'</b></div><i><em style="width:'+(x.score===null?0:x.score)+'%"></em></i><small>'+esc(x.copy)+'</small></button>').join('')+'<button data-action="sales-tab:collections"><div><span>Average time to cash</span><b>'+(avgDays===null?'—':avgDays+'d')+'</b></div><i><em style="width:'+(avgDays===null?0:Math.max(8,Math.min(100,100-avgDays*2)))+'%"></em></i><small>'+(avgDays===null?'Appears after invoices are fully paid':avgDays<=7?'Customers are paying quickly':avgDays<=30?'Collection speed is within a normal cycle':'Collections are taking more than 30 days')+'</small></button></div>'+(weakest?'<div class="sales-intel-focus"><span>'+icon('alert',14)+'</span><div><b>Current bottleneck: '+esc(weakest.label)+'</b><p>'+esc(weakest.copy)+'. Focus here for the biggest improvement in sales flow.</p></div><button data-action="sales-tab:'+weakest.tab+'">Review '+icon('chevron',12)+'</button></div>':'<div class="sales-intel-focus clear"><span>'+icon('check',14)+'</span><div><b>Conversion insight will build with use</b><p>Create quotations, orders and invoices to establish a reliable sales-flow baseline.</p></div></div>')+'</section>';
+  }
   function render(state,h){
     const pageTitle=h.pageTitle,icon=h.icon,tab=state.salesTab||'invoices';
     const action=tab==='revenue'?'<button class="primary" data-action="open-revenue">'+icon('plus',14)+' Record income</button>':tab==='catalog'?'<button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button>':tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='orders'?'<button class="secondary" data-action="sales-tab:quotes">'+icon('plus',14)+' From quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-invoice">'+icon('calendar',14)+' New schedule</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
     const body=tab==='revenue'?window.DalasiRevenueIncome.panel(state,h):tab==='catalog'?window.DalasiCatalog.catalogPanel(state,h):tab==='quotes'?quotePanel(state,h):tab==='orders'?window.DalasiSalesOrders.panel(state,h):tab==='recurring'?window.DalasiRecurringInvoices.panel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h);
     const guide=!(state.customerInvoices||[]).length&&!(state.salesQuotes||[]).length&&!(state.salesOrders||[]).length?'<div class="first-use-card"><span>'+icon('file',16)+'</span><div><b>Start with a customer quotation or invoice</b><p>Add products or services first if you want reusable line items. You can then create a quotation, convert it to a sales order and invoice the customer.</p></div><button class="primary" data-action="open-quote">Create quotation</button></div>':'';
-    return tabs(state)+pageTitle('SALES & RECEIVABLES','Sales','Revenue, products, quotations, customer invoices, collections, receipts and delivery notes.',action)+salesPipeline(state,h)+guide+body;
+    return tabs(state)+pageTitle('SALES & RECEIVABLES','Sales','Revenue, products, quotations, customer invoices, collections, receipts and delivery notes.',action)+salesPipeline(state,h)+salesConversionIntelligence(state,h)+guide+body;
   }
   function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
   function rowsToCsv(headers,rows){return [headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');}
