@@ -456,3 +456,55 @@ body{background:
   .first-use-card{grid-template-columns:auto 1fr}
   .first-use-card>.primary,.first-use-card>.secondary{grid-column:2;justify-self:start}
 }
+
+/* DalasiPay v0.62 — attention centre */
+.bell-wrap{position:relative}
+.notification-badge{
+  position:absolute;right:-3px;top:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+  display:grid;place-items:center;background:var(--warn);color:#fff;border:2px solid var(--panel);
+  font-size:8px;font-weight:900;line-height:1
+}
+.notification-badge.urgent{background:#b7463f}
+.notification-panel{
+  width:min(365px,calc(100vw - 28px));padding:8px;border-radius:14px;
+  box-shadow:0 22px 58px rgba(6,31,25,.18)
+}
+.notification-head{padding:8px 9px 7px}
+.notification-head b{font-size:12px}
+.notification-head span{font-size:8.5px}
+.notification-subhead{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 9px;margin:0 0 5px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)
+}
+.notification-subhead b{font-size:9.5px;color:var(--text)}
+.notification-subhead span{font-size:8.8px;color:var(--muted)}
+.notification-panel>.notification-item{
+  display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:9px;align-items:center;
+  padding:10px 9px;border-radius:9px;border:0;background:transparent;width:100%;text-align:left
+}
+.notification-panel>.notification-item:hover{background:var(--panel-2)}
+.notification-item>div{min-width:0}
+.notification-item b{font-size:10px}
+.notification-item p{font-size:8.9px;line-height:1.4;color:var(--muted);margin:3px 0 0}
+.notification-item>svg{color:var(--muted)}
+.attention-icon.warn{
+  background:#fdebea;color:#a83b36;border:1px solid #f4cbc7
+}
+.attention-icon.amber{
+  background:#fff4df;color:#a86712;border:1px solid #efdcb8
+}
+.attention-icon.good{
+  background:#e9f6f0;color:#1f765d;border:1px solid #cde9dd
+}
+.receivable-overdue td:first-child{box-shadow:inset 3px 0 0 #c34b43}
+.cash-alert{border-color:color-mix(in srgb,#c34b43 28%,var(--border))!important}
+.credit-alert{border-color:color-mix(in srgb,#c34b43 28%,var(--border))!important}
+.inventory-warn{color:#a86411;font-weight:760}
+.inventory-severity.bad{background:#fdebea!important;color:#a33d37;border-color:#f0c7c3!important}
+.inventory-severity.warn{background:#fff4df!important;color:#9d650e;border-color:#eedbb8!important}
+:root[data-theme="dark"] .attention-icon.warn{background:#3a2422;border-color:#61332f;color:#f1a49d}
+:root[data-theme="dark"] .attention-icon.amber{background:#342a1b;border-color:#544126;color:#e6b36a}
+:root[data-theme="dark"] .attention-icon.good{background:#1e332c;border-color:#315347;color:#87d7bd}
+@media(max-width:620px){
+  .notification-panel{position:fixed;left:14px;right:14px;top:72px;width:auto}
+}
