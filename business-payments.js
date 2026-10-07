@@ -22,7 +22,26 @@
     if(n){const m=active.filter(x=>normPartyText(x.name)===n);if(m.length===1)return m[0];}
     return null;
   }
-  function beneficiaryPayments(state,id){return (state.businessPayments||[]).filter(x=>x.beneficiaryId===id);}
+  function supplierBillsFor(state,id){
+    const supplier=beneficiaryById(state,id);if(!supplier)return [];
+    return (state.businessBills||[]).filter(b=>{
+      if(b.beneficiaryId===id)return true;
+      if(b.beneficiaryId&&beneficiaryById(state,b.beneficiaryId))return false;
+      const matched=resolveBeneficiaryForTransaction(state,{name:b.supplier,email:b.supplierEmail});
+      return matched?.id===id;
+    });
+  }
+  function beneficiaryPayments(state,id){
+    const supplier=beneficiaryById(state,id);if(!supplier)return [];
+    const supplierBillIds=new Set(supplierBillsFor(state,id).map(b=>b.id));
+    return (state.businessPayments||[]).filter(p=>{
+      if(p.beneficiaryId===id)return true;
+      if(p.billId&&supplierBillIds.has(p.billId))return true;
+      if(p.beneficiaryId&&beneficiaryById(state,p.beneficiaryId))return false;
+      const matched=resolveBeneficiaryForTransaction(state,{name:p.payee,email:p.payeeEmail});
+      return matched?.id===id;
+    });
+  }
   function billById(state,id){return (state.businessBills||[]).find(x=>x.id===id)||null;}
   function billStatusClass(status){return status==='Paid'?'paid':status==='Approved'?'approved':status==='Pending approval'?'neutral':'ready';}
   function todayIso(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
@@ -191,7 +210,7 @@
     const customer=customerById(state,id);if(!customer)return [];
     return (state.customerInvoices||[]).filter(inv=>{
       if(inv.customerId===id)return true;
-      if(inv.customerId)return false;
+      if(inv.customerId&&customerById(state,inv.customerId))return false;
       const matched=resolveCustomerForInvoice(state,{customerName:inv.customerName,customerEmail:inv.customerEmail});
       return matched?.id===id;
     });
@@ -203,7 +222,7 @@
     return {customer,invoices,invoiced,collected,outstanding,overdue};
   }
   function supplierAccount(state,id){
-    const supplier=beneficiaryById(state,id),bills=(state.businessBills||[]).filter(x=>x.beneficiaryId===id),payments=beneficiaryPayments(state,id),today=todayIso();
+    const supplier=beneficiaryById(state,id),bills=supplierBillsFor(state,id),payments=beneficiaryPayments(state,id),today=todayIso();
     const totalBilled=bills.reduce((a,x)=>a+(Number(x.amount)||0),0);
     const outstanding=bills.filter(x=>(x.status||'Draft')!=='Draft').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
     const overdue=bills.filter(x=>(x.status||'Draft')!=='Draft'&&(window.DalasiReturns?.billBalance?.(state,x)??0)>.004&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
@@ -940,5 +959,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,customerInvoicesFor,supplierBillsFor,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
