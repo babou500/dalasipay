@@ -3,6 +3,20 @@
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const today=()=>new Date().toISOString().slice(0,10);
 const addDays=(d,n)=>{const x=new Date((d||today())+'T12:00:00');x.setDate(x.getDate()+(Number(n)||0));return x.toISOString().slice(0,10)};
+const dateLabel=v=>{if(!v)return '—';try{return new Date(v+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}catch{return v}};
+function deliveryMeta(o){
+ const d=o.requestedDeliveryDate;if(!d||['Invoiced','Cancelled'].includes(o.status||''))return {label:d?dateLabel(d):'Not set',tone:'neutral',note:o.status==='Invoiced'?'Order invoiced':o.status==='Cancelled'?'Order cancelled':'Delivery date not set'};
+ const now=today(),days=Math.ceil((new Date(d+'T12:00:00')-new Date(now+'T12:00:00'))/86400000);
+ if(days<0)return {label:dateLabel(d),tone:'late',note:Math.abs(days)+' day'+(Math.abs(days)===1?'':'s')+' overdue'};
+ if(days===0)return {label:dateLabel(d),tone:'today',note:'Due today'};
+ if(days<=3)return {label:dateLabel(d),tone:'soon',note:'Due in '+days+' day'+(days===1?'':'s')};
+ return {label:dateLabel(d),tone:'neutral',note:'Due in '+days+' days'};
+}
+function journey(o){
+ const s=o.status||'Draft',rank=s==='Draft'?0:s==='Confirmed'?1:s==='Ready'?2:s==='Invoiced'?3:-1;
+ const steps=[['Order','Draft'],['Confirmed','Confirmed'],['Ready','Ready'],['Invoice','Invoiced']];
+ return '<div class="order-journey" aria-label="Sales order progress">'+steps.map((x,i)=>'<span class="'+(rank>i?'done':rank===i?'current':'')+'"><i></i>'+x[0]+'</span>').join('')+'</div>';
+}
 function customer(state,id){return (state.customers||[]).find(x=>x.id===id)||null}
 function byId(state,id){return (state.salesOrders||[]).find(x=>x.id===id)||null}
 function quoteById(state,id){return (state.salesQuotes||[]).find(x=>x.id===id)||null}
@@ -37,15 +51,25 @@ function convertToInvoice(id,state,ctx){
 }
 function action(o,icon){
  const pdf='<button class="secondary tiny" data-action="sales-order-pdf:'+o.id+'">'+icon('download',12)+' PDF</button>';
- if(o.status==='Draft')return pdf+'<button class="primary tiny" data-action="sales-order-status:'+o.id+':Confirmed">Confirm</button>';
- if(o.status==='Confirmed')return pdf+'<button class="secondary tiny" data-action="sales-order-status:'+o.id+':Ready">Mark ready</button><button class="primary tiny" data-action="sales-order-invoice:'+o.id+'">Create invoice</button>';
- if(o.status==='Ready')return pdf+'<button class="primary tiny" data-action="sales-order-invoice:'+o.id+'">Create invoice</button>';
- if(o.status==='Invoiced')return pdf+'<span class="payment-complete">'+esc(o.invoiceNo||'Invoiced')+'</span>';
- return pdf+'<span class="payment-complete">'+esc(o.status||'Cancelled')+'</span>';
+ const invoice=o.invoiceId?'<button class="secondary tiny" data-action="invoice-view:'+o.invoiceId+'">View invoice</button>':'';
+ if(o.status==='Draft')return '<div class="order-next"><small>NEXT STEP</small><b>Confirm order</b></div>'+pdf+'<button class="primary tiny" data-action="sales-order-status:'+o.id+':Confirmed">Confirm</button>';
+ if(o.status==='Confirmed')return '<div class="order-next"><small>NEXT STEP</small><b>Prepare / invoice</b></div>'+pdf+'<button class="secondary tiny" data-action="sales-order-status:'+o.id+':Ready">Mark ready</button><button class="primary tiny" data-action="sales-order-invoice:'+o.id+'">Create invoice</button>';
+ if(o.status==='Ready')return '<div class="order-next"><small>NEXT STEP</small><b>Raise invoice</b></div>'+pdf+'<button class="primary tiny" data-action="sales-order-invoice:'+o.id+'">Create invoice</button>';
+ if(o.status==='Invoiced')return '<div class="order-next complete"><small>COMPLETED</small><b>'+esc(o.invoiceNo||'Invoice created')+'</b></div>'+pdf+invoice;
+ return '<div class="order-next muted"><small>STATUS</small><b>'+esc(o.status||'Cancelled')+'</b></div>'+pdf;
 }
 function panel(state,h){
- const m=metrics(state),rows=(state.salesOrders||[]).slice().sort((a,b)=>String(b.orderDate||b.createdAt||'').localeCompare(String(a.orderDate||a.createdAt||''))),table=rows.length?rows.map(o=>'<tr><td><div class="payment-payee"><b>'+esc(o.customerName||'Customer')+'</b><small>'+esc(o.orderNo||o.id)+(o.quoteNo?' · '+esc(o.quoteNo):'')+'</small></div></td><td>'+esc(o.orderDate||'—')+'</td><td>'+esc(o.requestedDeliveryDate||'—')+'</td><td>'+h.money2(o.amount)+'</td><td>'+h.pill(o.status||'Draft',o.status==='Invoiced'?'paid':o.status==='Confirmed'||o.status==='Ready'?'approved':'ready')+'</td><td><div class="payment-status-actions">'+action(o,h.icon)+'</div></td></tr>').join(''):'<tr><td colspan="6"><div class="empty-inline">No sales orders yet. Accepted quotations can be converted into sales orders.</div></td></tr>';
- return '<div class="sales-summary"><div class="surface"><span>Open orders</span><b>'+m.open+'</b><small>'+m.count+' total</small></div><div class="surface"><span>Open order value</span><b>'+h.money2(m.openValue)+'</b><small>not yet invoiced</small></div><div class="surface"><span>Confirmed</span><b>'+m.confirmed+'</b><small>customer orders confirmed</small></div><div class="surface"><span>Invoiced</span><b>'+m.invoiced+'</b><small>converted to invoices</small></div></div><div class="payment-notice"><span>'+h.icon('file',17)+'</span><div><b>Quotation to order to invoice</b><p>Accepted quotations can become sales orders first, giving you a clean commercial record before the invoice is raised.</p></div></div><div class="surface employee-card"><div class="table-tools"><div><h3>Sales order register</h3><p>Confirmed customer orders and invoice conversion</p></div></div><div class="table-scroll"><table><thead><tr><th>CUSTOMER / ORDER</th><th>ORDER DATE</th><th>REQUESTED DELIVERY</th><th>VALUE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+ const m=metrics(state),rows=(state.salesOrders||[]).slice().sort((a,b)=>String(b.orderDate||b.createdAt||'').localeCompare(String(a.orderDate||a.createdAt||'')));
+ const table=rows.length?rows.map(o=>{const d=deliveryMeta(o),source=o.quoteNo?'<button class="order-source-link" data-action="sales-tab:quotes">'+esc(o.quoteNo)+'</button>':'Direct order';return '<tr>'+
+ '<td data-label="Customer / order"><div class="payment-payee"><b>'+esc(o.customerName||'Customer')+'</b><small>'+esc(o.orderNo||o.id)+'</small></div><div class="order-source">Source: '+source+(o.invoiceNo?' · '+esc(o.invoiceNo):'')+'</div></td>'+
+ '<td data-label="Progress">'+journey(o)+'</td>'+
+ '<td data-label="Delivery"><div class="order-delivery '+d.tone+'"><b>'+esc(d.label)+'</b><small>'+esc(d.note)+'</small></div></td>'+
+ '<td data-label="Value" class="payment-amount"><b>'+h.money2(o.amount)+'</b><small>'+((o.lineItems||[]).length)+' item'+((o.lineItems||[]).length===1?'':'s')+'</small></td>'+
+ '<td data-label="Status">'+h.pill(o.status||'Draft',o.status==='Invoiced'?'paid':o.status==='Confirmed'||o.status==='Ready'?'approved':'ready')+'</td>'+
+ '<td data-label="Action"><div class="payment-status-actions order-actions">'+action(o,h.icon)+'</div></td></tr>'}).join(''):'<tr><td colspan="6"><div class="order-empty"><span>'+h.icon('file',22)+'</span><div><b>No sales orders yet</b><p>Accept a quotation and convert it into a sales order. The order will then guide you through confirmation, preparation and invoicing.</p><button class="secondary tiny" data-action="sales-tab:quotes">Open quotations</button></div></div></td></tr>';
+ return '<div class="sales-summary"><div class="surface"><span>Open orders</span><b>'+m.open+'</b><small>'+m.count+' total</small></div><div class="surface"><span>Open order value</span><b>'+h.money2(m.openValue)+'</b><small>not yet invoiced</small></div><div class="surface"><span>Confirmed / ready</span><b>'+(m.confirmed+m.ready)+'</b><small>'+m.ready+' ready to invoice</small></div><div class="surface"><span>Invoiced</span><b>'+m.invoiced+'</b><small>completed commercial flow</small></div></div>'+
+ '<div class="order-flow-banner"><div><span>'+h.icon('file',17)+'</span><div><b>Quotation → Order → Invoice</b><p>Each order now shows where it is in the sales journey, what document it came from, delivery timing and the next action required.</p></div></div><div class="order-flow-legend"><span><i class="done"></i>Done</span><span><i class="current"></i>Current</span><span><i></i>Next</span></div></div>'+
+ '<div class="surface employee-card sales-order-register"><div class="table-tools"><div><h3>Sales order register</h3><p>Track order progress, delivery commitments and invoice conversion in one place</p></div><div class="order-register-note"><b>'+m.open+'</b><span>open</span></div></div><div class="table-scroll"><table><thead><tr><th>CUSTOMER / ORDER</th><th>PROGRESS</th><th>DELIVERY</th><th>VALUE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
 }
 function pdf(id,state,ctx){
  const o=byId(state,id);if(!o){ctx.toast('Sales order not found.');return}const out=[],green='0.04 0.31 0.26',white='1 1 1',muted='0.38 0.44 0.41',line='0.84 0.88 0.86',safe=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2013\u2014]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)'),text=(x,y,z,v,b=false,col='0.08 0.13 0.11')=>out.push(col+' rg BT /'+(b?'F2':'F1')+' '+z+' Tf '+x+' '+y+' Td ('+safe(v)+') Tj ET'),fill=(x,y,w,h,col)=>out.push(col+' rg '+x+' '+y+' '+w+' '+h+' re f'),stroke=(a,b,c,d,col=line,w=.6)=>out.push(col+' RG '+w+' w '+a+' '+b+' m '+c+' '+d+' l S'),clip=(v,m=45)=>String(v??'').length>m?String(v).slice(0,m-3)+'...':String(v??'');
