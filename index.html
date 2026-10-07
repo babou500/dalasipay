@@ -3211,6 +3211,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const lrf=document.getElementById('loan-repayment-form');if(lrf)lrf.addEventListener('submit',e=>window.DalasiLoans.saveRepayment(e,state,{can,audit,save,toast,render}));
     const mjf=document.getElementById('manual-journal-form');if(mjf){mjf.addEventListener('submit',saveManualJournal);window.DalasiAccounting.bindJournalForm(mjf,state);}
     const laf=document.getElementById('ledger-account-form');if(laf)laf.addEventListener('submit',saveLedgerAccount);
+    const lpa=document.getElementById('ledger-parent-account');if(lpa)lpa.addEventListener('change',e=>{const t=document.getElementById('ledger-account-type'),p=window.DalasiAccounting?.parentAccount?.(state,e.target.value);if(t){t.disabled=!!p;if(p)t.value=p.type;}});
+
     const caf2=document.getElementById('cash-account-form');if(caf2)caf2.addEventListener('submit',saveCashAccount);
     const ctf=document.getElementById('cash-transaction-form');if(ctf)ctf.addEventListener('submit',saveCashTransaction);
     const cxf=document.getElementById('cash-transfer-form');if(cxf)cxf.addEventListener('submit',saveCashTransfer);
