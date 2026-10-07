@@ -1938,6 +1938,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     notifOpen: false,
     quickCreateOpen: false,
     mobileOpen: false,
+    sidebarScrollTop: 0,
     payslipPassword: false,
     sent: {},
     periods: [],
@@ -3149,10 +3150,12 @@ input,select,textarea{font-size:12.5px;min-height:44px}
 
   function renderPage(){return ({dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage}[state.page]||dashboard)()}
   function render(){
+    const existingSidebar=document.querySelector('.sidebar');if(existingSidebar)state.sidebarScrollTop=existingSidebar.scrollTop||0;
     if(!state.session){app.innerHTML=authScreen();bindInputs();return;}
     if(!state.org){app.innerHTML=onboardingScreen(false);bindInputs();return;}
     if(state.role==='employee'){app.innerHTML=employeeWorkspace();bindInputs();return;}
     app.innerHTML=shell(); bindInputs();
+    const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
     document.querySelectorAll('[data-table-search]').forEach(input=>{
