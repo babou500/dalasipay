@@ -46,6 +46,47 @@
     const top=items.slice(0,4);
     return '<section class="surface dalasipay-pulse '+statusTone+'"><div class="pulse-head"><div class="pulse-brand"><span class="pulse-mark">'+icon('chart',17)+'</span><div><span class="eyebrow">DALASIPAY PULSE</span><h3>'+status+'</h3><p>A live briefing generated from your current business records.</p></div></div><div class="pulse-status '+statusTone+'"><i></i><span>'+(urgent?urgent+' urgent':watch?watch+' watch item'+(watch===1?'':'s'):'Core signals clear')+'</span></div></div><div class="pulse-grid">'+top.map(x=>'<article class="pulse-insight '+x.tone+'"><div class="pulse-insight-top"><span class="pulse-insight-icon">'+icon(x.icon,15)+'</span><small>'+x.eyebrow+'</small></div><b>'+esc(x.title)+'</b><p>'+esc(x.copy)+'</p><button '+(x.action?'data-action="'+x.action+'"':'data-page="'+x.page+'"')+'>'+(x.actionLabel||x.action||'Open')+' '+icon('chevron',12)+'</button></article>').join('')+'</div></section>';
   }
+  function agenda(state,h){
+    const {money2,esc,icon}=h,today=new Date(),todayIso=today.toISOString().slice(0,10),end=new Date(today.getTime()+14*86400000).toISOString().slice(0,10),items=[];
+    const add=x=>{if(!x.date)return;const d=String(x.date).slice(0,10);if(d>end)return;items.push({...x,date:d,overdue:d<todayIso});};
+    (state.customerInvoices||[]).forEach(inv=>{
+      const st=window.DalasiSalesInvoices?.status?.(state,inv)||(inv.status||'Draft');
+      const bal=window.DalasiReturns?.invoiceBalance?.(state,inv)??Math.max(0,Number(inv.amount)||0);
+      if(st==='Draft'||st==='Paid'||bal<=.004)return;
+      add({type:'Receivable',icon:'reports',title:inv.customerName||'Customer invoice',detail:inv.invoiceNo||inv.id,date:inv.dueDate,amount:bal,action:'invoice-view:'+inv.id});
+    });
+    (state.businessBills||[]).forEach(b=>{
+      if((b.status||'Draft')==='Draft'||b.status==='Paid')return;
+      const bal=window.DalasiReturns?.billBalance?.(state,b)??Math.max(0,Number(b.amount)||0);if(bal<=.004)return;
+      add({type:'Supplier bill',icon:'file',title:b.supplier||'Supplier bill',detail:b.invoiceNo||b.id,date:b.dueDate,amount:bal,page:'payments'});
+    });
+    (state.purchaseOrders||[]).forEach(po=>{
+      if(['Received','Closed','Cancelled'].includes(po.status))return;
+      const d=po.requestedDeliveryDate||po.requiredDate;
+      add({type:'Purchase order',icon:'building',title:po.supplierName||'Purchase delivery',detail:po.poNumber||po.id,date:d,amount:Number(po.amount)||0,action:'purchase-view:'+po.id});
+    });
+    (state.recurringBusinessPayments||[]).forEach(r=>{
+      if((r.status||'Active')!=='Active')return;
+      add({type:'Recurring payment',icon:'calendar',title:r.payee||r.name||'Recurring commitment',detail:r.description||r.reference||'Scheduled payment',date:r.nextDueDate,amount:Number(r.amount)||0,page:'payments'});
+    });
+    if(window.DalasiTax?.returnSummary){
+      const tax=window.DalasiTax.returnSummary(state,state.taxPeriod||state.currentPeriod),cfg=window.DalasiTax.settings?.(state)||{};
+      if(cfg.vatRegistered&&!tax.filed)add({type:'VAT',icon:'shield',title:'VAT return due',detail:'GRA · '+esc(tax.period),date:tax.dueDate,amount:Math.max(0,Number(tax.netVat)||0),page:'tax'});
+    }
+    items.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const show=items.slice(0,7),overdue=items.filter(x=>x.overdue).length;
+    const dateLabel=d=>{
+      if(d<todayIso)return 'Overdue';
+      if(d===todayIso)return 'Today';
+      const days=Math.ceil((new Date(d+'T00:00:00')-new Date(todayIso+'T00:00:00'))/86400000);
+      if(days===1)return 'Tomorrow';
+      return 'In '+days+' days';
+    };
+    return '<section class="surface dalasipay-agenda"><div class="agenda-head"><div><span class="eyebrow">DALASIPAY AGENDA</span><h3>Next 14 days</h3><p>Upcoming money, compliance and delivery events in one timeline.</p></div><div class="agenda-summary '+(overdue?'urgent':'')+'"><b>'+items.length+'</b><span>scheduled'+(overdue?' · '+overdue+' overdue':'')+'</span></div></div>'+
+      (show.length?'<div class="agenda-list">'+show.map(x=>'<button class="agenda-item '+(x.overdue?'overdue':'')+'" '+(x.action?'data-action="'+x.action+'"':'data-page="'+x.page+'"')+'><span class="agenda-date"><b>'+esc(String(x.date).slice(8,10))+'</b><small>'+esc(new Intl.DateTimeFormat('en-GB',{month:'short'}).format(new Date(x.date+'T00:00:00')))+'</small></span><span class="agenda-icon">'+icon(x.icon,14)+'</span><span class="agenda-copy"><small>'+esc(x.type)+'</small><b>'+esc(x.title)+'</b><em>'+esc(x.detail||'')+'</em></span><span class="agenda-value"><b>'+(x.amount?money2(x.amount):'')+'</b><small>'+esc(dateLabel(x.date))+'</small></span>'+icon('chevron',13)+'</button>').join('')+'</div>':'<div class="agenda-empty">'+icon('check',16)+' Nothing due in the next 14 days.</div>')+
+      (items.length>7?'<div class="agenda-more">Showing the next 7 of '+items.length+' scheduled items.</div>':'')+
+    '</section>';
+  }
   function render(state,h){
     const icon=h.icon,money2=h.money2,esc=h.esc,pageTitle=h.pageTitle,periodLabel=h.periodLabel,shortPeriod=h.shortPeriod,periodControls=h.periodControls,pill=h.pill;
     const payroll=h.payrollCalc(),t=payroll.totals,active=(state.employees||[]).filter(e=>e.status==='Active').length;
@@ -86,6 +127,7 @@
     html+='</div>';
     html+='<div class="surface business-health-strip"><div class="health-title"><span class="eyebrow">BUSINESS HEALTH</span><b>'+(healthFlags.length?healthFlags.length+' item'+(healthFlags.length===1?'':'s')+' need attention':'No urgent exceptions')+'</b></div><div class="health-items">'+(healthFlags.length?healthFlags.slice(0,4).map(x=>'<button data-page="'+x.page+'"><span>'+x.label+'</span><b>'+x.value+'</b>'+icon('chevron',13)+'</button>').join(''):'<div class="health-clear">'+icon('check',15)+' Core cash, collections, stock and payroll checks are clear.</div>')+'</div></div>';
     html+=pulse(state,h,{ar,overdueBills,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
+    html+=agenda(state,h);
     html+='<div class="surface payroll-summary-strip"><div><span class="eyebrow">'+periodLabel(state.currentPeriod).toUpperCase()+' PAYROLL</span><b>'+(state.payrollStatus==='Ready'?'Ready for approval':esc(state.payrollStatus))+'</b></div><div><small>Gross payroll</small><strong>'+money2(t.gross)+'</strong></div><div><small>Employer cost</small><strong>'+money2(t.employerCost)+'</strong></div><button class="secondary" data-page="payroll">'+(state.payrollStatus==='Ready'?'Review payroll':'Open payroll')+' '+icon('chevron',14)+'</button></div>';
     return html;
   }
