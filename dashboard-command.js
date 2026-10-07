@@ -111,6 +111,36 @@
     ];
     return '<section class="surface dalasipay-story"><div class="story-head"><div class="story-brand"><span>'+icon('file',16)+'</span><div><span class="eyebrow">DALASIPAY STORY</span><h3>'+esc(periodLabel(state.currentPeriod))+' in one minute</h3><p>A plain-language executive summary built from your live records.</p></div></div><button class="secondary tiny" data-action="business-report-view:business-summary">'+icon('eye',12)+' Open summary</button></div><div class="story-body"><div class="story-narrative">'+sentences.slice(0,5).map((s,i)=>'<p><span>'+String(i+1).padStart(2,'0')+'</span>'+esc(s)+'</p>').join('')+'</div><div class="story-changes">'+changes.map(x=>'<div class="'+x.tone+'"><span>'+esc(x.label)+'</span><b>'+esc(x.value)+'</b></div>').join('')+'</div></div></section>';
   }
+  function healthScore(state,h,data){
+    const {money2,esc,icon}=h,{ar,inv,cashBalance,billOutstanding,payrollNet,overdueBills}=data;
+    const pnl=window.DalasiProfitLoss?.statement?.(state,state.currentPeriod)||null;
+    const obligations=billOutstanding+(state.payrollStatus==='Paid'?0:payrollNet);
+    const liquidityRatio=obligations>0?cashBalance/obligations:cashBalance>0?2:1;
+    const liquidity=Math.max(0,Math.min(100,Math.round(liquidityRatio>=2?100:liquidityRatio*50)));
+    const overdueShare=ar.outstanding?ar.overdue/ar.outstanding:0;
+    const collections=Math.max(0,Math.min(100,Math.round(100-overdueShare*100)));
+    const profitability=!pnl?70:Math.max(0,Math.min(100,Math.round(pnl.netProfit<0?Math.max(0,50+pnl.netMargin):Math.min(100,60+pnl.netMargin*2))));
+    const inventory=inv.products?Math.max(0,Math.min(100,Math.round(100-(inv.low/inv.products)*100))):85;
+    const tax=window.DalasiTax?.returnSummary?.(state,state.taxPeriod||state.currentPeriod),cfg=window.DalasiTax?.settings?.(state)||{};
+    const today=new Date().toISOString().slice(0,10);
+    let compliance=100;
+    if(cfg.vatRegistered&&tax&&!tax.filed&&tax.dueDate<today)compliance-=35;
+    if(overdueBills>0)compliance-=15;
+    if(state.payrollStatus!=='Paid'&&String(state.currentPeriod)<today.slice(0,7))compliance-=20;
+    compliance=Math.max(0,compliance);
+    const parts=[
+      {key:'Liquidity',score:liquidity,weight:25,page:'cashbank',copy:liquidityRatio>=1.5?'Cash cover is strong.':liquidityRatio>=1?'Cash cover is adequate but not generous.':'Cash is below current near-term obligations.'},
+      {key:'Collections',score:collections,weight:25,page:'credit',copy:ar.overdue>0?money2(ar.overdue)+' is overdue.':'No overdue receivables detected.'},
+      {key:'Profitability',score:profitability,weight:25,action:'business-report-view:profit-loss',copy:pnl?money2(pnl.netProfit)+' net result at '+Number(pnl.netMargin||0).toFixed(1)+'% margin.':'Profitability will strengthen as more transaction history is recorded.'},
+      {key:'Inventory',score:inventory,weight:15,page:'inventory',copy:inv.low>0?inv.low+' item'+(inv.low===1?'':'s')+' at or below reorder level.':'Tracked stock is above reorder levels.'},
+      {key:'Compliance',score:compliance,weight:10,page:'tax',copy:compliance===100?'No overdue compliance signal detected.':'One or more compliance or due-date items need attention.'}
+    ];
+    const score=Math.round(parts.reduce((a,x)=>a+x.score*x.weight,0)/100);
+    const label=score>=85?'Excellent':score>=70?'Strong':score>=55?'Fair':score>=40?'Watch':'At risk';
+    const tone=score>=70?'good':score>=50?'watch':'urgent';
+    const weakest=parts.slice().sort((a,b)=>a.score-b.score)[0];
+    return '<section class="surface health-score-card '+tone+'"><div class="health-score-main"><div class="health-score-ring" style="--score:'+score+'"><div><b>'+score+'</b><span>/100</span></div></div><div class="health-score-copy"><span class="eyebrow">DALASIPAY HEALTH SCORE</span><h3>'+esc(label)+'</h3><p>Built from five visible operating signals. Your weakest area is <b>'+esc(weakest.key)+'</b>.</p><button '+(weakest.action?'data-action="'+weakest.action+'"':'data-page="'+weakest.page+'"')+'>Improve '+esc(weakest.key)+' '+icon('chevron',12)+'</button></div></div><div class="health-score-breakdown">'+parts.map(x=>'<button '+(x.action?'data-action="'+x.action+'"':'data-page="'+x.page+'"')+'><div><span>'+esc(x.key)+'</span><b>'+x.score+'</b></div><i><em style="width:'+x.score+'%"></em></i><small>'+esc(x.copy)+'</small></button>').join('')+'</div><div class="health-score-note">Score weights: Liquidity 25% · Collections 25% · Profitability 25% · Inventory 15% · Compliance 10%</div></section>';
+  }
   function render(state,h){
     const icon=h.icon,money2=h.money2,esc=h.esc,pageTitle=h.pageTitle,periodLabel=h.periodLabel,shortPeriod=h.shortPeriod,periodControls=h.periodControls,pill=h.pill;
     const payroll=h.payrollCalc(),t=payroll.totals,active=(state.employees||[]).filter(e=>e.status==='Active').length;
@@ -153,6 +183,7 @@
     html+=pulse(state,h,{ar,overdueBills,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
     html+=agenda(state,h);
     html+=story(state,h,{ar,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
+    html+=healthScore(state,h,{ar,inv,cashBalance,billOutstanding,payrollNet:t.net,overdueBills});
     html+='<div class="surface payroll-summary-strip"><div><span class="eyebrow">'+periodLabel(state.currentPeriod).toUpperCase()+' PAYROLL</span><b>'+(state.payrollStatus==='Ready'?'Ready for approval':esc(state.payrollStatus))+'</b></div><div><small>Gross payroll</small><strong>'+money2(t.gross)+'</strong></div><div><small>Employer cost</small><strong>'+money2(t.employerCost)+'</strong></div><button class="secondary" data-page="payroll">'+(state.payrollStatus==='Ready'?'Review payroll':'Open payroll')+' '+icon('chevron',14)+'</button></div>';
     return html;
   }
