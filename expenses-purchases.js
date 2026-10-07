@@ -129,7 +129,8 @@
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.expenseTab||'expenses';
     const action=tab==='expenses'?'<button class="primary" data-action="open-expense">'+icon('plus',14)+' Add expense</button>':'<button class="primary" data-action="open-purchase">'+icon('plus',14)+' New purchase order</button>';
-    return tabs(state)+pageTitle('SPEND MANAGEMENT','Expenses','Track business expenses, receipts, approvals and purchase orders before payment.',action)+(tab==='purchases'?purchasesPanel(state,h):expensesPanel(state,h));
+    const guide=!(state.businessExpenses||[]).length&&!(state.purchaseOrders||[]).length?'<div class="first-use-card"><span>'+icon('building',16)+'</span><div><b>Record spending in the right place</b><p>Use Expenses for costs already incurred. Use Purchase Orders when you want approval and supplier control before the bill arrives.</p></div><button class="primary" data-action="open-purchase">Create purchase order</button></div>':'';
+    return tabs(state)+pageTitle('SPEND MANAGEMENT','Expenses','Track business expenses, receipts, approvals and purchase orders before payment.',action)+guide+(tab==='purchases'?purchasesPanel(state,h):expensesPanel(state,h));
   }
   function expenseModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,suppliers=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
