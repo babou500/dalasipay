@@ -206,6 +206,20 @@
     if(name){const nameMatches=active.filter(x=>normCustomerText(x.name)===name);if(nameMatches.length===1)return nameMatches[0];}
     return null;
   }
+  function materializeInvoiceCustomers(state){
+    state.customers=state.customers||[];
+    let created=0,linked=0;
+    (state.customerInvoices||[]).forEach(inv=>{
+      let customer=resolveCustomerForInvoice(state,{customerId:inv.customerId,customerName:inv.customerName,customerEmail:inv.customerEmail});
+      if(!customer&&String(inv.customerName||'').trim()){
+        const id='CUS-'+Date.now().toString(36).toUpperCase()+'-'+String(created+1).padStart(2,'0');
+        customer={id,name:String(inv.customerName||'').trim(),contact:'',email:String(inv.customerEmail||'').trim(),phone:String(inv.customerPhone||'').trim(),termDays:30,creditLimit:0,creditStatus:'Open',creditNote:'',reference:String(inv.reference||'').trim(),address:'',notes:'Created automatically from invoice '+String(inv.invoiceNo||inv.id),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()};
+        state.customers.push(customer);created++;
+      }
+      if(customer&&inv.customerId!==customer.id){inv.customerId=customer.id;inv.customerName=customer.name;inv.customerEmail=inv.customerEmail||customer.email||'';inv.customerPhone=inv.customerPhone||customer.phone||'';inv.updatedAt=new Date().toISOString();linked++;}
+    });
+    return {created,linked};
+  }
   function customerInvoicesFor(state,id){
     const customer=customerById(state,id);if(!customer)return [];
     return (state.customerInvoices||[]).filter(inv=>{
@@ -475,15 +489,26 @@
   function createReceivable(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
-    const fd=new FormData(ev.target),selectedCustomerId=String(fd.get('customerId')||''),typedName=String(fd.get('customerName')||'').trim(),typedEmail=String(fd.get('customerEmail')||'').trim(),saved=resolveCustomerForInvoice(state,{customerId:selectedCustomerId,customerName:typedName,customerEmail:typedEmail}),customerId=saved?.id||selectedCustomerId,customerName=typedName||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
+    const fd=new FormData(ev.target),selectedCustomerId=String(fd.get('customerId')||''),typedName=String(fd.get('customerName')||'').trim(),typedEmail=String(fd.get('customerEmail')||'').trim(),typedPhone=String(fd.get('customerPhone')||'').trim(),issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
+    let saved=resolveCustomerForInvoice(state,{customerId:selectedCustomerId,customerName:typedName,customerEmail:typedEmail});
+    let customerName=typedName||saved?.name||'';
     if(!customerName||totals.total<=0||!issueDate||!dueDate||!lines.length){ctx.toast('Customer, at least one priced line item, issue date and due date are required.');return;}
-    if(saved?.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before creating a new invoice.');return;}
+    if(!saved){
+      state.customers=state.customers||[];
+      const customerId='CUS-'+Date.now().toString(36).toUpperCase();
+      let termDays=30;try{termDays=Math.max(0,Math.round((new Date(dueDate+'T12:00:00')-new Date(issueDate+'T12:00:00'))/86400000));}catch{}
+      saved={id:customerId,name:customerName,contact:'',email:typedEmail,phone:typedPhone,termDays,creditLimit:0,creditStatus:'Open',creditNote:'',reference:String(fd.get('reference')||'').trim(),address:'',notes:'Created automatically from customer invoice',status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()};
+      state.customers.push(saved);
+      ctx.audit('customer.created',{customerId:saved.id,name:saved.name,termDays:saved.termDays,source:'invoice-auto'});
+    }
+    customerName=saved.name;
+    if(saved.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before creating a new invoice.');return;}
     if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,totals.total,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale')||{taxCode:'OUT',vatRate:0,taxGross:totals.total,taxNet:totals.total,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.customerInvoices=state.customerInvoices||[];
-    state.customerInvoices.unshift({id,invoiceNo,customerId:saved?.id||customerId||null,customerName:saved?.name||customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerId:saved?.id||customerId||null,customerName:saved?.name||customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+    state.customerInvoices.unshift({id,invoiceNo,customerId:saved.id,customerName:saved.name,customerEmail:typedEmail||saved.email||'',customerPhone:typedPhone||saved.phone||'',lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerId:saved.id,customerName:saved.name,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft and linked to '+saved.name);ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
@@ -959,5 +984,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,customerInvoicesFor,supplierBillsFor,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
