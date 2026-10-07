@@ -41,15 +41,20 @@
     if(x.status==='Approved')return '<button class="primary" data-action="expense-status:'+x.id+':Paid">Mark paid</button>';
     return '<span class="payment-complete">Paid</span>';
   }
+  function actionMenu(primary,items,label='More'){
+    return '<div class="row-action-shell">'+(primary||'')+(items&&items.length?'<details class="row-actions-menu"><summary>'+label+'</summary><div class="row-actions-popover">'+items.join('')+'</div></details>':'')+'</div>';
+  }
   function purchaseAction(x){
-    const pdf='<button class="secondary tiny" data-action="purchase-pdf:'+x.id+'">PDF</button>';
-    const order='<button class="secondary tiny" data-action="purchase-send:'+x.id+'">Send</button>';
-    if(x.status==='Draft')return pdf+'<button class="secondary" data-action="purchase-status:'+x.id+':Pending approval">Submit</button>';
-    if(x.status==='Pending approval')return pdf+'<button class="secondary" data-action="purchase-status:'+x.id+':Approved">Approve</button>';
-    if(x.status==='Approved')return pdf+order+'<button class="primary" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>';
-    if(x.status==='Ordered')return pdf+order+'<button class="primary" data-action="purchase-status:'+x.id+':Received">Mark received</button>';
-    if(x.status==='Received')return pdf+'<button class="secondary tiny" data-action="purchase-grn:'+x.id+'">GRN</button>'+(x.linkedBillId?'<span class="payment-complete">Bill created</span>':'<button class="secondary tiny" data-action="purchase-to-bill:'+x.id+'">Create bill</button>')+'<button class="secondary" data-action="purchase-status:'+x.id+':Closed">Close PO</button>';
-    return pdf+(x.receivedAt?'<button class="secondary tiny" data-action="purchase-grn:'+x.id+'">GRN</button>':'')+(x.linkedBillId?'<span class="payment-complete">Bill created</span>':'');
+    const pdf='<button data-action="purchase-pdf:'+x.id+'">Download PO PDF</button>',send='<button data-action="purchase-send:'+x.id+'">Send to supplier</button>',grn='<button data-action="purchase-grn:'+x.id+'">Goods received note</button>';
+    if(x.status==='Draft')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Pending approval">Submit</button>',[pdf]);
+    if(x.status==='Pending approval')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Approved">Approve</button>',[pdf]);
+    if(x.status==='Approved')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>',[pdf,send]);
+    if(x.status==='Ordered')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Received">Receive</button>',[pdf,send]);
+    if(x.status==='Received'){
+      const primary=x.linkedBillId?'<span class="payment-complete">Bill created</span>':'<button class="primary tiny" data-action="purchase-to-bill:'+x.id+'">Create bill</button>';
+      return actionMenu(primary,[pdf,grn,'<button data-action="purchase-status:'+x.id+':Closed">Close purchase order</button>']);
+    }
+    return actionMenu(x.linkedBillId?'<span class="payment-complete">Closed</span>':'<span class="payment-complete">'+(x.status||'Closed')+'</span>',[pdf].concat(x.receivedAt?[grn]:[]));
   }
   function expensesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=expenseMetrics(state);
