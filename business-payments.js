@@ -246,8 +246,8 @@
     '</div>'+
     '<div class="payment-notice"><span>'+icon('user',17)+'</span><div><b>Reusable customer accounts</b><p>Save a client once, keep their contact details and payment terms, and create future invoices without retyping the customer profile.</p></div></div>'+
     '<div class="surface employee-card">'+
-      '<div class="table-tools"><div><h3>Customers / client accounts</h3><p>Customer terms, invoice history, collections and balances</p></div><button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER</th><th>PAYMENT TERMS</th><th>INVOICED</th><th>COLLECTED</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+      '<div class="table-tools"><div><h3>Customers / client accounts</h3><p>Customer terms, invoice history, collections and balances</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="customer-register" placeholder="Search customers"></label><button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button></div></div>'+
+      '<div class="table-scroll"><table data-register-table="customer-register"><thead><tr><th>CUSTOMER</th><th>PAYMENT TERMS</th><th>INVOICED</th><th>COLLECTED</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
     '</div>';
   }
   function suppliersPanel(state,h){
@@ -276,8 +276,8 @@
     '</div>'+
     '<div class="payment-notice"><span>'+icon('building',17)+'</span><div><b>Reusable supplier accounts</b><p>Keep supplier contacts and payment details in one place, then link bills and payments to the same vendor account.</p></div></div>'+
     '<div class="surface employee-card">'+
-      '<div class="table-tools"><div><h3>Suppliers & vendors</h3><p>Vendor details, bills, payments and outstanding balances</p></div><button class="primary" data-action="open-supplier">'+icon('plus',14)+' Add supplier</button></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>SUPPLIER</th><th>TYPE</th><th>PAYMENT DETAILS</th><th>BILLED</th><th>PAID</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+      '<div class="table-tools"><div><h3>Suppliers & vendors</h3><p>Vendor details, bills, payments and outstanding balances</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="supplier-register" placeholder="Search suppliers"></label><button class="primary" data-action="open-supplier">'+icon('plus',14)+' Add supplier</button></div></div>'+
+      '<div class="table-scroll"><table data-register-table="supplier-register"><thead><tr><th>SUPPLIER</th><th>TYPE</th><th>PAYMENT DETAILS</th><th>BILLED</th><th>PAID</th><th>OUTSTANDING</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
     '</div>';
   }
 
