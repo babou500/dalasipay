@@ -320,8 +320,7 @@
     const v=(key,fallback='')=>esc(selected&&['customerName','customerEmail','customerPhone','reference'].includes(key)?({customerName:selected.name,customerEmail:selected.email,customerPhone:selected.phone,reference:selected.reference}[key]||fallback):(draft[key]??fallback));
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box sales-document-modal">'+
       '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create invoice</h2><p>Build an itemized customer invoice and track the amount due.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
-      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+
-      '<div class="invoice-customer-help"><span>Customer not listed?</span><button type="button" data-action="invoice-add-customer">'+icon('plus',12)+' Add customer</button></div>'+selectedInfo+
+      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
       '<div class="form-grid">'+
         field('Customer / client name','<input name="customerName" value="'+v('customerName')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
         field('Invoice number','<input name="invoiceNo" value="'+v('invoiceNo')+'" placeholder="Leave blank for automatic number">')+
