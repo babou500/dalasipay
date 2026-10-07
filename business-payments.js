@@ -293,7 +293,7 @@
         '<td class="customer-collected">'+money2(m.collected)+'</td>'+
         '<td><div class="receivable-balance"><b>'+money2(m.outstanding)+'</b><small>'+(m.overdue?money2(m.overdue)+' overdue':'No overdue balance')+'</small></div></td>'+
         '<td>'+pill(status,customerStatusClass(status))+'</td>'+
-        '<td><div class="payment-status-actions"><button class="secondary" data-action="customer-view:'+cust.id+'">View</button>'+(status==='Active'?'<button class="primary" data-action="invoice-customer:'+cust.id+'">Invoice</button>':'<button class="secondary" data-action="customer-status:'+cust.id+':Active">Activate</button>')+(status==='Active'?'<button class="secondary" data-action="customer-status:'+cust.id+':Inactive">Deactivate</button>':'')+'</div></td>'+
+        '<td><div class="payment-status-actions"><button class="secondary" data-action="customer-view:'+cust.id+'">View</button>'+(status==='Active'?'<button class="primary" data-action="invoice-customer:'+cust.id+'">'+icon('plus',13)+' New invoice</button>':'<button class="secondary" data-action="customer-status:'+cust.id+':Active">Activate</button>')+(status==='Active'?'<button class="secondary" data-action="customer-status:'+cust.id+':Inactive">Deactivate</button>':'')+'</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7"><div class="empty-inline">No customer accounts yet. Add a customer to reuse contact details and payment terms on future invoices.</div></td></tr>';
     return '<div class="customer-summary">'+
@@ -377,7 +377,7 @@
     const selectedInfo=selected?'<div class="selected-customer"><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div>':'';
     const v=(key,fallback='')=>esc(selected&&['customerName','customerEmail','customerPhone','reference'].includes(key)?({customerName:selected.name,customerEmail:selected.email,customerPhone:selected.phone,reference:selected.reference}[key]||fallback):(draft[key]??fallback));
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box sales-document-modal">'+
-      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create invoice</h2><p>Build an itemized customer invoice and track the amount due.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>New invoice</h2><p>'+(selected?('Create a new invoice for '+esc(selected.name)+'. Existing invoices are not changed.'):('Build an itemized customer invoice and track the amount due.'))+'</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
       field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
       '<div class="form-grid">'+
         field('Customer / client name','<input name="customerName" value="'+v('customerName')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
