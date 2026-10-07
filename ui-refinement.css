@@ -758,3 +758,69 @@ body{background:
   .quick-create-grid{grid-template-columns:1fr}
   .quick-create-grid>button{min-height:54px}
 }
+
+/* DalasiPay v0.68 — global search palette */
+.command-box-v68{
+  width:min(680px,92vw);max-height:min(720px,78vh);overflow:hidden;
+  border:1px solid var(--border);border-radius:16px;background:var(--panel);
+  box-shadow:0 28px 80px rgba(6,31,25,.2)
+}
+.command-box-v68 .command-input{
+  min-height:58px;padding:0 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--panel),color-mix(in srgb,var(--panel-2) 56%,var(--panel)))
+}
+.command-box-v68 .command-input input{font-size:13px;font-weight:650}
+.command-results{max-height:560px;overflow:auto;padding:7px}
+.command-welcome{
+  margin:2px 2px 7px;padding:13px 14px;border:1px solid var(--border);border-radius:12px;
+  display:flex;justify-content:space-between;gap:16px;align-items:center;background:var(--panel-2)
+}
+.command-welcome b{font-size:11.5px}
+.command-welcome p{font-size:9.5px;color:var(--muted);margin:3px 0 0}
+.command-welcome>span{font-size:8.8px;color:var(--muted);white-space:nowrap}
+.command-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.command-shortcuts button{
+  min-height:52px;border:1px solid var(--border);border-radius:10px;background:var(--panel);
+  padding:9px 10px;display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:start;text-align:left
+}
+.command-shortcuts button:hover{background:var(--panel-2);border-color:color-mix(in srgb,var(--primary) 22%,var(--border))}
+.command-shortcuts button>span b{display:block;font-size:10.2px}
+.command-shortcuts button>span small{display:block;font-size:8.8px;color:var(--muted);margin-top:2px;line-height:1.35}
+.command-section{padding:7px 5px}
+.command-section>small{padding:5px 7px 6px;font-size:8.2px;letter-spacing:.11em;font-weight:850}
+.command-section>button{
+  min-height:44px;padding:7px 9px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;
+  gap:9px;align-items:center;border:0;border-radius:9px;background:transparent;text-align:left
+}
+.command-section>button:hover{background:var(--panel-2)}
+.command-section>button>svg{width:15px;height:15px;color:var(--primary)}
+.command-result-copy{min-width:0}
+.command-result-copy b{display:block;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.command-result-copy small{display:block;font-size:8.9px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.command-section>button>span:last-child{font-size:8.6px;color:var(--muted)}
+.command-empty{
+  min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;color:var(--muted);padding:28px
+}
+.command-empty svg{margin-bottom:10px}
+.command-empty b{font-size:11px;color:var(--text)}
+.command-empty span{font-size:9.2px;line-height:1.45;margin-top:4px;max-width:330px}
+.command-footer{
+  min-height:38px;padding:7px 12px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;background:var(--panel-2);
+  color:var(--muted);font-size:8.7px
+}
+.command-footer kbd{
+  min-width:22px;height:20px;padding:0 5px;border:1px solid var(--border);border-radius:5px;
+  display:inline-grid;place-items:center;background:var(--panel);font-size:8px
+}
+@media(max-width:620px){
+  .search-modal .command-box-v68{
+    position:absolute;left:0;right:0;top:0;width:100%;max-width:none;max-height:100dvh;height:100dvh;
+    margin:0;border:0;border-radius:0
+  }
+  .command-results{max-height:none;flex:1}
+  .command-shortcuts{grid-template-columns:1fr}
+  .command-welcome{align-items:flex-start;flex-direction:column}
+  .command-footer{padding-bottom:calc(7px + env(safe-area-inset-bottom))}
+}
