@@ -170,7 +170,24 @@
 
 
   function customerById(state,id){return (state.customers||[]).find(x=>x.id===id)||null;}
-  function customerInvoicesFor(state,id){return (state.customerInvoices||[]).filter(x=>x.customerId===id);}
+  function normCustomerText(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function resolveCustomerForInvoice(state,{customerId='',customerName='',customerEmail=''}={}){
+    const byId=customerById(state,customerId);if(byId)return byId;
+    const name=normCustomerText(customerName),email=normCustomerText(customerEmail);
+    const active=(state.customers||[]).filter(x=>(x.status||'Active')==='Active');
+    if(email){const emailMatches=active.filter(x=>normCustomerText(x.email)===email);if(emailMatches.length===1)return emailMatches[0];}
+    if(name){const nameMatches=active.filter(x=>normCustomerText(x.name)===name);if(nameMatches.length===1)return nameMatches[0];}
+    return null;
+  }
+  function customerInvoicesFor(state,id){
+    const customer=customerById(state,id);if(!customer)return [];
+    return (state.customerInvoices||[]).filter(inv=>{
+      if(inv.customerId===id)return true;
+      if(inv.customerId)return false;
+      const matched=resolveCustomerForInvoice(state,{customerName:inv.customerName,customerEmail:inv.customerEmail});
+      return matched?.id===id;
+    });
+  }
   function customerAccount(state,id){
     const customer=customerById(state,id),invoices=customerInvoicesFor(state,id),today=todayIso();
     let invoiced=0,collected=0,outstanding=0,overdue=0;
@@ -431,15 +448,15 @@
   function createReceivable(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create customer invoices.');return;}
-    const fd=new FormData(ev.target),customerId=String(fd.get('customerId')||''),saved=customerById(state,customerId),customerName=String(fd.get('customerName')||'').trim()||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
+    const fd=new FormData(ev.target),selectedCustomerId=String(fd.get('customerId')||''),typedName=String(fd.get('customerName')||'').trim(),typedEmail=String(fd.get('customerEmail')||'').trim(),saved=resolveCustomerForInvoice(state,{customerId:selectedCustomerId,customerName:typedName,customerEmail:typedEmail}),customerId=saved?.id||selectedCustomerId,customerName=typedName||saved?.name||'',issueDate=String(fd.get('issueDate')||''),dueDate=String(fd.get('dueDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,3).join(', ');
     if(!customerName||totals.total<=0||!issueDate||!dueDate||!lines.length){ctx.toast('Customer, at least one priced line item, issue date and due date are required.');return;}
     if(saved?.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before creating a new invoice.');return;}
     if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,totals.total,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale')||{taxCode:'OUT',vatRate:0,taxGross:totals.total,taxNet:totals.total,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.customerInvoices=state.customerInvoices||[];
-    state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+    state.customerInvoices.unshift({id,invoiceNo,customerId:saved?.id||customerId||null,customerName:saved?.name||customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerId:saved?.id||customerId||null,customerName:saved?.name||customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
@@ -915,5 +932,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
