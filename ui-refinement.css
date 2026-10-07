@@ -1262,3 +1262,51 @@ body{background:
   .sales-intel-focus{grid-template-columns:28px minmax(0,1fr)}
   .sales-intel-focus>button{grid-column:2;justify-self:start}
 }
+
+/* DalasiPay v0.77 — prioritized sales action queue */
+.sales-action-queue{margin:0 0 14px;padding:0;border-radius:16px;overflow:hidden}
+.sales-action-head{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--panel-2) 62%,var(--panel)),var(--panel))
+}
+.sales-action-head h3{font-size:14px;letter-spacing:-.2px;margin:2px 0}
+.sales-action-head p{font-size:9.3px;color:var(--muted);margin:0}
+.sales-action-badge{
+  min-height:28px;padding:0 9px;border:1px solid var(--border);border-radius:999px;
+  display:flex;align-items:center;background:var(--panel);font-size:8.8px;font-weight:800;white-space:nowrap
+}
+.sales-action-badge.urgent{color:#aa403a;border-color:color-mix(in srgb,#c84f48 28%,var(--border));background:color-mix(in srgb,#fdeceb 30%,var(--panel))}
+.sales-action-badge.clear{color:#23775e}
+.sales-action-list{background:var(--panel)}
+.sales-action-item{
+  min-height:66px;padding:10px 13px;border-bottom:1px solid var(--border);
+  display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center
+}
+.sales-action-item:last-child{border-bottom:0}
+.sales-action-item.urgent{background:color-mix(in srgb,#fdeceb 18%,var(--panel))}
+.sales-action-item.watch{background:color-mix(in srgb,#fff3df 16%,var(--panel))}
+.sales-action-icon{
+  width:29px;height:29px;border-radius:9px;background:var(--soft-2);color:var(--primary);
+  display:grid;place-items:center
+}
+.sales-action-item.urgent .sales-action-icon{background:#fde7e5;color:#ad403a}
+.sales-action-item.watch .sales-action-icon{background:#fff0d3;color:#9d680f}
+.sales-action-copy{min-width:0}
+.sales-action-copy small{display:block;font-size:7.7px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:850}
+.sales-action-copy b{display:block;font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sales-action-copy p{font-size:8.8px;color:var(--muted);margin:2px 0 0}
+.sales-action-item>button{
+  border:1px solid var(--border);background:var(--panel);color:var(--primary);border-radius:8px;
+  min-height:31px;padding:0 9px;font-size:8.9px;font-weight:820;display:flex;align-items:center;gap:3px;white-space:nowrap
+}
+.sales-action-item>button:hover{background:var(--soft-2)}
+.sales-action-empty{padding:24px;display:flex;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:9.5px;background:var(--panel)}
+.sales-action-more{padding:8px 12px;border-top:1px solid var(--border);background:var(--panel-2);text-align:center;font-size:8.3px;color:var(--muted)}
+:root[data-theme="dark"] .sales-action-item.urgent{background:color-mix(in srgb,#5f2d29 16%,var(--panel))}
+:root[data-theme="dark"] .sales-action-item.watch{background:color-mix(in srgb,#5a431f 16%,var(--panel))}
+@media(max-width:620px){
+  .sales-action-head{align-items:flex-start;flex-direction:column}
+  .sales-action-item{grid-template-columns:28px minmax(0,1fr)}
+  .sales-action-item>button{grid-column:2;justify-self:start}
+}
