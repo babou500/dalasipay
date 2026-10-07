@@ -180,7 +180,7 @@
   async function createExpense(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add expenses.');return;}
-    const fd=new FormData(ev.target),supplierId=String(fd.get('supplierId')||''),s=supplierById(state,supplierId),merchant=String(fd.get('merchant')||'').trim()||s?.name||'',amount=Number(fd.get('amount')||0),expenseDate=String(fd.get('expenseDate')||'');
+    const fd=new FormData(ev.target),selectedSupplierId=String(fd.get('supplierId')||''),typedMerchant=String(fd.get('merchant')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedMerchant})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,merchant=s?.name||typedMerchant||'',amount=Number(fd.get('amount')||0),expenseDate=String(fd.get('expenseDate')||'');
     if(!merchant||amount<=0||!expenseDate){ctx.toast('Merchant, amount and expense date are required.');return;}
     if(window.DalasiMonthClose?.isClosed(state,expenseDate)){ctx.toast('That accounting period is closed. Reopen it before recording this expense.');return;}
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
@@ -199,7 +199,7 @@
   function createPurchase(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create purchase orders.');return;}
-    const fd=new FormData(ev.target),supplierId=String(fd.get('supplierId')||''),s=supplierById(state,supplierId),supplierName=String(fd.get('supplierName')||'').trim()||s?.name||'',requestDate=String(fd.get('requestDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,2).join(', ');
+    const fd=new FormData(ev.target),selectedSupplierId=String(fd.get('supplierId')||''),typedSupplier=String(fd.get('supplierName')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedSupplier})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,supplierName=s?.name||typedSupplier||'',requestDate=String(fd.get('requestDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,2).join(', ');
     if(!requestDate||!lines.length||totals.total<=0){ctx.toast('Request date and at least one priced purchase line are required.');return;}
     state.purchaseOrders=state.purchaseOrders||[];
     const id='PO-'+Date.now().toString(36).toUpperCase(),poNumber=nextNumber('PO',state.purchaseOrders,'poNumber');
