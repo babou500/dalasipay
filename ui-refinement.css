@@ -219,3 +219,98 @@ body{background:
   .command-card{min-height:112px}
   .health-items{grid-template-columns:1fr}
 }
+
+/* DalasiPay v0.57 — module page refinement */
+.content>.sales-tabs,
+.content>.expense-tabs,
+.content>.accounting-tabs{
+  position:sticky;top:74px;z-index:9;
+}
+.sales-tabs,.expense-tabs,.accounting-tabs{
+  display:flex;align-items:center;gap:4px;padding:4px;
+  margin:0 0 16px;border:1px solid var(--border);border-radius:12px;
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  box-shadow:0 5px 16px rgba(16,45,37,.035);
+  backdrop-filter:blur(10px);overflow-x:auto;scrollbar-width:none
+}
+.sales-tabs::-webkit-scrollbar,.expense-tabs::-webkit-scrollbar,.accounting-tabs::-webkit-scrollbar{display:none}
+.sales-tabs button,.expense-tabs button,.accounting-tabs button{
+  border:0;background:transparent;color:var(--muted);min-height:34px;
+  padding:0 11px;border-radius:8px;font-size:10.5px;font-weight:720;white-space:nowrap
+}
+.sales-tabs button:hover,.expense-tabs button:hover,.accounting-tabs button:hover{background:var(--panel-2);color:var(--text)}
+.sales-tabs button.active,.expense-tabs button.active,.accounting-tabs button.active{
+  background:var(--panel);color:var(--primary);box-shadow:0 1px 4px rgba(12,43,35,.08)
+}
+.sales-summary,.expense-summary,.accounting-summary{
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;margin:0 0 14px!important
+}
+.sales-summary>.surface,.expense-summary>.surface,.accounting-summary>.surface{
+  min-height:104px;padding:15px 16px!important;border-radius:13px;
+  background:linear-gradient(145deg,var(--panel),color-mix(in srgb,var(--panel-2) 62%,var(--panel)))
+}
+.sales-summary span,.expense-summary span,.accounting-summary span{
+  display:block;font-size:9.5px!important;letter-spacing:.055em;color:var(--muted)!important;font-weight:700
+}
+.sales-summary b,.expense-summary b,.accounting-summary b{
+  display:block;font-size:19px!important;letter-spacing:-.45px;margin:6px 0!important
+}
+.sales-summary small,.expense-summary small,.accounting-summary small{
+  display:block;font-size:9.7px!important;line-height:1.4;color:var(--muted)!important
+}
+.payment-notice{
+  border-radius:12px;padding:11px 13px;margin:0 0 14px;
+  background:linear-gradient(145deg,var(--panel),var(--panel-2))
+}
+.payment-notice>span{width:30px;height:30px;border-radius:9px}
+.payment-notice b{font-size:10.8px}.payment-notice p{font-size:9.8px;line-height:1.45}
+.sales-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 10px;padding:11px 13px;border:1px solid var(--border);
+  border-radius:12px;background:var(--panel)
+}
+.sales-toolbar>div:first-child b{font-size:11.5px}
+.sales-toolbar>div:first-child span{display:block;margin-top:2px;font-size:9.5px;color:var(--muted)}
+.sales-filters{display:flex;gap:4px;overflow-x:auto}
+.sales-filters button{
+  border:1px solid var(--border);background:var(--panel-2);color:var(--muted);
+  min-height:29px;padding:0 9px;border-radius:8px;font-size:9.5px;font-weight:700;white-space:nowrap
+}
+.sales-filters button.active{background:var(--soft);border-color:color-mix(in srgb,var(--primary) 25%,var(--border));color:var(--primary)}
+.employee-card{
+  border-radius:14px;box-shadow:0 4px 16px rgba(17,47,39,.04)
+}
+.employee-card .table-tools{
+  min-height:56px;padding:11px 14px
+}
+.employee-card th{height:38px}
+.employee-card td{height:47px}
+.payment-payee b{font-size:10.8px}
+.payment-payee small{font-size:9.2px}
+.customer-terms b,.receivable-balance b{font-size:10.8px}
+.bill-date b{font-size:10.5px}
+.bill-date small{font-size:9px}
+.payment-amount{font-weight:760}
+.bill-no-file{font-size:9.4px;color:var(--muted)}
+.module-data-strip{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-7px 0 15px
+}
+.module-data-strip span{
+  display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:0 9px;
+  border:1px solid var(--border);border-radius:999px;background:var(--panel);
+  color:var(--muted);font-size:9.5px
+}
+.module-data-strip b{color:var(--text);font-size:9.5px}
+@media(max-width:1080px){
+  .sales-summary,.expense-summary,.accounting-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:720px){
+  .content>.sales-tabs,.content>.expense-tabs,.content>.accounting-tabs{top:66px}
+  .sales-toolbar{align-items:flex-start;flex-direction:column}
+  .sales-filters{width:100%}
+}
+@media(max-width:520px){
+  .sales-summary,.expense-summary,.accounting-summary{grid-template-columns:1fr!important}
+  .sales-summary>.surface,.expense-summary>.surface,.accounting-summary>.surface{min-height:88px}
+}
