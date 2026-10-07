@@ -111,7 +111,7 @@
     if(parentCode&&!parent){ctx.toast('Choose a valid parent account.');return;}
     const all=allAccounts(state,true);if(all.some(x=>x.code===code)){ctx.toast('That account code already exists.');return;}if(all.some(x=>x.name.toLowerCase()===name.toLowerCase())){ctx.toast('That account name already exists.');return;}
     const id='ACC-'+Date.now().toString(36).toUpperCase();state.customAccounts=state.customAccounts||[];state.customAccounts.push({id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.accountOpen=false;ctx.audit('accounting.account_created',{accountId:id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null});ctx.save();ctx.toast(code+' · '+name+(parent?' added under '+parent.name:' added'));ctx.render();
+    state.accountOpen=false;state.accountParentCode='';ctx.audit('accounting.account_created',{accountId:id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null});ctx.save();ctx.toast(code+' · '+name+(parent?' added under '+parent.name:' added'));ctx.render();
   }
   function toggleAccount(id,state,ctx){
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can change ledger accounts.');return;}
@@ -133,13 +133,14 @@
     '</form></div>';
   }
   function accountModal(state,h){
-    const {field,icon}=h,parents=orderedAccounts(state).filter(a=>(a.status||'Active')==='Active');
-    const parentOptions='<option value="">No parent · top-level account</option>'+parents.map(a=>'<option value="'+esc(a.code)+'">'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name+' · '+a.type)+'</option>').join('');
+    const {field,icon}=h,parents=orderedAccounts(state).filter(a=>(a.status||'Active')==='Active'),selectedParent=String(state.accountParentCode||'');
+    const parentOptions='<option value="">No parent · top-level account</option>'+parents.map(a=>'<option value="'+esc(a.code)+'" '+(String(a.code)===selectedParent?'selected':'')+'>'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name+' · '+a.type)+'</option>').join('');
+    const selectedParentAccount=selectedParent?parentAccount(state,selectedParent):null;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-account"></div><form id="ledger-account-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">CHART OF ACCOUNTS</div><h2>Add account or sub-account</h2><p>Create a top-level ledger account or place a sub-account beneath an existing account.</p></div><button type="button" class="close" data-action="close-account">×</button></div>'+
       field('Parent account','<select id="ledger-parent-account" name="parentCode">'+parentOptions+'</select>')+
       '<div class="account-parent-note">If a parent is selected, the new sub-account automatically inherits the parent account type.</div>'+
-      '<div class="form-grid">'+field('Account code','<input name="code" inputmode="numeric" placeholder="e.g. 6010" required>')+field('Account type','<select id="ledger-account-type" name="type">'+TYPES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+'</div>'+
+      '<div class="form-grid">'+field('Account code','<input name="code" inputmode="numeric" placeholder="e.g. 6010" required>')+field('Account type','<select id="ledger-account-type" name="type" '+(selectedParentAccount?'disabled':'')+'>'+TYPES.map(x=>'<option '+(selectedParentAccount?.type===x?'selected':'')+'>'+x+'</option>').join('')+'</select>')+'</div>'+
       field('Account name','<input name="name" placeholder="e.g. Office Rent" required>')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-account">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Add account</button></div>'+
     '</form></div>';
@@ -148,8 +149,8 @@
     const {pageTitle,icon,money2,pill}=h,tab=state.accountingTab||'journals',journals=(state.manualJournals||[]),accounts=allAccounts(state,true);
     const tabs='<div class="accounting-tabs"><button class="'+(tab==='journals'?'active':'')+'" data-action="accounting-tab:journals">Journal entries</button><button class="'+(tab==='accounts'?'active':'')+'" data-action="accounting-tab:accounts">Chart of accounts</button></div>';
     if(tab==='accounts'){
-      const rows=orderedAccounts(state,true).map(a=>'<tr class="'+(a.depth?'account-sub-row':'account-parent-row')+'"><td><b>'+esc(a.code)+'</b></td><td><div class="payment-payee account-tree-name" style="--account-depth:'+Math.min(a.depth||0,4)+'"><b>'+(a.depth?'<span class="account-tree-branch">↳</span>':'')+esc(a.name)+'</b><small>'+(a.parentName?'Sub-account of '+esc(a.parentName):(a.system?'System account · parent eligible':'Custom top-level account'))+'</small></div></td><td>'+esc(a.type)+'</td><td>'+pill(a.status||'Active',(a.status||'Active')==='Active'?'ready':'neutral')+'</td><td>'+(a.system?'<span class="bill-no-file">Protected</span>':'<button class="secondary" data-action="account-toggle:'+esc(a.id)+'">'+((a.status||'Active')==='Active'?'Deactivate':'Activate')+'</button>')+'</td></tr>').join('');
-      return pageTitle('ACCOUNTING','Accounting','Manage manual journals and the chart of accounts.','<button class="primary" data-action="open-account">'+icon('plus',14)+' Add account</button>')+tabs+
+      const rows=orderedAccounts(state,true).map(a=>'<tr class="'+(a.depth?'account-sub-row':'account-parent-row')+'"><td><b>'+esc(a.code)+'</b></td><td><div class="payment-payee account-tree-name" style="--account-depth:'+Math.min(a.depth||0,4)+'"><b>'+(a.depth?'<span class="account-tree-branch">↳</span>':'')+esc(a.name)+'</b><small>'+(a.parentName?'Sub-account of '+esc(a.parentName):(a.system?'System account · parent eligible':'Custom top-level account'))+'</small></div></td><td>'+esc(a.type)+'</td><td>'+pill(a.status||'Active',(a.status||'Active')==='Active'?'ready':'neutral')+'</td><td><div class="inline-buttons"><button class="secondary tiny" data-action="open-subaccount:'+esc(a.code)+'">+ Sub-account</button>'+(a.system?'<span class="bill-no-file">Protected</span>':'<button class="secondary tiny" data-action="account-toggle:'+esc(a.id)+'">'+((a.status||'Active')==='Active'?'Deactivate':'Activate')+'</button>')+'</div></td></tr>').join('');
+      return pageTitle('ACCOUNTING','Accounting','Manage manual journals and the chart of accounts.','<button class="primary" data-action="open-account">'+icon('plus',14)+' Add account / sub-account</button>')+tabs+
         '<div class="surface employee-card"><div class="table-tools"><div><h3>Chart of accounts</h3><p>Accounts can be organised into parent accounts and sub-accounts. System accounts are protected; custom accounts can be posted to in manual journals.</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="accounts-register" placeholder="Search accounts"></label></div></div><div class="table-scroll"><table data-register-table="accounts-register"><thead><tr><th>CODE</th><th>ACCOUNT</th><th>TYPE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
     }
     const totalPosted=journals.filter(x=>x.status==='Posted').length,totalDraft=journals.filter(x=>x.status==='Draft').length,reversed=journals.filter(x=>x.reversalJournalId).length;
