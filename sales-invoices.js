@@ -76,8 +76,8 @@
       '<div class="surface"><span>Converted</span><b>'+money2(m.converted)+'</b><small>'+m.convertedCount+' converted quotation'+(m.convertedCount===1?'':'s')+'</small></div>'+
     '</div>'+
     '<div class="payment-notice"><span>'+icon('file',17)+'</span><div><b>Quotation to invoice without retyping</b><p>Create an estimate, send it to the customer, mark it accepted and convert it into a draft invoice with the same customer, value and description.</p></div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Quotation register</h3><p>Estimates, validity dates, acceptance and conversion status</p></div><div class="inline-buttons"><button class="secondary" data-action="sales-export:quotes">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button></div></div>'+
-    '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / QUOTE</th><th>DATE</th><th>VALID UNTIL</th><th>VALUE</th><th>DESCRIPTION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="surface employee-card"><div class="table-tools"><div><h3>Quotation register</h3><p>Estimates, validity dates, acceptance and conversion status</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="quotes-register" placeholder="Search quotations"></label><div class="inline-buttons"><button class="secondary" data-action="sales-export:quotes">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button></div></div></div>'+
+    '<div class="table-scroll"><table data-register-table="quotes-register"><thead><tr><th>CUSTOMER / QUOTE</th><th>DATE</th><th>VALID UNTIL</th><th>VALUE</th><th>DESCRIPTION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
   function quoteModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),issue=todayIso(),valid=addDaysIso(issue,14);
@@ -228,8 +228,8 @@
     '<div class="sales-toolbar"><div><b>Customer invoices</b><span>Create, send, collect and close sales invoices</span></div><div class="sales-filters">'+
       [['all','All'],['draft','Draft'],['sent','Sent'],['part-paid','Part paid'],['overdue','Overdue'],['paid','Paid']].map(x=>'<button class="'+(filter===x[0]?'active':'')+'" data-action="sales-filter:'+x[0]+'">'+x[1]+'</button>').join('')+
     '</div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Invoice register</h3><p>Sales invoices, due dates, collections and customer balances</p></div><div class="inline-buttons"><button class="secondary" data-action="sales-export:invoices">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button></div></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / INVOICE</th><th>ISSUED</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="surface employee-card"><div class="table-tools"><div><h3>Invoice register</h3><p>Sales invoices, due dates, collections and customer balances</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="invoice-register" placeholder="Search invoices"></label><div class="inline-buttons"><button class="secondary" data-action="sales-export:invoices">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button></div></div></div>'+
+      '<div class="table-scroll"><table data-register-table="invoice-register"><thead><tr><th>CUSTOMER / INVOICE</th><th>ISSUED</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
   function collectionsPanel(state,h){
     const esc=h.esc,money2=h.money2,icon=h.icon,m=metrics(state),rows=(state.incomingPayments||[]).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||'')));
