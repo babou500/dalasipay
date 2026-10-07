@@ -48,3 +48,24 @@
 
 .sales-document-modal{width:min(1120px,calc(100vw - 32px));max-width:1120px;max-height:calc(100vh - 32px);overflow:auto}
 @media(max-width:720px){.sales-document-modal{width:calc(100vw - 18px);max-height:calc(100vh - 18px)}}
+
+/* Invoice detail: customer-facing collection clarity */
+.invoice-source-trail{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:12px 20px;border-bottom:1px solid var(--border);font-size:10px}
+.invoice-source-trail button{border:0;background:var(--soft-2);color:var(--primary);border-radius:6px;padding:6px 9px;font-size:10px;font-weight:700}
+.invoice-source-trail button:hover{background:var(--soft)}
+.invoice-source-trail>span{color:var(--text);font-weight:800}
+.invoice-source-trail i{font-style:normal;color:var(--muted)}
+.invoice-collection-progress{padding:16px 20px;border-bottom:1px solid var(--border)}
+.invoice-progress-label,.invoice-progress-amounts{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10.5px}
+.invoice-progress-label b{color:var(--primary);font-size:12px}.invoice-progress-label span{color:var(--muted);text-align:right}
+.invoice-progress-track{height:8px;margin:11px 0 9px;background:var(--soft-2);border:1px solid var(--border);border-radius:100px;overflow:hidden}
+.invoice-progress-track>span{height:100%;display:block;background:var(--good);border-radius:100px;transition:width .25s ease}
+.invoice-progress-amounts{font-size:9.5px;color:var(--muted)}
+.invoice-payment-list{display:grid;gap:0}
+.invoice-payment-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.invoice-payment-row:last-child{border-bottom:0}
+.invoice-payment-row>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.invoice-payment-row strong{font-size:11px;overflow-wrap:anywhere}
+.invoice-payment-row small{font-size:9.5px;color:var(--muted)}
+.invoice-payment-row>b{font-size:11px;white-space:nowrap;color:var(--good)}
+@media(max-width:560px){.invoice-source-trail{padding:11px 15px}.invoice-collection-progress{padding:14px 15px}.invoice-progress-label,.invoice-progress-amounts{align-items:flex-start}.invoice-progress-label span{text-align:right;max-width:55%}}
