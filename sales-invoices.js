@@ -255,12 +255,29 @@
     '<div class="surface employee-card"><div class="table-tools"><div><h3>Collections & receipts</h3><p>Incoming customer payments and their supporting documents</p></div><button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export CSV</button></div>'+
       '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / RECEIPT</th><th>INVOICE</th><th>DATE</th><th>AMOUNT</th><th>METHOD</th><th>REFERENCE</th><th>DOCUMENT</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
+  function salesPipeline(state,h){
+    const {money2,icon,esc}=h;
+    const quotes=state.salesQuotes||[],orders=state.salesOrders||[],invoices=state.customerInvoices||[],payments=state.incomingPayments||[];
+    const activeQuotes=quotes.filter(q=>['Draft','Sent','Accepted'].includes(quoteStatus(q))),activeQuoteValue=activeQuotes.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const openOrders=orders.filter(x=>!['Invoiced','Cancelled'].includes(x.status||'Draft')),openOrderValue=openOrders.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const issued=invoices.filter(x=>status(state,x)!=='Draft'),invoiceValue=issued.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const collected=payments.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const paidInvoices=issued.filter(x=>status(state,x)==='Paid'),fulfilled=paidInvoices.filter(x=>!invoiceHasStockLines(state,x)||x.fulfilledAt),fulfilledValue=fulfilled.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const stages=[
+      {tab:'quotes',icon:'file',label:'Quotation',count:activeQuotes.length,value:activeQuoteValue,copy:'active opportunities'},
+      {tab:'orders',icon:'building',label:'Sales order',count:openOrders.length,value:openOrderValue,copy:'confirmed demand'},
+      {tab:'invoices',icon:'reports',label:'Invoice',count:issued.length,value:invoiceValue,copy:'issued to customers'},
+      {tab:'collections',icon:'bank',label:'Payment',count:payments.length,value:collected,copy:'cash collected'},
+      {tab:'invoices',icon:'check',label:'Fulfilment',count:fulfilled.length,value:fulfilledValue,copy:'paid & fulfilled'}
+    ];
+    return '<section class="surface sales-pipeline"><div class="sales-pipeline-head"><div><span class="eyebrow">DALASIPAY SALES FLOW</span><h3>Quotation to cash</h3><p>Follow customer revenue from opportunity through fulfilment.</p></div><span class="sales-pipeline-total">'+issued.length+' issued invoice'+(issued.length===1?'':'s')+'</span></div><div class="sales-pipeline-track">'+stages.map((x,i)=>'<button class="sales-pipeline-stage" data-action="sales-tab:'+x.tab+'"><span class="sales-stage-number">'+String(i+1).padStart(2,'0')+'</span><span class="sales-stage-icon">'+icon(x.icon,15)+'</span><span class="sales-stage-copy"><small>'+esc(x.label)+'</small><b>'+money2(x.value)+'</b><em>'+x.count+' · '+esc(x.copy)+'</em></span>'+(i<stages.length-1?'<i class="sales-stage-arrow">'+icon('chevron',12)+'</i>':'')+'</button>').join('')+'</div></section>';
+  }
   function render(state,h){
     const pageTitle=h.pageTitle,icon=h.icon,tab=state.salesTab||'invoices';
     const action=tab==='revenue'?'<button class="primary" data-action="open-revenue">'+icon('plus',14)+' Record income</button>':tab==='catalog'?'<button class="primary" data-action="open-catalog-item">'+icon('plus',14)+' Add item</button>':tab==='quotes'?'<button class="primary" data-action="open-quote">'+icon('plus',14)+' New quotation</button>':tab==='orders'?'<button class="secondary" data-action="sales-tab:quotes">'+icon('plus',14)+' From quotation</button>':tab==='invoices'?'<button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button>':tab==='recurring'?'<button class="primary" data-action="open-recurring-invoice">'+icon('calendar',14)+' New schedule</button>':'<button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export collections</button>';
     const body=tab==='revenue'?window.DalasiRevenueIncome.panel(state,h):tab==='catalog'?window.DalasiCatalog.catalogPanel(state,h):tab==='quotes'?quotePanel(state,h):tab==='orders'?window.DalasiSalesOrders.panel(state,h):tab==='recurring'?window.DalasiRecurringInvoices.panel(state,h):tab==='collections'?collectionsPanel(state,h):invoicePanel(state,h);
     const guide=!(state.customerInvoices||[]).length&&!(state.salesQuotes||[]).length&&!(state.salesOrders||[]).length?'<div class="first-use-card"><span>'+icon('file',16)+'</span><div><b>Start with a customer quotation or invoice</b><p>Add products or services first if you want reusable line items. You can then create a quotation, convert it to a sales order and invoice the customer.</p></div><button class="primary" data-action="open-quote">Create quotation</button></div>':'';
-    return tabs(state)+pageTitle('SALES & RECEIVABLES','Sales','Revenue, products, quotations, customer invoices, collections, receipts and delivery notes.',action)+guide+body;
+    return tabs(state)+pageTitle('SALES & RECEIVABLES','Sales','Revenue, products, quotations, customer invoices, collections, receipts and delivery notes.',action)+salesPipeline(state,h)+guide+body;
   }
   function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
   function rowsToCsv(headers,rows){return [headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');}
