@@ -705,12 +705,14 @@
   function renderCustomers(state,h){
     const icon=h.icon,pageTitle=h.pageTitle;
     const actions='<button class="primary" data-action="open-customer">'+icon('plus',14)+' Add customer</button>';
-    return pageTitle('CLIENT ACCOUNTS','Customers','Manage repeat customers, payment terms, invoice history, collections and outstanding balances.',actions)+customersPanel(state,h);
+    const guide=!(state.customers||[]).length?'<div class="first-use-card"><span>'+icon('employees',16)+'</span><div><b>Create your first customer account</b><p>Save the customer once so invoices, statements, payment terms and credit control can all use the same account.</p></div><button class="primary" data-action="open-customer">Add customer</button></div>':'';
+    return pageTitle('CLIENT ACCOUNTS','Customers','Manage repeat customers, payment terms, invoice history, collections and outstanding balances.',actions)+guide+customersPanel(state,h);
   }
   function renderSuppliers(state,h){
     const icon=h.icon,pageTitle=h.pageTitle;
     const actions='<button class="primary" data-action="open-supplier">'+icon('plus',14)+' Add supplier</button>';
-    return pageTitle('SUPPLIER ACCOUNTS','Suppliers','Manage vendors, payment details, supplier bills, payment history and outstanding balances.',actions)+suppliersPanel(state,h);
+    const guide=!(state.paymentBeneficiaries||[]).length?'<div class="first-use-card"><span>'+icon('building',16)+'</span><div><b>Add your first supplier</b><p>Store supplier contact and payment details once, then reuse the account for purchase orders, bills and payments.</p></div><button class="primary" data-action="open-supplier">Add supplier</button></div>':'';
+    return pageTitle('SUPPLIER ACCOUNTS','Suppliers','Manage vendors, payment details, supplier bills, payment history and outstanding balances.',actions)+guide+suppliersPanel(state,h);
   }
 
   function render(state,h){
