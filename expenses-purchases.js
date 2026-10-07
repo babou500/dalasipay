@@ -145,7 +145,7 @@
         field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
         field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
       '</div>'+
-      window.DalasiCatalog.lineItemsForm(state,[],'purchase')+
+      window.DalasiCatalog.lineItemsForm(state,state.purchasePrefillLines||[],'purchase')+
       field('Purchase description','<input name="description" placeholder="Optional summary of the purchase">')+
       field('Notes','<input name="notes" placeholder="Optional procurement note">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-purchase">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save purchase order</button></div>'+
@@ -178,7 +178,7 @@
     state.purchaseOrders=state.purchaseOrders||[];
     const id='PO-'+Date.now().toString(36).toUpperCase(),poNumber=nextNumber('PO',state.purchaseOrders,'poNumber');
     state.purchaseOrders.unshift({...((window.DalasiDimensions?.tag?.(fd))||{}),id,poNumber,supplierId:supplierId||null,supplierName,lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,category:String(fd.get('category')||'Other purchase'),requestDate,requiredDate:String(fd.get('requiredDate')||''),requestedBy:String(fd.get('requestedBy')||'').trim(),reference:String(fd.get('reference')||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.purchaseOpen=false;ctx.audit('purchase.created',{purchaseId:id,poNumber,supplierId:supplierId||null,supplierName,amount:totals.total,lineCount:lines.length});ctx.save();ctx.toast(poNumber+' saved as draft');ctx.render();
+    state.purchaseOpen=false;state.purchasePrefillLines=[];ctx.audit('purchase.created',{purchaseId:id,poNumber,supplierId:supplierId||null,supplierName,amount:totals.total,lineCount:lines.length});ctx.save();ctx.toast(poNumber+' saved as draft');ctx.render();
   }
   function receivePurchaseInventory(x,state,ctx){
     if(x.inventoryReceivedAt)return;
