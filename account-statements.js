@@ -7,14 +7,23 @@ const customer=(s,id)=>(s.customers||[]).find(x=>x.id===id)||null,supplier=(s,id
 const inRange=(d,a,b)=>String(d||'')>=a&&String(d||'')<=b;
 function customerName(s,id){return customer(s,id)?.name||(s.customerInvoices||[]).find(x=>x.customerId===id)?.customerName||'Customer'}
 function supplierName(s,id){return supplier(s,id)?.name||(s.businessBills||[]).find(x=>x.beneficiaryId===id)?.supplier||'Supplier'}
-function customerIds(s){const set=new Set((s.customers||[]).map(x=>x.id));(s.customerInvoices||[]).forEach(x=>{if(x.customerId)set.add(x.customerId)});return [...set]}
+function customerInvoicesForParty(s,id){
+  const c=customer(s,id);if(!c)return [];
+  return (s.customerInvoices||[]).filter(x=>{
+    if(x.customerId===id)return true;
+    if(x.customerId)return false;
+    const m=window.DalasiBusinessPayments?.resolveCustomerForInvoice?.(s,{customerName:x.customerName,customerEmail:x.customerEmail});
+    return m?.id===id;
+  });
+}
+function customerIds(s){const set=new Set((s.customers||[]).map(x=>x.id));(s.customerInvoices||[]).forEach(x=>{if(x.customerId)set.add(x.customerId);else{const m=window.DalasiBusinessPayments?.resolveCustomerForInvoice?.(s,{customerName:x.customerName,customerEmail:x.customerEmail});if(m?.id)set.add(m.id)}});return [...set]}
 function supplierIds(s){const set=new Set((s.paymentBeneficiaries||[]).map(x=>x.id));(s.businessBills||[]).forEach(x=>{if(x.beneficiaryId)set.add(x.beneficiaryId)});return [...set]}
 function customerRows(s,id,from='0000-01-01',to='9999-12-31'){
   const rows=[];
-  (s.customerInvoices||[]).filter(x=>x.customerId===id&&(window.DalasiSalesInvoices?.status?.(s,x)||x.status)!=='Draft'&&inRange(x.issueDate||x.createdAt,from,to)).forEach(x=>rows.push({date:x.issueDate||String(x.createdAt||'').slice(0,10),kind:'Invoice',reference:x.invoiceNo||x.id,description:x.description||'Customer invoice',debit:round(x.amount),credit:0,sourceId:x.id}));
+  customerInvoicesForParty(s,id).filter(x=>(window.DalasiSalesInvoices?.status?.(s,x)||x.status)!=='Draft'&&inRange(x.issueDate||x.createdAt,from,to)).forEach(x=>rows.push({date:x.issueDate||String(x.createdAt||'').slice(0,10),kind:'Invoice',reference:x.invoiceNo||x.id,description:x.description||'Customer invoice',debit:round(x.amount),credit:0,sourceId:x.id}));
   (s.customerDebitNotes||[]).filter(x=>x.customerId===id&&x.status!=='Void'&&inRange(x.date,from,to)).forEach(x=>rows.push({date:x.date,kind:'Debit note',reference:x.debitNo||x.id,description:x.reason||x.note||'Additional customer charge',debit:round(x.amount),credit:0,sourceId:x.id}));
   (s.customerCreditNotes||[]).filter(x=>x.customerId===id&&x.status!=='Void'&&inRange(x.date,from,to)).forEach(x=>rows.push({date:x.date,kind:'Credit note',reference:x.creditNo||x.id,description:x.reason||x.note||'Customer credit',debit:0,credit:round(x.amount),sourceId:x.id}));
-  const invIds=new Set((s.customerInvoices||[]).filter(x=>x.customerId===id).map(x=>x.id));
+  const invIds=new Set(customerInvoicesForParty(s,id).map(x=>x.id));
   (s.incomingPayments||[]).filter(x=>invIds.has(x.invoiceId)&&inRange(x.receivedDate||x.createdAt,from,to)).forEach(x=>rows.push({date:x.receivedDate||String(x.createdAt||'').slice(0,10),kind:'Payment',reference:x.receiptNumber||x.reference||x.id,description:'Customer payment received',debit:0,credit:round(x.amount),sourceId:x.id}));
   const creditIds=new Set((s.customerCreditNotes||[]).filter(x=>x.customerId===id).map(x=>x.id));
   (s.customerRefunds||[]).filter(x=>creditIds.has(x.creditNoteId)&&inRange(x.date,from,to)).forEach(x=>rows.push({date:x.date,kind:'Refund paid',reference:x.reference||x.id,description:'Customer refund paid',debit:round(x.amount),credit:0,sourceId:x.id}));
