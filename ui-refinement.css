@@ -314,3 +314,32 @@ body{background:
   .sales-summary,.expense-summary,.accounting-summary{grid-template-columns:1fr!important}
   .sales-summary>.surface,.expense-summary>.surface,.accounting-summary>.surface{min-height:88px}
 }
+
+/* DalasiPay v0.58 — compact row action menus */
+.row-action-shell{display:flex;align-items:center;justify-content:flex-end;gap:6px;position:relative}
+.row-actions-menu{position:relative}
+.row-actions-menu>summary{
+  list-style:none;min-height:30px;padding:0 9px;border:1px solid var(--border);border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;background:var(--panel);color:var(--text);
+  font-size:10px;font-weight:760;cursor:pointer;user-select:none
+}
+.row-actions-menu>summary::-webkit-details-marker{display:none}
+.row-actions-menu>summary:after{content:"•••";letter-spacing:1px;margin-left:6px;color:var(--muted);font-size:9px}
+.row-actions-menu[open]>summary{border-color:color-mix(in srgb,var(--primary) 26%,var(--border));background:var(--soft-2);color:var(--primary)}
+.row-actions-popover{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:190px;padding:6px;
+  border:1px solid var(--border);border-radius:11px;background:var(--panel);
+  box-shadow:0 16px 40px rgba(8,35,28,.16)
+}
+.row-actions-popover button{
+  width:100%;min-height:34px;padding:0 10px;border:0;border-radius:7px;background:transparent;
+  color:var(--text);display:flex;align-items:center;gap:8px;text-align:left;font-size:10.5px;font-weight:650
+}
+.row-actions-popover button:hover{background:var(--panel-2);color:var(--primary)}
+.row-actions-popover svg{width:13px;height:13px}
+.employee-card td:last-child{overflow:visible}
+.table-scroll{overflow-x:auto;overflow-y:visible}
+@media(max-width:720px){
+  .row-actions-popover{position:fixed;left:14px;right:14px;top:auto;bottom:76px;min-width:0}
+  .row-action-shell{justify-content:flex-start}
+}
