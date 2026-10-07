@@ -313,35 +313,37 @@
     '</div>';
   }
   function receivableModal(state,h){
-    const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),selected=customerById(state,state.receivableCustomerId);
-    const issue=todayIso(),due=selected?customerDueDate(issue,selected.termDays):'';
-    const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'" '+(selected&&selected.id===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(paymentTermsLabel(c.termDays))+'</option>')).join('');
+    const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),selected=customerById(state,state.receivableCustomerId),draft=state.receivableDraft||{};
+    const issue=String(draft.issueDate||todayIso()),due=selected?customerDueDate(issue,selected.termDays):String(draft.dueDate||'');
+    const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'" '+(selected&&selected.id===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(paymentTermsLabel(c.termDays))+'</option>')).concat(['<option value="__add_customer__">＋ Add new customer…</option>']).join('');
     const selectedInfo=selected?'<div class="selected-customer"><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div>':'';
+    const v=(key,fallback='')=>esc(selected&&['customerName','customerEmail','customerPhone','reference'].includes(key)?({customerName:selected.name,customerEmail:selected.email,customerPhone:selected.phone,reference:selected.reference}[key]||fallback):(draft[key]??fallback));
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box sales-document-modal">'+
       '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>Create invoice</h2><p>Build an itemized customer invoice and track the amount due.</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
-      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
+      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+
+      '<div class="invoice-customer-help"><span>Customer not listed?</span><button type="button" data-action="invoice-add-customer">'+icon('plus',12)+' Add customer</button></div>'+selectedInfo+
       '<div class="form-grid">'+
-        field('Customer / client name','<input name="customerName" value="'+esc(selected?.name||'')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
-        field('Invoice number','<input name="invoiceNo" placeholder="Leave blank for automatic number">')+
-        field('Customer email','<input name="customerEmail" type="email" value="'+esc(selected?.email||'')+'" placeholder="accounts@example.com">')+
-        field('Customer phone','<input name="customerPhone" value="'+esc(selected?.phone||'')+'" placeholder="+220 ...">')+
-        field('Issue date','<input name="issueDate" type="date" value="'+issue+'" required>')+
-        field('Due date','<input name="dueDate" type="date" value="'+due+'" required>')+
-        field('Customer reference','<input name="reference" value="'+esc(selected?.reference||'')+'" placeholder="PO, contract or customer reference">')+
-        field('VAT treatment',window.DalasiTax?.salesOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
-        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
-        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
+        field('Customer / client name','<input name="customerName" value="'+v('customerName')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
+        field('Invoice number','<input name="invoiceNo" value="'+v('invoiceNo')+'" placeholder="Leave blank for automatic number">')+
+        field('Customer email','<input name="customerEmail" type="email" value="'+v('customerEmail')+'" placeholder="accounts@example.com">')+
+        field('Customer phone','<input name="customerPhone" value="'+v('customerPhone')+'" placeholder="+220 ...">')+
+        field('Issue date','<input name="issueDate" type="date" value="'+esc(issue)+'" required>')+
+        field('Due date','<input name="dueDate" type="date" value="'+esc(due)+'" required>')+
+        field('Customer reference','<input name="reference" value="'+v('reference')+'" placeholder="PO, contract or customer reference">')+
+        field('VAT treatment',window.DalasiTax?.salesOptions?.(state,draft.taxCode)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
+        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project',draft.project||'')||'<select name="project"><option value="">Unassigned</option></select>')+
+        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre',draft.costCentre||'')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
       '</div>'+
       '<div class="sales-line-note">Choose saved Products & Services or enter custom lines. The invoice total is calculated automatically.</div>'+
-      window.DalasiCatalog.lineItemsForm(state,[])+
-      field('Overall description / note','<input name="description" placeholder="Optional invoice summary">')+
+      window.DalasiCatalog.lineItemsForm(state,draft.lineItems||[])+
+      field('Overall description / note','<input name="description" value="'+v('description')+'" placeholder="Optional invoice summary">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div>'+
     '</form></div>';
   }
   function customerModal(state,h){
     const field=h.field,icon=h.icon;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-customer"></div><form id="customer-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER ACCOUNT</div><h2>Add customer</h2><p>Save a repeat customer for faster invoicing and account tracking.</p></div><button type="button" class="close" data-action="close-customer">×</button></div>'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER ACCOUNT</div><h2>'+(state.customerCreateContext==='invoice'?'Add customer to invoice':'Add customer')+'</h2><p>'+(state.customerCreateContext==='invoice'?'Create the customer here. DalasiPay will select them automatically on the invoice.':'Save a repeat customer for faster invoicing and account tracking.')+'</p></div><button type="button" class="close" data-action="close-customer">×</button></div>'+
       '<div class="form-grid">'+
         field('Customer / business name','<input name="name" placeholder="e.g. Kaira Trading Ltd" required>')+
         field('Contact person','<input name="contact" placeholder="Optional contact name">')+
@@ -401,7 +403,7 @@
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter the customer name.');return;}
     const id='CUS-'+Date.now().toString(36).toUpperCase();state.customers=state.customers||[];
     state.customers.push({id,name,contact:String(fd.get('contact')||'').trim(),email:String(fd.get('email')||'').trim(),phone:String(fd.get('phone')||'').trim(),termDays:Number(fd.get('termDays')||0),creditLimit:Math.max(0,Number(fd.get('creditLimit'))||0),creditStatus:String(fd.get('creditStatus'))==='Hold'?'Hold':'Open',creditNote:'',reference:String(fd.get('reference')||'').trim(),address:String(fd.get('address')||'').trim(),notes:String(fd.get('notes')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.customerOpen=false;ctx.audit('customer.created',{customerId:id,name,termDays:Number(fd.get('termDays')||0)});ctx.save();ctx.toast(name+' added as a customer');ctx.render();
+    const fromInvoice=state.customerCreateContext==='invoice';state.customerOpen=false;state.customerCreateContext=null;if(fromInvoice){state.receivableCustomerId=id;state.receivableOpen=true;}ctx.audit('customer.created',{customerId:id,name,termDays:Number(fd.get('termDays')||0),source:fromInvoice?'invoice':'customer-register'});ctx.save();ctx.toast(fromInvoice?name+' added and selected for this invoice':name+' added as a customer');ctx.render();
   }
   function updateCustomer(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customers.');return;}
@@ -438,7 +440,7 @@
     if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,totals.total,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale')||{taxCode:'OUT',vatRate:0,taxGross:totals.total,taxNet:totals.total,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.customerInvoices=state.customerInvoices||[];
     state.customerInvoices.unshift({id,invoiceNo,customerId:customerId||null,customerName,customerEmail:String(fd.get('customerEmail')||saved?.email||'').trim(),customerPhone:String(fd.get('customerPhone')||saved?.phone||'').trim(),lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved?.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    state.receivableOpen=false;state.receivableCustomerId=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
+    state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerName,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft');ctx.render();
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
