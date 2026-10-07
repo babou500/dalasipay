@@ -7,13 +7,27 @@
   const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
   function allAccounts(state,includeInactive=false){
-    const system=(window.DalasiGeneralLedger?.CHART||[]).map(x=>({code:String(x[0]),name:x[1],type:x[2],system:true,status:'Active'}));
-    const custom=(state.customAccounts||[]).map(x=>({...x,system:false}));
+    const system=(window.DalasiGeneralLedger?.CHART||[]).map(x=>({id:'SYS-'+String(x[0]),code:String(x[0]),name:x[1],type:x[2],system:true,status:'Active',parentCode:null,parentName:null}));
+    const custom=(state.customAccounts||[]).map(x=>({...x,system:false,parentCode:x.parentCode||null,parentName:x.parentName||null}));
     return [...system,...custom].filter(x=>includeInactive||(x.status||'Active')==='Active').sort((a,b)=>String(a.code).localeCompare(String(b.code)));
+  }
+  function parentAccount(state,code){return allAccounts(state,true).find(x=>String(x.code)===String(code||''))||null;}
+  function accountDepth(state,a){
+    let depth=0,p=a,seen=new Set();
+    while(p?.parentCode&&!seen.has(p.parentCode)&&depth<5){seen.add(p.parentCode);p=parentAccount(state,p.parentCode);if(p)depth++;}
+    return depth;
+  }
+  function orderedAccounts(state,includeInactive=false){
+    const rows=allAccounts(state,includeInactive),byParent=new Map();
+    rows.forEach(a=>{const key=a.parentCode||'';if(!byParent.has(key))byParent.set(key,[]);byParent.get(key).push(a);});
+    [...byParent.values()].forEach(list=>list.sort((a,b)=>String(a.code).localeCompare(String(b.code))));
+    const out=[],seen=new Set(),walk=(key,depth=0)=>{(byParent.get(key)||[]).forEach(a=>{if(seen.has(a.code))return;seen.add(a.code);out.push({...a,depth});walk(a.code,depth+1);});};
+    walk('');rows.forEach(a=>{if(!seen.has(a.code))out.push({...a,depth:accountDepth(state,a)});});
+    return out;
   }
   function accountByName(state,name){return allAccounts(state,true).find(x=>x.name===name)||null;}
   function accountOptions(state,selected=''){
-    return '<option value="">Choose account</option>'+allAccounts(state).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc(a.code+' · '+a.name)+'</option>').join('');
+    return '<option value="">Choose account</option>'+orderedAccounts(state).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name)+'</option>').join('');
   }
   function lineRow(state,line={},i=0){
     return '<div class="journal-line" data-journal-line>'+
@@ -92,11 +106,12 @@
   }
   function createAccount(ev,state,ctx){
     ev.preventDefault();if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can add ledger accounts.');return;}
-    const fd=new FormData(ev.target),code=String(fd.get('code')||'').trim(),name=String(fd.get('name')||'').trim(),type=String(fd.get('type')||'Asset');
+    const fd=new FormData(ev.target),code=String(fd.get('code')||'').trim(),name=String(fd.get('name')||'').trim(),parentCode=String(fd.get('parentCode')||'').trim(),parent=parentCode?parentAccount(state,parentCode):null,type=parent?.type||String(fd.get('type')||'Asset');
     if(!/^\d{3,6}$/.test(code)||!name||!TYPES.includes(type)){ctx.toast('Enter a numeric account code, account name and valid account type.');return;}
+    if(parentCode&&!parent){ctx.toast('Choose a valid parent account.');return;}
     const all=allAccounts(state,true);if(all.some(x=>x.code===code)){ctx.toast('That account code already exists.');return;}if(all.some(x=>x.name.toLowerCase()===name.toLowerCase())){ctx.toast('That account name already exists.');return;}
-    const id='ACC-'+Date.now().toString(36).toUpperCase();state.customAccounts=state.customAccounts||[];state.customAccounts.push({id,code,name,type,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.accountOpen=false;ctx.audit('accounting.account_created',{accountId:id,code,name,type});ctx.save();ctx.toast(code+' · '+name+' added');ctx.render();
+    const id='ACC-'+Date.now().toString(36).toUpperCase();state.customAccounts=state.customAccounts||[];state.customAccounts.push({id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    state.accountOpen=false;ctx.audit('accounting.account_created',{accountId:id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null});ctx.save();ctx.toast(code+' · '+name+(parent?' added under '+parent.name:' added'));ctx.render();
   }
   function toggleAccount(id,state,ctx){
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can change ledger accounts.');return;}
@@ -118,11 +133,14 @@
     '</form></div>';
   }
   function accountModal(state,h){
-    const {field,icon}=h;
+    const {field,icon}=h,parents=orderedAccounts(state).filter(a=>(a.status||'Active')==='Active');
+    const parentOptions='<option value="">No parent · top-level account</option>'+parents.map(a=>'<option value="'+esc(a.code)+'">'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name+' · '+a.type)+'</option>').join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-account"></div><form id="ledger-account-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">CHART OF ACCOUNTS</div><h2>Add account</h2><p>Create a custom account for journal adjustments and reporting.</p></div><button type="button" class="close" data-action="close-account">×</button></div>'+
-      '<div class="form-grid">'+field('Account code','<input name="code" inputmode="numeric" placeholder="e.g. 6200" required>')+field('Account type','<select name="type">'+TYPES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+'</div>'+
-      field('Account name','<input name="name" placeholder="e.g. Depreciation Expense" required>')+
+      '<div class="modal-head"><div><div class="eyebrow">CHART OF ACCOUNTS</div><h2>Add account or sub-account</h2><p>Create a top-level ledger account or place a sub-account beneath an existing account.</p></div><button type="button" class="close" data-action="close-account">×</button></div>'+
+      field('Parent account','<select id="ledger-parent-account" name="parentCode">'+parentOptions+'</select>')+
+      '<div class="account-parent-note">If a parent is selected, the new sub-account automatically inherits the parent account type.</div>'+
+      '<div class="form-grid">'+field('Account code','<input name="code" inputmode="numeric" placeholder="e.g. 6010" required>')+field('Account type','<select id="ledger-account-type" name="type">'+TYPES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+'</div>'+
+      field('Account name','<input name="name" placeholder="e.g. Office Rent" required>')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-account">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Add account</button></div>'+
     '</form></div>';
   }
@@ -130,9 +148,9 @@
     const {pageTitle,icon,money2,pill}=h,tab=state.accountingTab||'journals',journals=(state.manualJournals||[]),accounts=allAccounts(state,true);
     const tabs='<div class="accounting-tabs"><button class="'+(tab==='journals'?'active':'')+'" data-action="accounting-tab:journals">Journal entries</button><button class="'+(tab==='accounts'?'active':'')+'" data-action="accounting-tab:accounts">Chart of accounts</button></div>';
     if(tab==='accounts'){
-      const rows=accounts.map(a=>'<tr><td><b>'+esc(a.code)+'</b></td><td><div class="payment-payee"><b>'+esc(a.name)+'</b><small>'+(a.system?'System account':'Custom account')+'</small></div></td><td>'+esc(a.type)+'</td><td>'+pill(a.status||'Active',(a.status||'Active')==='Active'?'ready':'neutral')+'</td><td>'+(a.system?'<span class="bill-no-file">Protected</span>':'<button class="secondary" data-action="account-toggle:'+esc(a.id)+'">'+((a.status||'Active')==='Active'?'Deactivate':'Activate')+'</button>')+'</td></tr>').join('');
+      const rows=orderedAccounts(state,true).map(a=>'<tr class="'+(a.depth?'account-sub-row':'account-parent-row')+'"><td><b>'+esc(a.code)+'</b></td><td><div class="payment-payee account-tree-name" style="--account-depth:'+Math.min(a.depth||0,4)+'"><b>'+(a.depth?'<span class="account-tree-branch">↳</span>':'')+esc(a.name)+'</b><small>'+(a.parentName?'Sub-account of '+esc(a.parentName):(a.system?'System account · parent eligible':'Custom top-level account'))+'</small></div></td><td>'+esc(a.type)+'</td><td>'+pill(a.status||'Active',(a.status||'Active')==='Active'?'ready':'neutral')+'</td><td>'+(a.system?'<span class="bill-no-file">Protected</span>':'<button class="secondary" data-action="account-toggle:'+esc(a.id)+'">'+((a.status||'Active')==='Active'?'Deactivate':'Activate')+'</button>')+'</td></tr>').join('');
       return pageTitle('ACCOUNTING','Accounting','Manage manual journals and the chart of accounts.','<button class="primary" data-action="open-account">'+icon('plus',14)+' Add account</button>')+tabs+
-        '<div class="surface employee-card"><div class="table-tools"><div><h3>Chart of accounts</h3><p>System accounts are protected. Custom accounts can be used in manual journals.</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="accounts-register" placeholder="Search accounts"></label></div></div><div class="table-scroll"><table data-register-table="accounts-register"><thead><tr><th>CODE</th><th>ACCOUNT</th><th>TYPE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+        '<div class="surface employee-card"><div class="table-tools"><div><h3>Chart of accounts</h3><p>Accounts can be organised into parent accounts and sub-accounts. System accounts are protected; custom accounts can be posted to in manual journals.</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="accounts-register" placeholder="Search accounts"></label></div></div><div class="table-scroll"><table data-register-table="accounts-register"><thead><tr><th>CODE</th><th>ACCOUNT</th><th>TYPE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
     }
     const totalPosted=journals.filter(x=>x.status==='Posted').length,totalDraft=journals.filter(x=>x.status==='Draft').length,reversed=journals.filter(x=>x.reversalJournalId).length;
     const rows=journals.length?journals.map(j=>{
@@ -147,5 +165,5 @@
       '<div class="surface employee-card"><div class="table-tools"><div><h3>Manual journal register</h3><p>Adjustments, accruals, depreciation, suspense clearing and accounting corrections</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="journal-register" placeholder="Search journals"></label></div></div><div class="table-scroll"><table data-register-table="journal-register"><thead><tr><th>JOURNAL</th><th>DATE</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
 
-  window.DalasiAccounting={TYPES,allAccounts,accountByName,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,accountModal,render};
+  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,accountModal,render};
 })();
