@@ -75,7 +75,7 @@
         '<div class="surface"><span>Outstanding receivables</span><b>'+money2(m.ar.outstanding)+'</b><small>'+money2(m.ar.overdue)+' overdue</small></div>'+
         '<div class="surface"><span>Outstanding payables</span><b>'+money2(m.payable)+'</b><small>'+money2(m.overduePayable)+' overdue</small></div>'+
       '</div>'+
-      '<div class="business-report-grid">'+reports.map(r=>'<article class="surface business-report-card"><span class="business-report-icon">'+icon(r[3],18)+'</span><div><b>'+esc(r[1])+'</b><p>'+esc(r[2])+'</p></div><button class="secondary" data-action="business-report-export:'+r[0]+'">CSV</button></article>').join('')+'</div>'+
+      '<div class="business-report-grid">'+reports.map(r=>'<article class="surface business-report-card"><span class="business-report-icon">'+icon(r[3],18)+'</span><div><b>'+esc(r[1])+'</b><p>'+esc(r[2])+'</p></div><div class="report-card-actions"><button class="primary tiny" data-action="business-report-view:'+r[0]+'">View</button><button class="secondary tiny" data-action="business-report-export:'+r[0]+'">CSV</button></div></article>').join('')+'</div>'+
       (window.DalasiProfitLoss?window.DalasiProfitLoss.panel(state,{money2,esc,icon}):'')+
       (window.DalasiBalanceSheet?window.DalasiBalanceSheet.panel(state,{money2,esc,icon}):'')+
       (window.DalasiGeneralLedger?window.DalasiGeneralLedger.panel(state,{money2,esc,icon}):'')+
@@ -87,6 +87,71 @@
       '</div>'+
       '<section class="surface business-customer-report"><div class="card-head"><div><h3>Largest customer balances</h3><p>Open balances by saved customer</p></div><button class="secondary" data-action="business-report-export:customer-balances">Export CSV</button></div>'+
         (topCustomers.length?'<div class="table-scroll"><table><thead><tr><th>CUSTOMER</th><th>INVOICED</th><th>COLLECTED</th><th>OUTSTANDING</th><th>OVERDUE</th><th>TERMS</th></tr></thead><tbody>'+topCustomers.map(x=>'<tr><td><b>'+esc(x.name)+'</b></td><td>'+money2(x.invoiced)+'</td><td>'+money2(x.collected)+'</td><td><b>'+money2(x.outstanding)+'</b></td><td>'+money2(x.overdue)+'</td><td>'+(x.terms?'Net '+x.terms:'Due on receipt')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty-inline">No saved customer balances yet.</div>')+'</section>';
+  }
+  function reportTitle(kind){
+    const map={
+      'business-summary':'Business summary','profit-loss':'Profit & Loss','balance-sheet':'Balance Sheet','cash-flow-statement':'Cash Flow Statement','vat-return':'VAT return working paper',
+      'accounts-receivable':'Accounts receivable','accounts-payable':'Accounts payable','customer-balances':'Customer balances','expense-register':'Expense register','purchase-orders':'Purchase orders','inventory-summary':'Inventory valuation',
+      'trial-balance':'Trial Balance','general-ledger':'General Ledger','cash-bank-register':'Cash & Bank register','bank-reconciliations':'Bank reconciliations','fixed-assets':'Fixed asset register',
+      'budget-vs-actual':'Budget vs Actual','project-profitability':'Project profitability','cost-centre-performance':'Cost centre performance','loan-register':'Loans & Debt','month-end-close':'Month-End Close','year-end-close':'Year-End Close',
+      'customer-debit-notes':'Customer debit notes','customer-credit-notes':'Customer credit notes','supplier-debit-notes':'Supplier debit notes','supplier-credit-notes':'Supplier credit notes',
+      'receivables-aging':'Receivables ageing','credit-control':'Credit control register','payables-aging':'Payables ageing','revenue-register':'Revenue register','incoming-payments':'Incoming payments','outgoing-payments':'Outgoing payments',
+      'recurring-commitments':'Recurring commitments','product-margin':'Product gross margin','inventory-movements':'Inventory movements','cash-forecast':'Cash Forecast'
+    };return map[kind]||String(kind||'Report').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+  }
+  function previewTable(headers,rows,esc){
+    const head='<thead><tr>'+headers.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead>';
+    const body=rows.length?rows.map(r=>'<tr>'+r.map((x,i)=>'<td'+(i===0?' class="report-key-cell"':'')+'>'+x+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+headers.length+'"><div class="empty-inline">No records available for this report.</div></td></tr>';
+    return '<div class="table-scroll"><table class="report-preview-table">'+head+'<tbody>'+body+'</tbody></table></div>';
+  }
+  function viewReport(kind,state,h){
+    const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='profit-loss'&&window.DalasiProfitLoss)return window.DalasiProfitLoss.panel(state,h);
+    if(kind==='balance-sheet'&&window.DalasiBalanceSheet)return window.DalasiBalanceSheet.panel(state,h);
+    if(kind==='business-summary'){
+      return '<div class="report-preview-kpis"><div><span>Revenue</span><b>'+money2(m.pnl?.revenue||0)+'</b></div><div><span>Net profit</span><b>'+money2(m.pnl?.netProfit||0)+'</b></div><div><span>Receivables</span><b>'+money2(m.ar.outstanding||0)+'</b></div><div><span>Payables</span><b>'+money2(m.payable||0)+'</b></div><div><span>Cash</span><b>'+money2(m.cashBank?.total||0)+'</b></div><div><span>Inventory</span><b>'+money2(m.inventory?.value||0)+'</b></div></div>';
+    }
+    if(kind==='cash-flow-statement'&&window.DalasiCashFlow){
+      const s=window.DalasiCashFlow.statement(state,state.cashStatementPeriod||state.currentPeriod),rows=[];
+      ['Operating','Investing','Financing'].forEach(k=>{rows.push(['<b>'+k+' activities</b>',money2(s.sections[k].net)]);s.sections[k].rows.forEach(x=>rows.push([esc(x.label),money2(x.net)]));});
+      rows.push(['<b>Net change in cash</b>','<b>'+money2(s.net)+'</b>'],['Opening cash',money2(s.opening)],['<b>Closing cash</b>','<b>'+money2(s.closing)+'</b>']);
+      return '<div class="report-preview-kpis"><div><span>Opening cash</span><b>'+money2(s.opening)+'</b></div><div><span>Net movement</span><b>'+money2(s.net)+'</b></div><div><span>Closing cash</span><b>'+money2(s.closing)+'</b></div><div><span>Reconciled</span><b>'+s.reconPct+'%</b></div></div>'+previewTable(['Cash flow line','Amount'],rows,esc);
+    }
+    if(kind==='vat-return'&&window.DalasiTax){
+      const s=window.DalasiTax.returnSummary(state,state.taxPeriod||state.currentPeriod);
+      const rows=[['Standard-rated sales · net',money2(s.stdSalesNet)],['Standard-rated sales · gross',money2(s.stdSalesGross)],['Zero-rated sales',money2(s.zeroSales)],['Exempt sales',money2(s.exemptSales)],['Output VAT',money2(s.totalOutput)],['Recoverable input VAT',money2(s.totalInput)],['Net VAT',money2(s.netVat)],['Payments recorded',money2(s.payments)],['Outstanding',money2(s.outstanding)]];
+      return '<div class="report-preview-kpis"><div><span>Output VAT</span><b>'+money2(s.totalOutput)+'</b></div><div><span>Input VAT</span><b>'+money2(s.totalInput)+'</b></div><div><span>Net VAT</span><b>'+money2(s.netVat)+'</b></div><div><span>Due date</span><b>'+esc(s.dueDate||'—')+'</b></div></div>'+previewTable(['VAT working paper','Amount'],rows,esc);
+    }
+    if(kind==='accounts-receivable'){
+      const rows=(state.customerInvoices||[]).filter(x=>(window.DalasiSalesInvoices?.status?.(state,x)||x.status)!=='Draft').map(x=>[esc(x.invoiceNo||x.id),esc(x.customerName||''),esc(x.dueDate||''),money2(window.DalasiReturns?.invoiceBalance?.(state,x)??x.amount),esc(window.DalasiSalesInvoices?.status?.(state,x)||x.status||'')]);
+      return previewTable(['Invoice','Customer','Due','Balance','Status'],rows,esc);
+    }
+    if(kind==='accounts-payable'){
+      const rows=(state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').map(x=>[esc(x.invoiceNo||x.id),esc(x.supplier||''),esc(x.dueDate||''),money2(window.DalasiReturns?.billBalance?.(state,x)??x.amount),esc(x.status||'')]);
+      return previewTable(['Bill','Supplier','Due','Balance','Status'],rows,esc);
+    }
+    if(kind==='customer-balances'){
+      const rows=customerRows(state).map(x=>[esc(x.name),money2(x.invoiced),money2(x.collected),money2(x.outstanding),money2(x.overdue),x.terms?'Net '+x.terms:'Due on receipt']);
+      return previewTable(['Customer','Invoiced','Collected','Outstanding','Overdue','Terms'],rows,esc);
+    }
+    if(kind==='expense-register'){
+      const rows=(state.businessExpenses||[]).map(x=>[esc(x.expenseNo||x.id),esc(x.merchant||''),esc(x.category||''),esc(x.expenseDate||''),money2(x.amount),esc(x.status||'')]);
+      return previewTable(['Ref','Merchant','Category','Date','Amount','Status'],rows,esc);
+    }
+    if(kind==='purchase-orders'){
+      const rows=(state.purchaseOrders||[]).map(x=>[esc(x.poNumber||x.id),esc(x.supplierName||''),esc(x.requiredDate||''),money2(x.amount),esc(x.status||'')]);
+      return previewTable(['PO','Supplier','Required','Amount','Status'],rows,esc);
+    }
+    if(kind==='inventory-summary'){
+      const rows=(state.salesCatalog||[]).filter(x=>x.type==='Product').map(x=>{const v=window.DalasiInventory?.valuation?.(state,x)||{quantity:x.stockOnHand||0,unitCost:x.costPrice||0,value:(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)};return [esc(x.code||x.id),esc(x.name),String(v.quantity||0),money2(v.unitCost||0),money2(v.value||0),String(x.reorderLevel||0)];});
+      return previewTable(['Code','Product','On hand','Unit cost','Stock value','Reorder level'],rows,esc);
+    }
+    const routeMap={'trial-balance':'accounting','general-ledger':'accounting','cash-bank-register':'cashbank','bank-reconciliations':'cashbank','fixed-assets':'assets','budget-vs-actual':'budgets','project-profitability':'projects','cost-centre-performance':'projects','loan-register':'loans','month-end-close':'accounting','year-end-close':'accounting','customer-debit-notes':'debits','customer-credit-notes':'returns','supplier-debit-notes':'debits','supplier-credit-notes':'returns','receivables-aging':'credit','credit-control':'credit','payables-aging':'credit','revenue-register':'invoices','incoming-payments':'invoices','outgoing-payments':'payments','recurring-commitments':'payments','product-margin':'inventory','inventory-movements':'inventory','cash-forecast':'cashflow'};
+    return '<div class="report-preview-empty"><span>'+icon('reports',22)+'</span><h3>'+esc(title)+'</h3><p>This report is available as an interactive working view in its source module. Open it there to review the live underlying records before exporting.</p>'+(routeMap[kind]?'<button class="primary" data-action="report-open-module:'+routeMap[kind]+'">Open detailed view</button>':'')+'</div>';
+  }
+  function reportModal(state,h){
+    const kind=state.businessReportView;if(!kind)return '';
+    return '<div class="report-viewer-wrap"><div class="modal-scrim" data-action="business-report-close"></div><section class="report-viewer"><div class="report-viewer-head"><div><div class="eyebrow">ON-SCREEN REPORT</div><h2>'+h.esc(reportTitle(kind))+'</h2><p>Review live DalasiPay data before downloading or printing.</p></div><button class="close" data-action="business-report-close">×</button></div><div class="report-viewer-toolbar"><button class="secondary" data-action="report-print">'+h.icon('print',14)+' Print</button><button class="secondary" data-action="business-report-export:'+h.esc(kind)+'">'+h.icon('download',14)+' Export CSV</button></div><div class="report-viewer-body">'+viewReport(kind,state,h)+'</div></section></div>';
   }
   function csvEscape(v){const s=String(v??'');return /[\",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
   function rowsToCsv(headers,rows){return [headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');}
@@ -146,5 +211,5 @@
     }else{return}
     ctx.downloadText('dalasipay-'+name+'-'+today+'.csv',csv);ctx.toast('Business report downloaded');
   }
-  window.DalasiBusinessReports={render,tabs,exportReport,metrics};
+  window.DalasiBusinessReports={render,tabs,exportReport,metrics,viewReport,reportModal,reportTitle};
 })();
