@@ -93,6 +93,19 @@
   function periods(state){
     const set=new Set((state.periods||[]).map(x=>x.id));(state.inventoryMovements||[]).forEach(x=>{const p=periodOf(x.revenueDate||x.movementDate||x.createdAt);if(p)set.add(p)});(state.customerInvoices||[]).forEach(x=>{const p=periodOf(x.issueDate);if(p)set.add(p)});if(state.currentPeriod)set.add(state.currentPeriod);return [...set].sort().reverse();
   }
+  function reorderRows(state){
+    return (state.salesCatalog||[]).filter(p=>p.type==='Product'&&(p.status||'Active')==='Active').map(p=>{
+      const onHand=Math.max(0,Number(p.stockOnHand)||0),level=Math.max(0,Number(p.reorderLevel)||0);
+      if(level<=0||onHand>level)return null;
+      const target=Math.max(level,onHand,level*2),suggested=round(Math.max(0,target-onHand));
+      return {id:p.id,code:p.code||p.id,name:p.name,onHand,level,target,suggested,unit:p.unit||'Unit',unitCost:Math.max(0,Number(p.costPrice)||0),estimated:round(suggested*Math.max(0,Number(p.costPrice)||0)),severity:onHand<=0?'Out of stock':onHand<=level*.5?'Critical':'Low'};
+    }).filter(Boolean).sort((a,b)=>{const rank={'Out of stock':3,'Critical':2,'Low':1};return rank[b.severity]-rank[a.severity]||a.onHand-b.onHand});
+  }
+  function reorderPanel(state,h){
+    const rows=reorderRows(state),money2=h.money2,icon=h.icon,total=round(rows.reduce((a,x)=>a+x.estimated,0));
+    const table=rows.length?rows.map(x=>'<tr><td><div class="payment-payee"><b>'+esc(x.name)+'</b><small>'+esc(x.code)+'</small></div></td><td>'+x.onHand.toLocaleString('en-GB')+' '+esc(x.unit)+'</td><td>'+x.level.toLocaleString('en-GB')+'</td><td><b>'+x.suggested.toLocaleString('en-GB')+' '+esc(x.unit)+'</b><small class="table-sub">target '+x.target.toLocaleString('en-GB')+'</small></td><td>'+money2(x.estimated)+'</td><td><span class="inventory-severity '+(x.severity==='Out of stock'?'bad':x.severity==='Critical'?'warn':'low')+'">'+esc(x.severity)+'</span></td><td><button class="primary tiny" data-action="inventory-reorder:'+esc(x.id)+'">'+icon('plus',12)+' Create PO</button></td></tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No active product is at or below its reorder level.</div></td></tr>';
+    return '<section class="surface employee-card inventory-reorder"><div class="table-tools"><div><h3>Reorder recommendations</h3><p>Low-stock products ready for purchasing action</p></div><div class="inventory-reorder-total"><span>Estimated replenishment</span><b>'+money2(total)+'</b></div></div><div class="inventory-reorder-note"><b>Suggested quantity:</b> replenishes stock to twice the reorder level. You can change quantity and supplier before saving the purchase order.</div><div class="table-scroll"><table><thead><tr><th>PRODUCT</th><th>ON HAND</th><th>REORDER LEVEL</th><th>SUGGESTED ORDER</th><th>EST. COST</th><th>PRIORITY</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></section>';
+  }
   function exportValuation(state,ctx){
     const rows=[['Code','Product','Method','Stock On Hand','Valuation Unit Cost','Stock Value','Reorder Level','Status']];
     (state.salesCatalog||[]).filter(x=>x.type==='Product').forEach(p=>{const v=valuation(state,p);rows.push([p.code||p.id,p.name,method(p),v.quantity,v.unitCost,v.value,p.reorderLevel||0,p.status||'Active']);});
@@ -107,10 +120,11 @@
     return pageTitle('INVENTORY ACCOUNTING','Inventory','Stock valuation, costing methods, ageing, gross margin and movement reconciliation.','<div class="inline-buttons"><button class="secondary" data-action="inventory-export">'+icon('download',14)+' Valuation CSV</button><button class="primary" data-page="invoices">'+icon('plus',14)+' Products & Services</button></div>')+
       '<div class="inventory-kpis"><div class="surface"><span>Inventory value</span><b>'+money2(sum.value)+'</b><small>movement-aware valuation</small></div><div class="surface"><span>Products</span><b>'+sum.products+'</b><small>'+sum.active+' active</small></div><div class="surface '+(sum.low?'inventory-alert':'')+'"><span>Low stock</span><b>'+sum.low+'</b><small>at or below reorder level</small></div><div class="surface '+(rec.exceptions?'inventory-alert':'')+'"><span>Reconciliation exceptions</span><b>'+rec.exceptions+'</b><small>catalog vs movement quantity</small></div></div>'+
       '<div class="payment-notice"><span>'+icon('reports',17)+'</span><div><b>Historical costs stay historical</b><p>New receipts store their own unit cost and cost amount. Weighted-average products update average cost after receipts; FIFO products consume the oldest remaining cost layers when stock is issued.</p></div></div>'+
+      reorderPanel(state,h)+
       '<section class="surface employee-card inventory-valuation"><div class="table-tools"><div><h3>Stock valuation</h3><p>Current quantity and cost value by product</p></div></div><div class="table-scroll"><table><thead><tr><th>PRODUCT</th><th>COSTING</th><th>ON HAND</th><th>VALUATION COST</th><th>STOCK VALUE</th><th>AGED 91+ DAYS</th><th>REORDER</th></tr></thead><tbody>'+valRows+'</tbody></table></div></section>'+
       '<section class="surface employee-card inventory-margin"><div class="table-tools"><div><h3>Product gross margin</h3><p>Recognized product revenue versus recorded sales-issue COGS</p></div><select id="inventory-period-select">'+opts+'</select></div><div class="table-scroll"><table><thead><tr><th>PRODUCT</th><th>QTY SOLD</th><th>REVENUE</th><th>COGS</th><th>GROSS PROFIT</th><th>MARGIN</th></tr></thead><tbody>'+marginRows+'</tbody></table></div></section>'+
       '<section class="surface employee-card inventory-recon"><div class="table-tools"><div><h3>Stock reconciliation</h3><p>Catalog quantity must equal cumulative movement quantity</p></div></div><div class="table-scroll"><table><thead><tr><th>CODE</th><th>PRODUCT</th><th>CATALOG QTY</th><th>MOVEMENT QTY</th><th>DIFFERENCE</th></tr></thead><tbody>'+recRows+'</tbody></table></div></section>';
   }
 
-  window.DalasiInventory={method,movements,unitCostOf,fifoLayers,fifoIssueCost,issueCost,valuation,summary,ageing,productMargins,reconciliation,periodStatus,periods,exportValuation,render};
+  window.DalasiInventory={method,movements,unitCostOf,fifoLayers,fifoIssueCost,issueCost,valuation,summary,ageing,productMargins,reconciliation,periodStatus,periods,reorderRows,reorderPanel,exportValuation,render};
 })();
