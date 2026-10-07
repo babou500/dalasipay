@@ -18,3 +18,11 @@
 .journal-diff{background:var(--warn-bg)!important;color:var(--warn)!important}.journal-diff.ok{background:var(--soft)!important;color:var(--good)!important}
 @media(max-width:900px){.accounting-summary{grid-template-columns:1fr 1fr}.journal-head{display:none}.journal-line{grid-template-columns:1fr 1fr}.journal-line .journal-remove{grid-column:2;justify-self:end}.journal-modal{width:min(680px,96vw)}}
 @media(max-width:520px){.accounting-summary{grid-template-columns:1fr}.accounting-tabs{width:100%}.journal-line{grid-template-columns:1fr}.journal-line .journal-remove{grid-column:1}.journal-totals{display:grid;grid-template-columns:1fr}.journal-totals>span{min-width:0}}
+/* Chart of accounts hierarchy */
+.account-parent-note{margin:-6px 0 12px;padding:9px 11px;border:1px dashed var(--border);border-radius:9px;background:var(--panel-2);font-size:9.5px;line-height:1.45;color:var(--muted)}
+.account-tree-name{padding-left:calc(var(--account-depth,0) * 18px)}
+.account-tree-name>b{display:flex;align-items:center;gap:6px}
+.account-tree-branch{color:var(--primary);font-weight:900}
+.account-sub-row td{background:color-mix(in srgb,var(--panel-2) 62%,var(--panel))}
+.account-parent-row td:first-child b{color:var(--primary)}
+#ledger-account-type:disabled{opacity:.75;background:var(--panel-2);cursor:not-allowed}
