@@ -5,7 +5,7 @@
     ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1160','Supplier Refund Receivable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
     ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2070','Customer Refunds Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
-    ['4000','Sales Revenue','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
+    ['4000','Sales Revenue','Revenue'],['4010','Sales Discounts','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
     ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
   ];
   const ACCOUNT=Object.fromEntries(CHART.map(x=>[x[1],{code:x[0],name:x[1],type:x[2]}]));
@@ -55,15 +55,20 @@
       ]);
     });
 
-    // Issued invoices
+    // Issued invoices. Discounts are posted separately as contra-revenue.
     (state.customerInvoices||[]).forEach(inv=>{
       if(invoiceStatus(state,inv)==='Draft')return;
       const amt=round(inv.amount);if(!amt)return;
+      const discountGross=round(inv.discountTotal||0);
+      const subtotalGross=round(inv.subtotal||((Number(inv.amount)||0)+discountGross));
       const tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:amt,vatAmount:0};
+      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,inv.taxCode||'OUT','sale')||{taxNet:subtotalGross,vatAmount:0};
+      const salesDiscount=round(Math.max(0,(Number(preDiscountTax.taxNet)||subtotalGross)-(Number(tax.taxNet)||amt)));
       pushJournal(out,'INV-'+inv.id,inv.issueDate||inv.createdAt,inv.invoiceNo||inv.id,'Customer invoice',[
         {account:'Accounts Receivable',debit:amt,memo:inv.customerName||''},
-        {account:'Sales Revenue',credit:round(tax.taxNet),memo:inv.description||'Customer invoice'},
-        {account:'VAT Output Payable',credit:round(tax.vatAmount),memo:tax.vatAmount?'Output VAT included in invoice total':''}
+        {account:'Sales Discounts',debit:salesDiscount,memo:salesDiscount?'Invoice discount':''},
+        {account:'Sales Revenue',credit:round(preDiscountTax.taxNet),memo:inv.description||'Customer invoice'},
+        {account:'VAT Output Payable',credit:round(tax.vatAmount),memo:tax.vatAmount?'Output VAT on discounted invoice value':''}
       ]);
     });
 
