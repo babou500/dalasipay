@@ -400,3 +400,27 @@ body{background:
   .record-facts{grid-template-columns:1fr}.record-drawer-actions{padding:11px 14px}
   .customer-account-modal .modal-box{width:100%}
 }
+
+/* DalasiPay v0.60 — register search controls */
+.register-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.register-search{
+  min-width:220px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--panel);
+  display:flex;align-items:center;gap:7px;padding:0 9px;color:var(--muted)
+}
+.register-search svg{width:13px;height:13px;flex:none}
+.register-search input{
+  min-height:0;height:100%;padding:0;border:0!important;background:transparent!important;
+  box-shadow:none!important;font-size:10.5px;color:var(--text);width:100%
+}
+.register-search input:focus{box-shadow:none!important}
+.register-search:focus-within{border-color:color-mix(in srgb,var(--primary) 38%,var(--border));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 7%,transparent)}
+[data-register-table] tbody tr[hidden]{display:none}
+@media(max-width:760px){
+  .register-tools{width:100%;justify-content:stretch}
+  .register-search{min-width:0;flex:1}
+}
+@media(max-width:520px){
+  .register-tools{display:grid;grid-template-columns:1fr}
+  .register-search{width:100%}
+  .register-tools>.primary,.register-tools>.secondary,.register-tools>.inline-buttons{width:100%}
+}
