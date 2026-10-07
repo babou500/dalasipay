@@ -952,3 +952,62 @@ body{background:
   .report-category-tabs{padding-left:10px;padding-right:10px}
   .report-library .business-report-grid{padding:7px 9px 12px}
 }
+
+/* DalasiPay v0.71 — DalasiPay Pulse */
+.dalasipay-pulse{
+  margin:14px 0;padding:0;border-radius:16px;overflow:hidden;
+  background:
+    radial-gradient(circle at top right,color-mix(in srgb,var(--primary) 10%,transparent),transparent 34%),
+    linear-gradient(145deg,var(--panel),color-mix(in srgb,var(--panel-2) 56%,var(--panel)));
+}
+.pulse-head{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:16px 17px;border-bottom:1px solid var(--border)
+}
+.pulse-brand{display:flex;align-items:center;gap:11px;min-width:0}
+.pulse-mark{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto;
+  background:linear-gradient(145deg,var(--primary),color-mix(in srgb,var(--primary) 74%,#000));
+  color:#fff;box-shadow:0 8px 22px color-mix(in srgb,var(--primary) 16%,transparent)
+}
+.pulse-brand h3{font-size:15px;letter-spacing:-.25px;margin:2px 0 1px}
+.pulse-brand p{font-size:9.6px;color:var(--muted);margin:0}
+.pulse-status{
+  min-height:29px;padding:0 9px;border:1px solid var(--border);border-radius:999px;
+  display:flex;align-items:center;gap:7px;background:var(--panel);font-size:9px;font-weight:800;white-space:nowrap
+}
+.pulse-status i{width:7px;height:7px;border-radius:50%}
+.pulse-status.urgent i{background:#c84f48;box-shadow:0 0 0 4px rgba(200,79,72,.1)}
+.pulse-status.watch i{background:#c58a2a;box-shadow:0 0 0 4px rgba(197,138,42,.1)}
+.pulse-status.good i{background:#2c8b6d;box-shadow:0 0 0 4px rgba(44,139,109,.1)}
+.pulse-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px
+}
+.pulse-insight{
+  min-height:164px;padding:13px;border:1px solid var(--border);border-radius:12px;
+  background:color-mix(in srgb,var(--panel) 94%,transparent);display:flex;flex-direction:column
+}
+.pulse-insight.urgent{border-color:color-mix(in srgb,#c84f48 30%,var(--border));background:color-mix(in srgb,#fdeceb 34%,var(--panel))}
+.pulse-insight.watch{border-color:color-mix(in srgb,#c58a2a 28%,var(--border));background:color-mix(in srgb,#fff3df 28%,var(--panel))}
+.pulse-insight.good{border-color:color-mix(in srgb,#2c8b6d 22%,var(--border))}
+.pulse-insight-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}
+.pulse-insight-icon{
+  width:29px;height:29px;border-radius:9px;background:var(--soft-2);color:var(--primary);display:grid;place-items:center
+}
+.pulse-insight.urgent .pulse-insight-icon{background:#fde7e5;color:#ad403a}
+.pulse-insight.watch .pulse-insight-icon{background:#fff0d3;color:#a56c15}
+.pulse-insight-top small{font-size:7.8px;letter-spacing:.1em;color:var(--muted);font-weight:850}
+.pulse-insight>b{font-size:11px;line-height:1.35;letter-spacing:-.1px}
+.pulse-insight>p{font-size:9px;line-height:1.5;color:var(--muted);margin:6px 0 10px}
+.pulse-insight>button{
+  margin-top:auto;align-self:flex-start;border:0;background:transparent;color:var(--primary);
+  padding:0;font-size:9.2px;font-weight:820;display:flex;align-items:center;gap:3px
+}
+:root[data-theme="dark"] .pulse-insight.urgent{background:color-mix(in srgb,#5f2d29 22%,var(--panel))}
+:root[data-theme="dark"] .pulse-insight.watch{background:color-mix(in srgb,#5a431f 20%,var(--panel))}
+@media(max-width:1180px){.pulse-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){
+  .pulse-head{align-items:flex-start;flex-direction:column}
+  .pulse-grid{grid-template-columns:1fr}
+  .pulse-insight{min-height:0}
+}
