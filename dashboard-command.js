@@ -87,6 +87,30 @@
       (items.length>7?'<div class="agenda-more">Showing the next 7 of '+items.length+' scheduled items.</div>':'')+
     '</section>';
   }
+  function story(state,h,data){
+    const {money2,esc,icon,periodLabel}=h,{ar,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet}=data;
+    const prev=previousPeriod(state.currentPeriod),prevSales=sum((state.customerInvoices||[]).filter(x=>String(x.issueDate||x.createdAt||'').slice(0,7)===prev),x=>x.amount);
+    const pnl=window.DalasiProfitLoss?.statement?.(state,state.currentPeriod)||null;
+    const prevPnl=prev&&window.DalasiProfitLoss?.statement?.(state,prev)||null;
+    const salesDelta=prevSales?Math.round((salesThisPeriod-prevSales)/prevSales*100):null;
+    const profitDelta=prevPnl&&Math.abs(prevPnl.netProfit)>.004?Math.round(((pnl?.netProfit||0)-prevPnl.netProfit)/Math.abs(prevPnl.netProfit)*100):null;
+    const sentences=[];
+    if(salesDelta===null)sentences.push('Sales for '+periodLabel(state.currentPeriod)+' stand at '+money2(salesThisPeriod)+'.');
+    else sentences.push('Sales are '+(salesDelta>=0?'up ':'down ')+Math.abs(salesDelta)+'% from last month, at '+money2(salesThisPeriod)+'.');
+    if(pnl)sentences.push((pnl.netProfit>=0?'The business is profitable at ':'The business is currently loss-making at ')+money2(pnl.netProfit)+' net '+(pnl.netProfit>=0?'profit':'loss')+', with a '+Number(pnl.netMargin||0).toFixed(1)+'% net margin.');
+    if(ar.overdue>0)sentences.push(money2(ar.overdue)+' of receivables is overdue, making collections the clearest working-capital pressure.');
+    else if(ar.outstanding>0)sentences.push('Receivables of '+money2(ar.outstanding)+' are currently open with no overdue balance detected.');
+    const obligations=billOutstanding+(state.payrollStatus==='Paid'?0:payrollNet);
+    if(obligations>0)sentences.push('Available cash of '+money2(cashBalance)+' covers '+(cashBalance/obligations).toFixed(1)+'× open bills'+(state.payrollStatus==='Paid'?'':' and the current payroll')+'.');
+    if(inv.low>0)sentences.push(inv.low+' product'+(inv.low===1?' is':'s are')+' at or below reorder level.');
+    const changes=[
+      {label:'Sales vs prior month',value:salesDelta===null?'New baseline':(salesDelta>=0?'+':'')+salesDelta+'%',tone:salesDelta===null?'neutral':salesDelta>=0?'good':'watch'},
+      {label:'Net margin',value:pnl?Number(pnl.netMargin||0).toFixed(1)+'%':'—',tone:!pnl?'neutral':pnl.netProfit<0?'urgent':pnl.netMargin<10?'watch':'good'},
+      {label:'Overdue receivables',value:money2(ar.overdue||0),tone:ar.overdue>0?'watch':'good'},
+      {label:'Low stock',value:String(inv.low||0),tone:inv.low>0?'watch':'good'}
+    ];
+    return '<section class="surface dalasipay-story"><div class="story-head"><div class="story-brand"><span>'+icon('file',16)+'</span><div><span class="eyebrow">DALASIPAY STORY</span><h3>'+esc(periodLabel(state.currentPeriod))+' in one minute</h3><p>A plain-language executive summary built from your live records.</p></div></div><button class="secondary tiny" data-action="business-report-view:business-summary">'+icon('eye',12)+' Open summary</button></div><div class="story-body"><div class="story-narrative">'+sentences.slice(0,5).map((s,i)=>'<p><span>'+String(i+1).padStart(2,'0')+'</span>'+esc(s)+'</p>').join('')+'</div><div class="story-changes">'+changes.map(x=>'<div class="'+x.tone+'"><span>'+esc(x.label)+'</span><b>'+esc(x.value)+'</b></div>').join('')+'</div></div></section>';
+  }
   function render(state,h){
     const icon=h.icon,money2=h.money2,esc=h.esc,pageTitle=h.pageTitle,periodLabel=h.periodLabel,shortPeriod=h.shortPeriod,periodControls=h.periodControls,pill=h.pill;
     const payroll=h.payrollCalc(),t=payroll.totals,active=(state.employees||[]).filter(e=>e.status==='Active').length;
@@ -128,6 +152,7 @@
     html+='<div class="surface business-health-strip"><div class="health-title"><span class="eyebrow">BUSINESS HEALTH</span><b>'+(healthFlags.length?healthFlags.length+' item'+(healthFlags.length===1?'':'s')+' need attention':'No urgent exceptions')+'</b></div><div class="health-items">'+(healthFlags.length?healthFlags.slice(0,4).map(x=>'<button data-page="'+x.page+'"><span>'+x.label+'</span><b>'+x.value+'</b>'+icon('chevron',13)+'</button>').join(''):'<div class="health-clear">'+icon('check',15)+' Core cash, collections, stock and payroll checks are clear.</div>')+'</div></div>';
     html+=pulse(state,h,{ar,overdueBills,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
     html+=agenda(state,h);
+    html+=story(state,h,{ar,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
     html+='<div class="surface payroll-summary-strip"><div><span class="eyebrow">'+periodLabel(state.currentPeriod).toUpperCase()+' PAYROLL</span><b>'+(state.payrollStatus==='Ready'?'Ready for approval':esc(state.payrollStatus))+'</b></div><div><small>Gross payroll</small><strong>'+money2(t.gross)+'</strong></div><div><small>Employer cost</small><strong>'+money2(t.employerCost)+'</strong></div><button class="secondary" data-page="payroll">'+(state.payrollStatus==='Ready'?'Review payroll':'Open payroll')+' '+icon('chevron',14)+'</button></div>';
     return html;
   }
