@@ -172,7 +172,7 @@
   }
   function invoiceAction(state,inv,icon){
     const s=status(state,inv),invoice='<button data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>',view='<button data-action="invoice-view:'+inv.id+'">View details</button>';
-    if(s==='Draft')return actionMenu('<button class="secondary tiny" data-action="invoice-view:'+inv.id+'">View</button>',[invoice,'<button data-action="receivable-send:'+inv.id+'">Mark sent</button>']);
+    if(s==='Draft')return actionMenu('<button class="primary tiny" data-action="receivable-send:'+inv.id+'">'+icon('check',13)+' Approve & send</button>',[view,invoice]);
     const remainingCredit=window.DalasiReturns?.invoiceRemainingCredit?.(state,inv)??(Number(inv.amount)||0),extras=[view,invoice];
     if(remainingCredit>.004)extras.push('<button data-action="credit-invoice:'+inv.id+'">Create credit note</button>');
     extras.push('<button data-action="debit-invoice:'+inv.id+'">Create debit note</button>');
@@ -191,7 +191,7 @@
     const payments=paymentsFor(state,inv.id).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||'')));
     const timeline=[
       {label:'Invoice created',at:inv.createdAt,by:inv.createdBy},
-      inv.sentAt?{label:'Marked sent',at:inv.sentAt,by:inv.sentBy}:null,
+      inv.sentAt?{label:'Approved & sent',at:inv.sentAt,by:inv.sentBy}:null,
       ...payments.map(x=>({label:'Payment '+(x.receiptNumber||x.id)+' · '+money2(x.amount),at:x.receivedDate||x.createdAt,by:x.createdBy})),
       inv.fulfilledAt?{label:'Order fulfilled / stock issued',at:inv.fulfilledAt,by:inv.fulfilledBy}:null
     ].filter(Boolean).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
@@ -207,7 +207,7 @@
       '<section class="record-section"><div class="record-section-head"><b>Invoice lines</b><span>'+lines.length+' item'+(lines.length===1?'':'s')+'</span></div><div class="record-lines">'+lineRows+'</div></section>'+
       '<section class="record-section"><div class="record-section-head"><b>Payment history</b><span>'+payments.length+' payment'+(payments.length===1?'':'s')+'</span></div><div class="invoice-payment-list">'+paymentRows+'</div></section>'+
       '<section class="record-section"><div class="record-section-head"><b>Activity</b><span>'+timeline.length+' event'+(timeline.length===1?'':'s')+'</span></div><div class="record-timeline">'+(timeline.length?timeline.map(x=>'<div><i></i><span><b>'+esc(x.label)+'</b><small>'+esc(x.at?String(x.at).slice(0,10):'')+(x.by?' · '+esc(x.by):'')+'</small></span></div>').join(''):'<div class="empty-inline">No activity yet.</div>')+'</div></section>'+
-      '<div class="record-drawer-actions"><button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>'+(b>.004?'<button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>':(invoiceHasStockLines(state,inv)&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">Fulfil order</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">Delivery note</button>'))+'</div>'+
+      '<div class="record-drawer-actions"><button class="secondary" data-action="receivable-doc:invoice:'+inv.id+'">'+icon('download',13)+' Invoice PDF</button>'+(s==='Draft'?'<button class="primary" data-action="receivable-send:'+inv.id+'">'+icon('check',13)+' Approve & send</button>':(b>.004?'<button class="primary" data-action="record-incoming:'+inv.id+'">Record payment</button>':(invoiceHasStockLines(state,inv)&&!inv.fulfilledAt?'<button class="primary" data-action="invoice-fulfill:'+inv.id+'">Fulfil order</button>':'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">Delivery note</button>')))+'</div>'+
     '</aside></div>';
   }
   function invoicePanel(state,h){
