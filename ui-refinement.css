@@ -1216,3 +1216,49 @@ body{background:
   }
   .sales-stage-number{grid-column:auto}
 }
+
+/* DalasiPay v0.76 — sales conversion intelligence */
+.sales-intelligence{margin:0 0 14px;padding:0;border-radius:16px;overflow:hidden}
+.sales-intel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--soft-2) 52%,var(--panel)),var(--panel))
+}
+.sales-intel-head h3{font-size:14px;letter-spacing:-.2px;margin:2px 0}
+.sales-intel-head p{font-size:9.3px;color:var(--muted);margin:0}
+.sales-intel-score{
+  min-width:108px;padding:8px 10px;border:1px solid var(--border);border-radius:11px;background:var(--panel);text-align:right
+}
+.sales-intel-score b{display:block;font-size:17px;letter-spacing:-.35px}
+.sales-intel-score span{font-size:8.2px;color:var(--muted)}
+.sales-intel-grid{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel)}
+.sales-intel-grid>button{
+  min-height:112px;padding:12px;border:0;border-right:1px solid var(--border);background:transparent;text-align:left;color:var(--text)
+}
+.sales-intel-grid>button:last-child{border-right:0}
+.sales-intel-grid>button:hover{background:var(--panel-2)}
+.sales-intel-grid>button>div{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.sales-intel-grid span{font-size:8.5px;color:var(--muted);font-weight:800}
+.sales-intel-grid b{font-size:13px}
+.sales-intel-grid i{display:block;height:5px;border-radius:999px;background:var(--border);overflow:hidden;margin:10px 0}
+.sales-intel-grid i em{display:block;height:100%;border-radius:inherit;background:var(--primary)}
+.sales-intel-grid small{display:block;font-size:8.5px;line-height:1.4;color:var(--muted)}
+.sales-intel-focus{
+  min-height:48px;padding:9px 12px;border-top:1px solid var(--border);
+  display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:9px;align-items:center;background:var(--panel-2)
+}
+.sales-intel-focus>span{
+  width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:#fff0d3;color:#9d680f
+}
+.sales-intel-focus b{font-size:9.8px}
+.sales-intel-focus p{font-size:8.5px;color:var(--muted);margin:2px 0 0}
+.sales-intel-focus>button{border:0;background:transparent;color:var(--primary);font-size:9px;font-weight:820;display:flex;gap:3px;align-items:center}
+.sales-intel-focus.clear>span{background:var(--soft-2);color:var(--primary)}
+@media(max-width:900px){.sales-intel-grid{grid-template-columns:repeat(2,1fr)}.sales-intel-grid>button{border-bottom:1px solid var(--border)}}
+@media(max-width:620px){
+  .sales-intel-head{align-items:flex-start;flex-direction:column}
+  .sales-intel-grid{grid-template-columns:1fr}
+  .sales-intel-grid>button{min-height:88px;border-right:0}
+  .sales-intel-focus{grid-template-columns:28px minmax(0,1fr)}
+  .sales-intel-focus>button{grid-column:2;justify-self:start}
+}
