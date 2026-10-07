@@ -45,16 +45,16 @@
     return '<div class="row-action-shell">'+(primary||'')+(items&&items.length?'<details class="row-actions-menu"><summary>'+label+'</summary><div class="row-actions-popover">'+items.join('')+'</div></details>':'')+'</div>';
   }
   function purchaseAction(x){
-    const pdf='<button data-action="purchase-pdf:'+x.id+'">Download PO PDF</button>',send='<button data-action="purchase-send:'+x.id+'">Send to supplier</button>',grn='<button data-action="purchase-grn:'+x.id+'">Goods received note</button>';
-    if(x.status==='Draft')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Pending approval">Submit</button>',[pdf]);
-    if(x.status==='Pending approval')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Approved">Approve</button>',[pdf]);
-    if(x.status==='Approved')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>',[pdf,send]);
-    if(x.status==='Ordered')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Received">Receive</button>',[pdf,send]);
+    const pdf='<button data-action="purchase-pdf:'+x.id+'">Download PO PDF</button>',view='<button data-action="purchase-view:'+x.id+'">View details</button>',send='<button data-action="purchase-send:'+x.id+'">Send to supplier</button>',grn='<button data-action="purchase-grn:'+x.id+'">Goods received note</button>';
+    if(x.status==='Draft')return actionMenu('<button class="secondary tiny" data-action="purchase-view:'+x.id+'">View</button>',[pdf,'<button data-action="purchase-status:'+x.id+':Pending approval">Submit for approval</button>']);
+    if(x.status==='Pending approval')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Approved">Approve</button>',[view,pdf]);
+    if(x.status==='Approved')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>',[view,pdf,send]);
+    if(x.status==='Ordered')return actionMenu('<button class="primary tiny" data-action="purchase-status:'+x.id+':Received">Receive</button>',[view,pdf,send]);
     if(x.status==='Received'){
       const primary=x.linkedBillId?'<span class="payment-complete">Bill created</span>':'<button class="primary tiny" data-action="purchase-to-bill:'+x.id+'">Create bill</button>';
-      return actionMenu(primary,[pdf,grn,'<button data-action="purchase-status:'+x.id+':Closed">Close purchase order</button>']);
+      return actionMenu(primary,[view,pdf,grn,'<button data-action="purchase-status:'+x.id+':Closed">Close purchase order</button>']);
     }
-    return actionMenu(x.linkedBillId?'<span class="payment-complete">Closed</span>':'<span class="payment-complete">'+(x.status||'Closed')+'</span>',[pdf].concat(x.receivedAt?[grn]:[]));
+    return actionMenu(x.linkedBillId?'<span class="payment-complete">Closed</span>':'<span class="payment-complete">'+(x.status||'Closed')+'</span>',[view,pdf].concat(x.receivedAt?[grn]:[]));
   }
   function expensesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=expenseMetrics(state);
@@ -81,6 +81,26 @@
     '<div class="payment-notice"><span>'+icon('file',17)+'</span><div><b>Everyday business spending, properly documented</b><p>Record cash, card, bank and mobile-money expenses, attach receipts, classify costs and keep approval status visible.</p></div></div>'+
     '<div class="surface employee-card"><div class="table-tools"><div><h3>Expense register</h3><p>Business costs, receipts, payment methods and approval status</p></div><button class="primary" data-action="open-expense">'+icon('plus',14)+' Add expense</button></div>'+
       '<div class="table-scroll"><table><thead><tr><th>MERCHANT / REF</th><th>CATEGORY</th><th>DATE</th><th>AMOUNT</th><th>METHOD</th><th>RECEIPT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+  }
+  function purchaseDetailModal(state,h){
+    const x=purchaseById(state,state.purchaseDetailId);if(!x)return '';
+    const s=supplierById(state,x.supplierId),esc=h.esc,money2=h.money2,icon=h.icon,pill=h.pill,lines=x.lineItems||[];
+    const lineRows=lines.length?lines.map(l=>'<div class="record-line"><div><b>'+esc(l.description||'Item')+'</b><small>'+esc(l.unit||'Unit')+' · '+Number(l.quantity||0).toLocaleString('en-GB')+'</small></div><span>'+money2(l.unitPrice||0)+'</span><strong>'+money2(l.amount??((Number(l.quantity)||0)*(Number(l.unitPrice)||0)))+'</strong></div>').join(''):'<div class="empty-inline">No line items on this purchase order.</div>';
+    const timeline=[
+      {label:'Purchase order created',at:x.createdAt,by:x.createdBy},
+      x.approvedAt?{label:'Approved',at:x.approvedAt,by:x.approvedBy}:null,
+      x.orderedAt?{label:'Marked ordered',at:x.orderedAt,by:x.updatedBy}:null,
+      x.receivedAt?{label:'Goods / services received',at:x.receivedAt,by:x.inventoryReceivedBy||x.updatedBy}:null,
+      x.linkedBillId?{label:'Supplier bill created · '+(x.linkedInvoiceNo||x.linkedBillId),at:x.updatedAt,by:x.updatedBy}:null,
+      x.closedAt?{label:'Purchase order closed',at:x.closedAt,by:x.updatedBy}:null
+    ].filter(Boolean).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-purchase-detail"></div><aside class="record-drawer"><div class="record-drawer-head"><div><div class="eyebrow">PURCHASE ORDER</div><h2>'+esc(x.poNumber||x.id)+'</h2><p>'+esc(s?.name||x.supplierName||'Supplier not assigned')+'</p></div><button class="close" data-action="close-purchase-detail">×</button></div>'+
+      '<div class="record-hero"><div><span>Order value</span><b>'+money2(x.amount)+'</b><small>'+lines.length+' line item'+(lines.length===1?'':'s')+'</small></div>'+pill(x.status||'Draft',statusClass(x.status||'Draft'))+'</div>'+
+      '<div class="record-facts"><div><span>Request date</span><b>'+dateLabel(x.requestDate)+'</b></div><div><span>Required by</span><b>'+dateLabel(x.requiredDate)+'</b></div><div><span>Requested by</span><b>'+esc(x.requestedBy||'—')+'</b></div><div><span>Category</span><b>'+esc(x.category||'Other purchase')+'</b></div><div><span>Project</span><b>'+esc(x.project||'Unassigned')+'</b></div><div><span>Cost centre</span><b>'+esc(x.costCentre||'Unassigned')+'</b></div></div>'+
+      '<section class="record-section"><div class="record-section-head"><b>Purchase lines</b><span>'+lines.length+' item'+(lines.length===1?'':'s')+'</span></div><div class="record-lines">'+lineRows+'</div></section>'+
+      '<section class="record-section"><div class="record-section-head"><b>Activity</b><span>'+timeline.length+' event'+(timeline.length===1?'':'s')+'</span></div><div class="record-timeline">'+timeline.map(t=>'<div><i></i><span><b>'+esc(t.label)+'</b><small>'+esc(t.at?String(t.at).slice(0,10):'')+(t.by?' · '+esc(t.by):'')+'</small></span></div>').join('')+'</div></section>'+
+      '<div class="record-drawer-actions"><button class="secondary" data-action="purchase-pdf:'+x.id+'">'+icon('download',13)+' PO PDF</button>'+(x.receivedAt?'<button class="secondary" data-action="purchase-grn:'+x.id+'">GRN</button>':'')+(x.status==='Received'&&!x.linkedBillId?'<button class="primary" data-action="purchase-to-bill:'+x.id+'">Create bill</button>':'')+'</div>'+
+    '</aside></div>';
   }
   function purchasesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=purchaseMetrics(state),rows=(state.purchaseOrders||[]).slice().sort((a,b)=>String(b.requestDate||b.createdAt||'').localeCompare(String(a.requestDate||a.createdAt||'')));
@@ -280,5 +300,5 @@
   function expenseRows(state){return state.businessExpenses||[]}
   function purchaseRows(state){return state.purchaseOrders||[]}
 
-  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,createBillFromPurchase};
+  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
 })();
