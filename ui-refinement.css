@@ -343,3 +343,60 @@ body{background:
   .row-actions-popover{position:fixed;left:14px;right:14px;top:auto;bottom:76px;min-width:0}
   .row-action-shell{justify-content:flex-start}
 }
+
+/* DalasiPay v0.59 — record detail drawers */
+.record-drawer-wrap{position:fixed;inset:0;z-index:110}
+.record-drawer{
+  position:absolute;right:0;top:0;bottom:0;width:min(560px,94vw);
+  background:var(--panel);border-left:1px solid var(--border);
+  box-shadow:-24px 0 70px rgba(7,35,28,.16);overflow:auto
+}
+.record-drawer-head{
+  position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:18px;
+  padding:22px 22px 18px;border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(12px)
+}
+.record-drawer-head h2{font-size:22px;letter-spacing:-.55px;margin:5px 0 4px}
+.record-drawer-head p{margin:0;color:var(--muted);font-size:11px}
+.record-hero{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;margin:18px 20px 12px;
+  padding:17px 18px;border:1px solid var(--border);border-radius:14px;
+  background:linear-gradient(145deg,var(--soft-2),var(--panel))
+}
+.record-hero span{display:block;font-size:9px;letter-spacing:.08em;color:var(--muted);font-weight:800;text-transform:uppercase}
+.record-hero b{display:block;font-size:24px;letter-spacing:-.7px;margin:4px 0}
+.record-hero small{font-size:9.8px;color:var(--muted)}
+.record-facts{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;margin:0 20px 14px;
+  border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--border)
+}
+.record-facts>div{background:var(--panel);padding:12px 13px;min-width:0}
+.record-facts span{display:block;font-size:8.8px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.record-facts b{display:block;font-size:10.8px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record-section{margin:0 20px 14px;border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.record-section-head{display:flex;justify-content:space-between;align-items:center;padding:12px 13px;background:var(--panel-2);border-bottom:1px solid var(--border)}
+.record-section-head b{font-size:11px}.record-section-head span{font-size:9.5px;color:var(--muted)}
+.record-lines{padding:0 13px}
+.record-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.record-line:last-child{border-bottom:0}.record-line b{font-size:10.5px}.record-line small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.record-line span{font-size:9.7px;color:var(--muted)}.record-line strong{font-size:10.7px}
+.record-timeline{padding:7px 13px 10px}
+.record-timeline>div{display:grid;grid-template-columns:13px 1fr;gap:9px;padding:8px 0}
+.record-timeline i{width:7px;height:7px;border-radius:50%;background:var(--primary);margin-top:4px;box-shadow:0 0 0 3px var(--soft)}
+.record-timeline b{font-size:10.3px}.record-timeline small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.record-drawer-actions{
+  position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;
+  padding:13px 20px;border-top:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(12px)
+}
+.customer-account-modal .modal-box{
+  position:absolute;right:0;top:0;bottom:0;margin:0;width:min(620px,94vw);max-height:none;
+  border-radius:0;border-top:0;border-bottom:0;border-right:0;box-shadow:-24px 0 70px rgba(7,35,28,.16)
+}
+.customer-account-modal .modal-head{border-radius:0}
+.customer-account-modal .modal-actions{bottom:0}
+@media(max-width:620px){
+  .record-drawer{width:100%}.record-drawer-head{padding:18px 16px 15px}.record-hero{margin:14px 14px 10px}.record-facts,.record-section{margin-left:14px;margin-right:14px}
+  .record-facts{grid-template-columns:1fr}.record-drawer-actions{padding:11px 14px}
+  .customer-account-modal .modal-box{width:100%}
+}
