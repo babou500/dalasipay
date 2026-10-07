@@ -3524,7 +3524,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a==='open-customer'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to add customers.');return}state.customerCreateContext=null;state.customerOpen=true;render()}
     else if(a==='invoice-add-customer'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to add customers.');return}const form=document.getElementById('receivable-form');if(form){const fd=new FormData(form);state.receivableDraft={customerName:String(fd.get('customerName')||''),invoiceNo:String(fd.get('invoiceNo')||''),customerEmail:String(fd.get('customerEmail')||''),customerPhone:String(fd.get('customerPhone')||''),issueDate:String(fd.get('issueDate')||''),dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||''),taxCode:String(fd.get('taxCode')||''),project:String(fd.get('project')||''),costCentre:String(fd.get('costCentre')||''),description:String(fd.get('description')||''),lineItems:window.DalasiCatalog?.readLines?.(form)||[]};}state.customerCreateContext='invoice';state.customerOpen=true;render()}
     else if(a==='close-customer'){state.customerOpen=false;state.customerCreateContext=null;render()}
-    else if(a.startsWith('customer-view:')){state.customerAccountId=a.split(':')[1];render()}
+    else if(a.startsWith('customer-view:')){state.invoiceDetailId=null;state.customerAccountId=a.split(':')[1];render()}
     else if(a==='close-customer-account'){state.customerAccountId=null;render()}
     else if(a.startsWith('invoice-customer:')){state.customerAccountId=null;state.receivableCustomerId=a.split(':')[1];state.receivableOpen=true;render()}
     else if(a.startsWith('customer-status:')){const parts=a.split(':');updateCustomerAccount(parts[1],parts[2]||'Active')}
@@ -3534,7 +3534,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a.startsWith('bill-supplier:')){state.supplierAccountId=null;state.paymentBeneficiaryId=a.split(':')[1];state.billOpen=true;render()}
     else if(a.startsWith('sales-tab:')){const tab=a.split(':')[1];state.salesTab=['revenue','catalog','quotes','orders','invoices','recurring','collections'].includes(tab)?tab:'invoices';render()}
     else if(a.startsWith('sales-filter:')){state.salesFilter=a.split(':')[1]||'all';render()}
-    else if(a.startsWith('invoice-view:')){state.invoiceDetailId=a.split(':')[1];render()}
+    else if(a.startsWith('invoice-view:')){state.customerAccountId=null;state.invoiceDetailId=a.split(':')[1];render()}
     else if(a==='close-invoice-detail'){state.invoiceDetailId=null;render()}
     else if(a.startsWith('sales-export:'))exportSales(a.split(':')[1])
     else if(a==='open-revenue'){if(!(can('workspace.manage')||can('payroll.manage'))){toast('Owner or Payroll Admin access is required to record income.');return}state.revenueOpen=true;render()}
