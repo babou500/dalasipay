@@ -14,6 +14,14 @@
   function dueDate(v){if(!v)return '—';try{return new Date(v+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return v}}
   function mask(value){const s=String(value||'').replace(/\s+/g,'');if(!s)return 'Not added';return s.length<=4?'•••• '+s:'•••• '+s.slice(-4);}
   function beneficiaryById(state,id){return (state.paymentBeneficiaries||[]).find(x=>x.id===id)||null;}
+  function normPartyText(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function resolveBeneficiaryForTransaction(state,{beneficiaryId='',name='',email=''}={}){
+    const byId=beneficiaryById(state,beneficiaryId);if(byId)return byId;
+    const n=normPartyText(name),e=normPartyText(email),active=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
+    if(e){const m=active.filter(x=>normPartyText(x.email)===e);if(m.length===1)return m[0];}
+    if(n){const m=active.filter(x=>normPartyText(x.name)===n);if(m.length===1)return m[0];}
+    return null;
+  }
   function beneficiaryPayments(state,id){return (state.businessPayments||[]).filter(x=>x.beneficiaryId===id);}
   function billById(state,id){return (state.businessBills||[]).find(x=>x.id===id)||null;}
   function billStatusClass(status){return status==='Paid'?'paid':status==='Approved'?'approved':status==='Pending approval'?'neutral':'ready';}
@@ -830,7 +838,7 @@
   function createRecurring(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add recurring payments.');return;}
-    const fd=new FormData(ev.target),beneficiaryId=String(fd.get('beneficiaryId')||''),ben=beneficiaryById(state,beneficiaryId),name=String(fd.get('name')||'').trim(),payee=String(fd.get('payee')||'').trim(),amount=Number(fd.get('amount')||0),nextDueDate=String(fd.get('nextDueDate')||'');
+    const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),name=String(fd.get('name')||'').trim(),typedPayee=String(fd.get('payee')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedPayee}),beneficiaryId=ben?.id||selectedBeneficiaryId,payee=ben?.name||typedPayee,amount=Number(fd.get('amount')||0),nextDueDate=String(fd.get('nextDueDate')||'');
     if(!name||amount<=0||!nextDueDate||(!beneficiaryId&&!payee)){ctx.toast('Name, payee or beneficiary, amount and next due date are required.');return;}
     const id='REC-'+Date.now().toString(36).toUpperCase();state.recurringBusinessPayments=state.recurringBusinessPayments||[];
     state.recurringBusinessPayments.push({id,name,beneficiaryId:beneficiaryId||null,payee:ben?.name||payee,type:paymentTypeForBeneficiary(ben?.kind),amount,frequency:String(fd.get('frequency')||'Monthly'),nextDueDate,leadDays:Number(fd.get('leadDays')||0),endDate:String(fd.get('endDate')||''),method:String(fd.get('method')||ben?.preferredMethod||'Bank transfer'),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
@@ -878,7 +886,7 @@
   async function createBill(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add bills.');return;}
-    const fd=new FormData(ev.target),beneficiaryId=String(fd.get('beneficiaryId')||''),ben=beneficiaryById(state,beneficiaryId),supplier=String(fd.get('supplier')||'').trim()||ben?.name||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),amount=Number(fd.get('amount')||0),due=String(fd.get('dueDate')||'');
+    const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),amount=Number(fd.get('amount')||0),due=String(fd.get('dueDate')||'');
     if(!supplier||!invoiceNo||amount<=0||!due){ctx.toast('Supplier, invoice number, amount and due date are required.');return;}
     const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
     if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
@@ -895,7 +903,7 @@
   function create(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create business payments.');return;}
-    const fd=new FormData(ev.target),amount=Number(fd.get('amount')||0),payee=String(fd.get('payee')||'').trim(),beneficiaryId=String(fd.get('beneficiaryId')||''),billId=String(fd.get('billId')||state.paymentBillId||'');
+    const fd=new FormData(ev.target),amount=Number(fd.get('amount')||0),typedPayee=String(fd.get('payee')||'').trim(),billId=String(fd.get('billId')||state.paymentBillId||''),linkedBill=billId?billById(state,billId):null,selectedBeneficiaryId=String(fd.get('beneficiaryId')||linkedBill?.beneficiaryId||''),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedPayee||linkedBill?.supplier||''}),beneficiaryId=ben?.id||selectedBeneficiaryId,payee=ben?.name||typedPayee||linkedBill?.supplier||'';
     if(!payee||amount<=0){ctx.toast('Enter a payee and a valid payment amount.');return;}
     if(billId){const linked=billById(state,billId),bal=window.DalasiReturns?.billBalance?.(state,linked)??(Number(linked?.amount)||0);if(!linked||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}if(amount>bal+.004){ctx.toast('Payment amount cannot exceed the supplier bill balance after credits.');return;}}
     const id='BP-'+Date.now().toString(36).toUpperCase();
@@ -932,5 +940,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
