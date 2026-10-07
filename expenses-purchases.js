@@ -79,8 +79,8 @@
       '<div class="surface"><span>Paid expenses</span><b>'+money2(m.paid)+'</b><small>'+m.receipts+' receipt'+(m.receipts===1?'':'s')+' attached</small></div>'+
     '</div>'+
     '<div class="payment-notice"><span>'+icon('file',17)+'</span><div><b>Everyday business spending, properly documented</b><p>Record cash, card, bank and mobile-money expenses, attach receipts, classify costs and keep approval status visible.</p></div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Expense register</h3><p>Business costs, receipts, payment methods and approval status</p></div><button class="primary" data-action="open-expense">'+icon('plus',14)+' Add expense</button></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>MERCHANT / REF</th><th>CATEGORY</th><th>DATE</th><th>AMOUNT</th><th>METHOD</th><th>RECEIPT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="surface employee-card"><div class="table-tools"><div><h3>Expense register</h3><p>Business costs, receipts, payment methods and approval status</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="expense-register" placeholder="Search expenses"></label><button class="primary" data-action="open-expense">'+icon('plus',14)+' Add expense</button></div></div>'+
+      '<div class="table-scroll"><table data-register-table="expense-register"><thead><tr><th>MERCHANT / REF</th><th>CATEGORY</th><th>DATE</th><th>AMOUNT</th><th>METHOD</th><th>RECEIPT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
   function purchaseDetailModal(state,h){
     const x=purchaseById(state,state.purchaseDetailId);if(!x)return '';
@@ -123,8 +123,8 @@
       '<div class="surface"><span>Ordered</span><b>'+money2(m.ordered)+'</b><small>approved orders with suppliers</small></div>'+
     '</div>'+
     '<div class="payment-notice"><span>'+icon('building',17)+'</span><div><b>Control purchases before they become bills</b><p>Create a purchase request, approve it, mark it ordered and confirm receipt. Supplier invoices can then be recorded in Bills & invoices.</p></div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Purchase order register</h3><p>Requests, approvals, supplier commitments and receiving status</p></div><button class="primary" data-action="open-purchase">'+icon('plus',14)+' New purchase order</button></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>PO / DESCRIPTION</th><th>SUPPLIER</th><th>CATEGORY</th><th>AMOUNT</th><th>REQUIRED / REQUESTED</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="surface employee-card"><div class="table-tools"><div><h3>Purchase order register</h3><p>Requests, approvals, supplier commitments and receiving status</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="purchase-register" placeholder="Search purchase orders"></label><button class="primary" data-action="open-purchase">'+icon('plus',14)+' New purchase order</button></div></div>'+
+      '<div class="table-scroll"><table data-register-table="purchase-register"><thead><tr><th>PO / DESCRIPTION</th><th>SUPPLIER</th><th>CATEGORY</th><th>AMOUNT</th><th>REQUIRED / REQUESTED</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
   }
   function render(state,h){
     const icon=h.icon,pageTitle=h.pageTitle,tab=state.expenseTab||'expenses';
