@@ -824,3 +824,66 @@ body{background:
   .command-welcome{align-items:flex-start;flex-direction:column}
   .command-footer{padding-bottom:calc(7px + env(safe-area-inset-bottom))}
 }
+
+/* DalasiPay v0.69 — on-screen financial report viewer */
+.business-report-card{grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center}
+.report-card-actions{display:flex;align-items:center;gap:5px}
+.report-viewer-wrap{position:fixed;inset:0;z-index:120}
+.report-viewer{
+  position:absolute;inset:24px;display:flex;flex-direction:column;
+  background:var(--bg);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 28px 90px rgba(6,31,25,.22);overflow:hidden
+}
+.report-viewer-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px;
+  padding:18px 20px 14px;border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel) 96%,transparent);backdrop-filter:blur(12px)
+}
+.report-viewer-head h2{font-size:22px;letter-spacing:-.55px;margin:4px 0}
+.report-viewer-head p{font-size:9.8px;color:var(--muted);margin:0}
+.report-viewer-toolbar{
+  display:flex;justify-content:flex-end;gap:7px;padding:10px 18px;
+  border-bottom:1px solid var(--border);background:var(--panel)
+}
+.report-viewer-body{flex:1;overflow:auto;padding:18px}
+.report-viewer-body>.surface{margin-bottom:14px}
+.report-preview-kpis{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px
+}
+.report-preview-kpis>div{
+  min-height:96px;padding:14px 15px;border:1px solid var(--border);border-radius:12px;background:var(--panel)
+}
+.report-preview-kpis span{display:block;font-size:9px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;font-weight:780}
+.report-preview-kpis b{display:block;font-size:18px;letter-spacing:-.35px;margin-top:6px}
+.report-preview-table{width:100%;border-collapse:collapse;background:var(--panel)}
+.report-preview-table th,.report-preview-table td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;font-size:10px}
+.report-preview-table th{font-size:8.8px;letter-spacing:.06em;color:var(--muted);background:var(--panel-2);position:sticky;top:0}
+.report-key-cell{font-weight:720}
+.report-preview-empty{
+  min-height:360px;border:1px dashed var(--border);border-radius:14px;background:var(--panel);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:34px
+}
+.report-preview-empty>span{width:44px;height:44px;border-radius:13px;background:var(--soft-2);display:grid;place-items:center;color:var(--primary);margin-bottom:12px}
+.report-preview-empty h3{font-size:16px;margin:0 0 6px}
+.report-preview-empty p{max-width:480px;font-size:10px;line-height:1.55;color:var(--muted);margin:0 0 14px}
+@media(max-width:900px){
+  .report-preview-kpis{grid-template-columns:repeat(2,1fr)}
+  .report-viewer{inset:10px}
+}
+@media(max-width:620px){
+  .business-report-card{grid-template-columns:auto 1fr!important}
+  .report-card-actions{grid-column:2;justify-content:flex-start}
+  .report-viewer{inset:0;border:0;border-radius:0}
+  .report-viewer-head{padding:16px}
+  .report-viewer-toolbar{justify-content:stretch;padding:9px 14px}
+  .report-viewer-toolbar>*{flex:1}
+  .report-viewer-body{padding:12px}
+  .report-preview-kpis{grid-template-columns:1fr}
+}
+@media print{
+  body *{visibility:hidden!important}
+  .report-viewer,.report-viewer *{visibility:visible!important}
+  .report-viewer{position:absolute;inset:0;border:0;box-shadow:none}
+  .report-viewer-head,.report-viewer-toolbar,.modal-scrim{display:none!important}
+  .report-viewer-body{padding:0;overflow:visible}
+}
