@@ -42,12 +42,14 @@
     return '<span class="payment-complete">Paid</span>';
   }
   function purchaseAction(x){
-    if(x.status==='Draft')return '<button class="secondary" data-action="purchase-status:'+x.id+':Pending approval">Submit</button>';
-    if(x.status==='Pending approval')return '<button class="secondary" data-action="purchase-status:'+x.id+':Approved">Approve</button>';
-    if(x.status==='Approved')return '<button class="primary" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>';
-    if(x.status==='Ordered')return '<button class="primary" data-action="purchase-status:'+x.id+':Received">Mark received</button>';
-    if(x.status==='Received')return '<button class="secondary" data-action="purchase-status:'+x.id+':Closed">Close PO</button>';
-    return '<span class="payment-complete">'+(x.status||'Closed')+'</span>';
+    const pdf='<button class="secondary tiny" data-action="purchase-pdf:'+x.id+'">PDF</button>';
+    const order='<button class="secondary tiny" data-action="purchase-send:'+x.id+'">Send</button>';
+    if(x.status==='Draft')return pdf+'<button class="secondary" data-action="purchase-status:'+x.id+':Pending approval">Submit</button>';
+    if(x.status==='Pending approval')return pdf+'<button class="secondary" data-action="purchase-status:'+x.id+':Approved">Approve</button>';
+    if(x.status==='Approved')return pdf+order+'<button class="primary" data-action="purchase-status:'+x.id+':Ordered">Mark ordered</button>';
+    if(x.status==='Ordered')return pdf+order+'<button class="primary" data-action="purchase-status:'+x.id+':Received">Mark received</button>';
+    if(x.status==='Received')return pdf+(x.linkedBillId?'<span class="payment-complete">Bill created</span>':'<button class="secondary tiny" data-action="purchase-to-bill:'+x.id+'">Create bill</button>')+'<button class="secondary" data-action="purchase-status:'+x.id+':Closed">Close PO</button>';
+    return pdf+(x.linkedBillId?'<span class="payment-complete">Bill created</span>':'');
   }
   function expensesPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=expenseMetrics(state);
@@ -214,8 +216,49 @@
     if(status==='Closed')x.closedAt=x.closedAt||x.updatedAt;
     ctx.audit('purchase.status_updated',{purchaseId:id,poNumber:x.poNumber,status,amount:x.amount,inventoryReceived:!!x.inventoryReceivedAt});ctx.save();ctx.toast((x.poNumber||x.id)+': '+status);ctx.render();
   }
+
+  function purchasePdf(id,state,ctx){
+    const x=purchaseById(state,id);if(!x){ctx.toast('Purchase order not found.');return;}
+    const s=supplierById(state,x.supplierId),supplierName=s?.name||x.supplierName||'Supplier',lines=x.lineItems||[],out=[];
+    const safe=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014\u2212]/g,'-').replace(/[^\x20-\x7E]/g,'?').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+    const text=(x,y,z,v,b=false,col='0.08 0.13 0.11')=>out.push(col+' rg BT /'+(b?'F2':'F1')+' '+z+' Tf '+x+' '+y+' Td ('+safe(v)+') Tj ET');
+    const fill=(x,y,w,h,col)=>out.push(col+' rg '+x+' '+y+' '+w+' '+h+' re f'),stroke=(a,b,c,d,col='0.84 0.88 0.86',w=.6)=>out.push(col+' RG '+w+' w '+a+' '+b+' m '+c+' '+d+' l S');
+    const green='0.04 0.31 0.26',white='1 1 1',muted='0.38 0.44 0.41',soft='0.96 0.98 0.97',money=v=>ctx.money2(Number(v)||0),clip=(v,m=40)=>String(v??'').length>m?String(v).slice(0,m-3)+'...':String(v??'');
+    fill(0,0,595,842,white);fill(24,746,547,72,green);text(42,790,18,clip(state.company,30),true,white);text(42,769,8,'PURCHASE ORDER',true,'0.75 0.91 0.86');text(410,790,16,x.poNumber||x.id,true,white);text(410,770,8,x.status||'Draft',true,'0.75 0.91 0.86');
+    fill(24,664,547,62,soft);text(40,706,7,'SUPPLIER',true,muted);text(40,684,12,clip(supplierName,38),true);text(360,706,7,'REQUEST DATE',true,muted);text(360,684,9,x.requestDate||'—',true);text(462,706,7,'REQUIRED BY',true,muted);text(462,684,9,x.requiredDate||'—',true);
+    text(40,640,7,'DESCRIPTION',true,muted);text(40,621,10,clip(x.description||'Purchase order',75),true);
+    let y=586;text(40,y,7,'ITEM / DESCRIPTION',true,muted);text(330,y,7,'QTY',true,muted);text(390,y,7,'UNIT PRICE',true,muted);text(490,y,7,'AMOUNT',true,muted);stroke(40,y-9,555,y-9);
+    y-=29;lines.slice(0,12).forEach((l,i)=>{text(40,y,8,clip(l.description||'Item',43),i===0);text(330,y,8,String(Number(l.quantity)||0));text(390,y,8,money(l.unitPrice));text(490,y,8,money((Number(l.quantity)||0)*(Number(l.unitPrice)||0)),true);stroke(40,y-9,555,y-9,'0.93 0.95 0.94',.35);y-=25;});
+    if(lines.length>12)text(40,y,7,'+'+(lines.length-12)+' additional line items',true,muted);
+    fill(360,146,195,74,green);text(378,197,7,'TOTAL PURCHASE ORDER',true,'0.75 0.91 0.86');text(378,168,18,money(x.amount),true,white);
+    text(40,197,7,'REQUESTED BY',true,muted);text(40,179,9,clip(x.requestedBy||x.createdBy||'—',34),true);text(40,151,7,'REFERENCE',true,muted);text(40,133,9,clip(x.reference||'—',34));
+    text(24,72,7.2,'This purchase order records an approved purchasing commitment and is not a supplier invoice.',false,muted);text(430,50,7.2,'Generated by DalasiPay',true,green);
+    ctx.pdfDownload('Purchase_Order_'+String(x.poNumber||x.id).replace(/[^A-Za-z0-9_-]+/g,'_')+'.pdf',out.join('\n'),state.branding?.logoData||'');ctx.toast('Purchase order PDF downloaded');
+  }
+  function sendPurchase(id,state,ctx){
+    const x=purchaseById(state,id);if(!x)return;const s=supplierById(state,x.supplierId),email=s?.email||'',phone=s?.phone||'',name=s?.name||x.supplierName||'Supplier',subject='Purchase order '+(x.poNumber||x.id),body='Dear '+name+',\n\nPlease find our purchase order '+(x.poNumber||x.id)+' for '+ctx.money2(x.amount)+'.\nRequired by: '+(x.requiredDate||'Please confirm availability')+'.\n\nPlease confirm receipt and expected delivery date.\n\nRegards,\n'+(state.company||'DalasiPay Workspace');
+    if(email){window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);ctx.audit('purchase.email_opened',{purchaseId:x.id,poNumber:x.poNumber});ctx.save();return}
+    if(phone){const p=String(phone).replace(/[^0-9]/g,'');window.open('https://wa.me/'+p+'?text='+encodeURIComponent(body),'_blank','noopener');ctx.audit('purchase.whatsapp_opened',{purchaseId:x.id,poNumber:x.poNumber});ctx.save();return}
+    ctx.toast('Add an email or phone number to the saved supplier before sending the PO.');
+  }
+  function purchaseBillModal(state,h){
+    const x=purchaseById(state,state.purchaseBillId);if(!x)return '';const s=supplierById(state,x.supplierId),field=h.field,icon=h.icon;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-purchase-bill"></div><form id="purchase-bill-form" class="modal-box"><div class="modal-head"><div><div class="eyebrow">PO TO SUPPLIER BILL</div><h2>Record supplier invoice</h2><p>'+esc(x.poNumber||x.id)+' · '+esc(s?.name||x.supplierName||'Supplier')+' · '+h.money2(x.amount)+'</p></div><button type="button" class="close" data-action="close-purchase-bill">×</button></div><input type="hidden" name="purchaseId" value="'+esc(x.id)+'"><div class="form-grid">'+field('Supplier invoice number','<input name="invoiceNo" required placeholder="e.g. INV-1042">')+field('Invoice date','<input name="invoiceDate" type="date" value="'+todayIso()+'" required>')+field('Due date','<input name="dueDate" type="date" required>')+field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+'</div>'+field('Description','<input name="description" value="'+esc(x.description||'Purchase order '+(x.poNumber||''))+'">')+'<div class="modal-note">This creates one supplier bill linked to the purchase order. DalasiPay prevents a second bill from being created from the same PO.</div><div class="modal-actions"><button type="button" class="secondary" data-action="close-purchase-bill">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Create supplier bill</button></div></form></div>';
+  }
+  function createBillFromPurchase(ev,state,ctx){
+    ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required.');return}
+    const fd=new FormData(ev.target),x=purchaseById(state,String(fd.get('purchaseId')||''));if(!x)return;if(x.linkedBillId||(state.businessBills||[]).some(b=>b.purchaseOrderId===x.id)){ctx.toast('A supplier bill is already linked to this purchase order.');return}
+    if(x.status!=='Received'&&x.status!=='Closed'){ctx.toast('Receive the purchase order before creating the supplier bill.');return}
+    const invoiceNo=String(fd.get('invoiceNo')||'').trim(),invoiceDate=String(fd.get('invoiceDate')||''),dueDate=String(fd.get('dueDate')||'');if(!invoiceNo||!invoiceDate||!dueDate){ctx.toast('Invoice number, invoice date and due date are required.');return}
+    if(window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed.');return}
+    const s=supplierById(state,x.supplierId),supplierName=s?.name||x.supplierName||'Supplier';
+    if((state.businessBills||[]).some(b=>String(b.invoiceNo||'').toLowerCase()===invoiceNo.toLowerCase()&&String(b.supplier||'').toLowerCase()===supplierName.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return}
+    const tax=window.DalasiTax?.snapshot?.(state,x.amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase')||{taxCode:'OUT',vatRate:0,taxGross:x.amount,taxNet:x.amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false},id='BILL-'+Date.now().toString(36).toUpperCase();
+    state.businessBills=state.businessBills||[];state.businessBills.unshift({id,purchaseOrderId:x.id,beneficiaryId:x.supplierId||null,supplier:supplierName,invoiceNo,amount:Number(x.amount)||0,...tax,project:x.project||'',costCentre:x.costCentre||'',invoiceDate,dueDate,category:x.category||'Other expense',description:String(fd.get('description')||'').trim(),attachmentName:'',attachmentData:'',status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    x.linkedBillId=id;x.linkedInvoiceNo=invoiceNo;x.updatedAt=new Date().toISOString();state.purchaseBillId=null;ctx.audit('purchase.converted_to_bill',{purchaseId:x.id,poNumber:x.poNumber,billId:id,invoiceNo,amount:x.amount});ctx.save();ctx.toast('Supplier bill '+invoiceNo+' created from '+(x.poNumber||x.id));ctx.render();
+  }
   function expenseRows(state){return state.businessExpenses||[]}
   function purchaseRows(state){return state.purchaseOrders||[]}
 
-  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById};
+  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,sendPurchase,purchaseBillModal,createBillFromPurchase};
 })();
