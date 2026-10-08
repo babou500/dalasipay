@@ -1903,7 +1903,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   window.DalasiPilot={readiness};
 })();
 
-</script><script src="./cash-bank.js?v=20261008-0220"></script><script src="./tax-vat.js?v=20261008-0052"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./business-payments.js?v=20261008-0220"></script><script src="./expenses-purchases.js?v=20261008-0220"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-0052"></script><script src="./profit-loss.js?v=20261008-0135"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js"></script><script src="./returns-credits.js"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-0135"></script><script src="./balance-sheet.js"></script><script src="./general-ledger.js?v=20261008-0220"></script><script src="./accounting-journals.js?v=20261008-0135"></script><script src="./month-end-close.js"></script><script src="./year-end-close.js"></script><script src="./dashboard-command.js"></script><script src="./business-reports.js"></script><!-- app.js -->
+</script><script src="./cash-bank.js?v=20261008-0220"></script><script src="./tax-vat.js?v=20261008-0052"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./business-payments.js?v=20261008-0220"></script><script src="./expenses-purchases.js?v=20261008-0220"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-0052"></script><script src="./profit-loss.js?v=20261008-0135"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js?v=20261008-0240"></script><script src="./returns-credits.js"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-0135"></script><script src="./balance-sheet.js"></script><script src="./general-ledger.js?v=20261008-0220"></script><script src="./accounting-journals.js?v=20261008-0135"></script><script src="./month-end-close.js"></script><script src="./year-end-close.js"></script><script src="./dashboard-command.js"></script><script src="./business-reports.js?v=20261008-0240"></script><!-- app.js -->
 <script>
 (() => {
   const seedEmployees = window.DALASIPAY_SEED || [];
@@ -3413,8 +3413,11 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function openSourceRecord(type,id){
     type=String(type||'');id=String(id||'');
     if(!type||!id)return;
+    state.businessReportView=null;
     const go=page=>{state.page=page;state.searchOpen=false;state.notifOpen=false;state.mobileOpen=false;};
-    if(type==='customer-invoice'){go('invoices');state.salesTab='invoices';state.invoiceDetailId=id;}
+    if(type==='customer-account'){go('customers');state.customerAccountId=id;}
+    else if(type==='supplier-account'){go('suppliers');state.supplierAccountId=id;}
+    else if(type==='customer-invoice'){go('invoices');state.salesTab='invoices';state.invoiceDetailId=id;}
     else if(type==='customer-collection'){
       const p=(state.incomingPayments||[]).find(x=>x.id===id);if(p?.invoiceId){go('invoices');state.salesTab='invoices';state.invoiceDetailId=p.invoiceId;}else{go('payments');state.paymentTab='receivables';}
     }
