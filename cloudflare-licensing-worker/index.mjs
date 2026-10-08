@@ -39,7 +39,11 @@ export default {
     return {data:{user:await res.json()},error:null};
   }}};
   const adminClient=supabaseClient(base,env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY);
-  const handle=createVerifiedLicensingEndpoint({authClient,adminClient});
-  return handle(request);
+  try {
+   const handle=createVerifiedLicensingEndpoint({authClient,adminClient});
+   return await handle(request);
+  } catch (_error) {
+   return new Response(JSON.stringify({ok:false,reason:'service_unavailable'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+  }
  }
 };
