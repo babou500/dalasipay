@@ -6,6 +6,9 @@
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function accounts(state,activeOnly=false){const rows=state.cashAccounts||[];return activeOnly?rows.filter(x=>(x.status||'Active')==='Active'):rows;}
   function accountById(state,id){return accounts(state).find(x=>x.id===id)||null;}
+  function normRef(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');}
+  function sameMoney(a,b){return Math.abs(Math.abs(Number(a)||0)-Math.abs(Number(b)||0))<=.004;}
+
   function transactionsFor(state,id){return (state.cashTransactions||[]).filter(x=>x.accountId===id);}
   function balance(state,id){
     const a=accountById(state,id);if(!a)return 0;
@@ -98,7 +101,14 @@
   }
   function createTransaction(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to record cash transactions.');return;}
-    const fd=new FormData(ev.target),date=String(fd.get('date')||todayIso());if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this cash transaction.');return;}const tx=post(state,{accountId:String(fd.get('accountId')||''),direction:String(fd.get('direction')||'in'),date,amount:Number(fd.get('amount')||0),type:'Manual cashbook',counterparty:String(fd.get('counterparty')||'').trim(),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),cashFlowClass:String(fd.get('cashFlowClass')||'Operating'),cashFlowDetail:String(fd.get('cashFlowDetail')||'').trim(),createdBy:state.session?.name||'User'});
+    const fd=new FormData(ev.target),date=String(fd.get('date')||todayIso()),accountId=String(fd.get('accountId')||''),direction=String(fd.get('direction')||'in'),amount=Math.abs(Number(fd.get('amount'))||0),reference=String(fd.get('reference')||'').trim(),referenceKey=normRef(reference),counterparty=String(fd.get('counterparty')||'').trim();
+    if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this cash transaction.');return;}
+    if(accountId&&amount>0&&referenceKey){
+      const signed=direction==='out'?-amount:amount;
+      const duplicate=(state.cashTransactions||[]).some(x=>x.accountId===accountId&&x.date===date&&sameMoney(x.amount,signed)&&normRef(x.reference)===referenceKey);
+      if(duplicate){ctx.toast('A matching Cash & Bank transaction with this reference, date and amount already exists.');return;}
+    }
+    const tx=post(state,{accountId,direction,date,amount,type:'Manual cashbook',counterparty,reference,description:String(fd.get('description')||'').trim(),cashFlowClass:String(fd.get('cashFlowClass')||'Operating'),cashFlowDetail:String(fd.get('cashFlowDetail')||'').trim(),createdBy:state.session?.name||'User'});
     if(!tx){ctx.toast('Choose an account and enter a valid amount.');return;}state.cashTransactionOpen=false;ctx.audit('cash.transaction_recorded',{transactionId:tx.id,accountId:tx.accountId,amount:tx.amount});ctx.save();ctx.toast('Cash transaction recorded');ctx.render();
   }
   function createTransfer(ev,state,ctx){
@@ -106,6 +116,12 @@
     const fd=new FormData(ev.target),from=String(fd.get('fromAccountId')||''),to=String(fd.get('toAccountId')||''),amount=Math.abs(Number(fd.get('amount'))||0),date=String(fd.get('date')||todayIso()),reference=String(fd.get('reference')||'').trim(),description=String(fd.get('description')||'').trim();
     if(!from||!to||from===to||amount<=0){ctx.toast('Choose two different accounts and enter a valid amount.');return;}
     if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before recording this transfer.');return;}
+    const refKey=normRef(reference);
+    if(refKey){
+      const fromMatch=(state.cashTransactions||[]).some(x=>x.accountId===from&&x.date===date&&Number(x.amount)<0&&sameMoney(x.amount,amount)&&normRef(x.reference)===refKey&&x.type==='Internal transfer');
+      const toMatch=(state.cashTransactions||[]).some(x=>x.accountId===to&&x.date===date&&Number(x.amount)>0&&sameMoney(x.amount,amount)&&normRef(x.reference)===refKey&&x.type==='Internal transfer');
+      if(fromMatch||toMatch){ctx.toast('A matching internal transfer with this reference, date and amount already exists.');return;}
+    }
     const transferId='TRF-'+Date.now().toString(36).toUpperCase();
     const a=post(state,{accountId:from,direction:'out',date,amount,type:'Internal transfer',counterparty:accountById(state,to)?.name||'',reference,description,sourceKey:'transfer:'+transferId+':out',sourceType:'transfer',sourceId:transferId,createdBy:state.session?.name||'User'});
     const b=post(state,{accountId:to,direction:'in',date,amount,type:'Internal transfer',counterparty:accountById(state,from)?.name||'',reference,description,sourceKey:'transfer:'+transferId+':in',sourceType:'transfer',sourceId:transferId,createdBy:state.session?.name||'User'});
