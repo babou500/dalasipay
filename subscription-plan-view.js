@@ -27,5 +27,11 @@
   if(!model?.valid)return '<section class="subscription-overview" aria-label="Subscription & plans"><h3>Subscription unavailable</h3><p>Subscription data could not be verified. No changes have been made.</p></section>';
   return '<section class="subscription-overview" aria-label="Subscription & plans"><h3>Subscription &amp; Plans</h3><p><strong>Current plan: '+escapeHtml(model.title)+'</strong></p><p>'+escapeHtml(model.note)+'</p><h4>Plan allowances</h4><dl>'+model.usage.map(item=>'<div><dt>'+escapeHtml(item.label)+'</dt><dd>'+escapeHtml(item.limitLabel)+'</dd></div>').join('')+'</dl><h4>Included features</h4><ul>'+model.features.map(item=>'<li>'+escapeHtml(item.label)+': '+(item.included?'Included':'Not included')+'</li>').join('')+'</ul></section>';
  }
- return Object.freeze({VERSION,LABELS,FEATURES,getDisplayModel,escapeHtml,renderReadOnly});
+ function renderPlanComparison(){
+  const ids=['free','standard','professional'];
+  const limits=policy.LIMIT_KEYS.map(key=>'<tr><th scope="row">'+escapeHtml(LABELS[key])+'</th>'+ids.map(id=>{const value=policy.PLANS[id].limits[key];return '<td>'+escapeHtml(value===null?'Unlimited':value)+'</td>';}).join('')+'</tr>').join('');
+  const features=policy.FEATURE_KEYS.map(key=>'<tr><th scope="row">'+escapeHtml(FEATURES[key])+'</th>'+ids.map(id=>'<td>'+ (policy.PLANS[id].features.includes(key)?'Included':'—')+'</td>').join('')+'</tr>').join('');
+  return '<div class="subscription-comparison" style="margin-top:24px"><h3>Compare plans</h3><p style="color:var(--muted)">Plan comparison for information only. Upgrades, billing and restrictions are not active.</p><div style="overflow-x:auto;max-width:100%"><table style="width:100%;border-collapse:collapse;text-align:left;min-width:530px"><thead><tr><th scope="col">Allowance / feature</th>'+ids.map(id=>'<th scope="col">'+escapeHtml(policy.PLANS[id].label)+'</th>').join('')+'</tr></thead><tbody>'+limits+features+'</tbody></table></div></div>';
+ }
+ return Object.freeze({VERSION,LABELS,FEATURES,getDisplayModel,escapeHtml,renderReadOnly,renderPlanComparison});
 });
