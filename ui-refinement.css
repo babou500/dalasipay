@@ -2785,3 +2785,124 @@ body{background:
     text-align:left;
   }
 }
+
+
+/* DalasiPay v1.07 — employee directory management */
+.employee-directory .table-tools{
+  align-items:flex-end;
+}
+.employee-directory-tools>div:first-child{
+  min-width:190px;
+}
+.employee-directory-filters{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.employee-directory-filters select{
+  min-width:145px;
+  height:36px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--panel);
+  color:var(--text);
+  padding:0 30px 0 10px;
+  font-size:10.5px;
+}
+.employee-directory-filters #employee-attention-filter{
+  min-width:165px;
+}
+.employee-row-attention td{
+  background:color-mix(in srgb,var(--warn-bg) 24%,var(--panel));
+}
+.employee-row-attention:hover td{
+  background:color-mix(in srgb,var(--warn-bg) 38%,var(--panel))!important;
+}
+.employee-attention-cell{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.employee-attention-cell .attention-dot{
+  width:7px;
+  height:7px;
+  flex:none;
+  border-radius:50%;
+  background:var(--warn);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 11%,transparent);
+}
+.employee-attention-cell div{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+.employee-attention-cell b{
+  font-size:10px;
+  color:var(--text);
+}
+.employee-attention-cell small{
+  margin-top:2px;
+  color:var(--muted);
+  font-size:9px;
+}
+.employee-clear-status{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:var(--good);
+  font-size:10px;
+  font-weight:800;
+}
+.employee-row-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:5px;
+}
+.employee-row-actions .secondary.tiny{
+  white-space:nowrap;
+}
+.employee-directory th:last-child,
+.employee-directory td:last-child{
+  text-align:right;
+}
+.employee-directory .table-footer{
+  flex-direction:row;
+  align-items:center;
+}
+@media(max-width:980px){
+  .employee-directory .table-tools{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .employee-directory-filters{
+    margin-left:0;
+    justify-content:flex-start;
+    width:100%;
+  }
+  .employee-directory-filters .inline-search{
+    flex:1 1 260px;
+  }
+}
+@media(max-width:650px){
+  .employee-directory-filters{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .employee-directory-filters .inline-search,
+  .employee-directory-filters button{
+    grid-column:1/-1;
+    width:100%;
+  }
+  .employee-directory-filters select{
+    width:100%;
+    min-width:0!important;
+  }
+  .employee-directory .table-footer{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
