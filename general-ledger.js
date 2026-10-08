@@ -15,8 +15,13 @@
   function postingAccount(state,name,fallback='Operating Expenses'){
     return window.DalasiAccounting?.accountByName?.(state,name)||ACCOUNT[name]||ACCOUNT[fallback]||{code:'9999',name:name||fallback,type:'Expense'};
   }
+  function sourceMeta(journalId){
+    const id=String(journalId||''),map=[['INV-','customer-invoice'],['COL-','customer-collection'],['CCN-','customer-credit-note'],['CDN-','customer-debit-note'],['REV-','revenue'],['BILL-','supplier-bill'],['PAY-','business-payment'],['SCN-','supplier-credit-note'],['SDN-','supplier-debit-note'],['SREF-','supplier-refund'],['CREF-','customer-refund'],['VATPAY-','vat-payment'],['EXP-','expense'],['FA-','fixed-asset'],['FADISP-','fixed-asset'],['FADEP-','fixed-asset'],['LOAN-','loan'],['LRP-','loan-repayment']];
+    for(const [p,t] of map)if(id.startsWith(p))return {sourceType:t,sourceId:id.slice(p.length)};
+    return {sourceType:'',sourceId:''};
+  }
   function line(journalId,date,reference,source,account,debit=0,credit=0,memo=''){
-    const a=acc(account);return {journalId,date:dateOnly(date),reference:String(reference||''),source:String(source||''),accountCode:a.code,account:a.name,accountType:a.type,debit:round(debit),credit:round(credit),memo:String(memo||'')};
+    const a=acc(account),meta=sourceMeta(journalId);return {journalId,date:dateOnly(date),reference:String(reference||''),source:String(source||''),sourceType:meta.sourceType,sourceId:meta.sourceId,accountCode:a.code,account:a.name,accountType:a.type,debit:round(debit),credit:round(credit),memo:String(memo||'')};
   }
   function pushJournal(out,id,date,reference,source,entries){
     const valid=(entries||[]).filter(x=>(Number(x.debit)||0)||(Number(x.credit)||0));if(!valid.length)return;
@@ -379,7 +384,7 @@
     const {money2,icon,esc}=h,t=trialBalance(state),selected=state.ledgerAccount||'',entries=ledgerRows(state,selected);
     const options=['<option value="">All accounts</option>'].concat(t.accounts.map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc(a.code+' · '+a.name)+'</option>')).join('');
     const tbRows=t.accounts.length?t.accounts.map(a=>'<tr><td><b>'+esc(a.code)+'</b></td><td>'+esc(a.name)+'</td><td>'+esc(a.type)+'</td><td>'+money2(a.debit)+'</td><td>'+money2(a.credit)+'</td><td><b>'+money2(Math.abs(a.balance))+' '+(a.balance>=0?'Dr':'Cr')+'</b></td></tr>').join(''):'<tr><td colspan="6"><div class="empty-inline">No ledger activity yet.</div></td></tr>';
-    const glRows=entries.length?entries.slice().reverse().slice(0,250).map(x=>'<tr><td>'+esc(x.date||'')+'</td><td>'+esc(x.reference||x.journalId)+'</td><td>'+esc(x.source)+'</td><td>'+esc(x.accountCode+' · '+x.account)+'</td><td>'+esc(x.memo||'—')+'</td><td>'+money2(x.debit)+'</td><td>'+money2(x.credit)+'</td><td>'+(selected?money2(Math.abs(x.running))+' '+(x.running>=0?'Dr':'Cr'):'—')+'</td></tr>').join(''):'<tr><td colspan="8"><div class="empty-inline">No journal lines for this selection.</div></td></tr>';
+    const glRows=entries.length?entries.slice().reverse().slice(0,250).map(x=>'<tr><td>'+esc(x.date||'')+'</td><td>'+esc(x.reference||x.journalId)+'</td><td>'+esc(x.source)+'</td><td>'+esc(x.accountCode+' · '+x.account)+'</td><td>'+esc(x.memo||'—')+'</td><td>'+money2(x.debit)+'</td><td>'+money2(x.credit)+'</td><td>'+(selected?money2(Math.abs(x.running))+' '+(x.running>=0?'Dr':'Cr'):'—')+'</td><td>'+(x.sourceId?'<button class="secondary tiny" data-action="source-open:'+esc(x.sourceType)+':'+esc(x.sourceId)+'">View source</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="9"><div class="empty-inline">No journal lines for this selection.</div></td></tr>';
     const suspense=t.accounts.find(a=>a.name==='Opening / Mapping Suspense');
     return '<section class="surface ledger-card">'+
       '<div class="table-tools"><div><h3>Trial Balance</h3><p>System-generated double-entry summary from DalasiPay transactions and opening financial-position balances.</p></div><div class="inline-buttons"><button class="secondary" data-action="business-report-export:general-ledger">'+icon('download',14)+' Ledger CSV</button><button class="secondary" data-action="business-report-export:trial-balance">'+icon('download',14)+' Trial Balance CSV</button></div></div>'+
@@ -387,7 +392,7 @@
       '<div class="table-scroll"><table><thead><tr><th>CODE</th><th>ACCOUNT</th><th>TYPE</th><th>DEBIT</th><th>CREDIT</th><th>BALANCE</th></tr></thead><tbody>'+tbRows+'</tbody></table></div>'+
       (suspense&&Math.abs(suspense.balance)>.004?'<div class="ledger-note ledger-warning-note"><b>Mapping suspense is not zero.</b> This is intentional where DalasiPay knows the amount but not the final accounting account, such as unmatched supplier bills, uncategorized business payments or incomplete opening balances. It should be reviewed rather than hidden.</div>':'<div class="ledger-note"><b>Trial Balance balanced.</b> No debit/credit difference exists in the generated ledger.</div>')+
     '</section>'+
-    '<section class="surface ledger-card"><div class="table-tools"><div><h3>General Ledger</h3><p>Drill into the journal by account. Latest 250 lines are shown.</p></div><select id="ledger-account-select">'+options+'</select></div><div class="table-scroll"><table><thead><tr><th>DATE</th><th>REFERENCE</th><th>SOURCE</th><th>ACCOUNT</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>RUNNING BALANCE</th></tr></thead><tbody>'+glRows+'</tbody></table></div></section>';
+    '<section class="surface ledger-card"><div class="table-tools"><div><h3>General Ledger</h3><p>Drill into the journal by account. Latest 250 lines are shown.</p></div><select id="ledger-account-select">'+options+'</select></div><div class="table-scroll"><table><thead><tr><th>DATE</th><th>REFERENCE</th><th>SOURCE</th><th>ACCOUNT</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>RUNNING BALANCE</th><th>SOURCE</th></tr></thead><tbody>'+glRows+'</tbody></table></div></section>';
   }
   function exportTrialBalance(state,ctx){
     const t=trialBalance(state),rows=[['Code','Account','Type','Debit','Credit','Balance','Balance Side'],...t.accounts.map(a=>[a.code,a.name,a.type,a.debit,a.credit,Math.abs(a.balance),a.balance>=0?'Dr':'Cr']),['','TOTAL','',t.debit,t.credit,Math.abs(t.difference),t.difference>=0?'Dr':'Cr']];
@@ -397,5 +402,5 @@
     const rows=ledgerRows(state),data=[['Date','Journal ID','Reference','Source','Account Code','Account','Account Type','Memo','Debit','Credit'],...rows.map(x=>[x.date,x.journalId,x.reference,x.source,x.accountCode,x.account,x.accountType,x.memo,x.debit,x.credit])];
     const csv=data.map(r=>r.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n');ctx.downloadText('dalasipay-general-ledger-'+new Date().toISOString().slice(0,10)+'.csv',csv);ctx.toast('General Ledger downloaded');
   }
-  window.DalasiGeneralLedger={CHART,journals,trialBalance,ledgerRows,panel,exportTrialBalance,exportLedger};
+  window.DalasiGeneralLedger={CHART,journals,trialBalance,ledgerRows,panel,sourceMeta,exportTrialBalance,exportLedger};
 })();
