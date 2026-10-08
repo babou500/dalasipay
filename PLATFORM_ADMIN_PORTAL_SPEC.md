@@ -38,3 +38,7 @@ The unmounted session handler now rejects userId, actorId and adminId query para
 ## Disposable database lookup test
 
 `tests/licensing-postgres-admin-lookup.sql` and the disposable PostgreSQL GitHub workflow now test a dedicated execution role, denied browser role, positive membership, negative membership, and read-only behavior. This test deliberately models a narrow executor, rather than changing the production `subscription_platform_admins` privileges. It does not deploy `platform-admin-lookup-proposal.sql` or activate the Cloudflare administrator Worker. The tests use disposable test identities only; a real trusted token-to-user identity binding and carefully reviewed production grants are required before deployment.
+
+## Private membership service binding (source only)
+
+The unmounted `cloudflare-admin-worker/index.mjs` now uses `ADMIN_MEMBERSHIP_SERVICE.fetch` and **does not read `subscription_platform_admins` directly** or require a Supabase service-role credential. Missing service binding fails closed. The private membership service is not implemented or deployed and must verify the calling Worker's authority, bind the membership subject to the verified identity, and return a boolean only. A service binding by itself does not prove caller identity to the membership service. Existing production table privileges remain untouched. Mocked unit tests validate failure paths, not live identity binding or grants.
