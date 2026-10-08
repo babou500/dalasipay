@@ -124,18 +124,22 @@
     const profitability=!pnl?70:Math.max(0,Math.min(100,Math.round(pnl.netProfit<0?Math.max(0,50+pnl.netMargin):Math.min(100,60+pnl.netMargin*2))));
     const inventory=inv.products?Math.max(0,Math.min(100,Math.round(100-(inv.low/inv.products)*100))):85;
     const tax=window.DalasiTax?.returnSummary?.(state,state.taxPeriod||state.currentPeriod),cfg=window.DalasiTax?.settings?.(state)||{};
-    const today=new Date().toISOString().slice(0,10);
+    const today=new Date().toISOString().slice(0,10),taxYear=String(state.currentPeriod||today).slice(0,4);
+    const taxObligations=window.DalasiTaxCompliance?.obligations?.(state,taxYear)||[];
+    const taxOpen=taxObligations.filter(x=>x.status!=='Complete'),taxOverdue=taxOpen.filter(x=>x.due&&x.due<today),taxDueSoon=taxOpen.filter(x=>x.due&&x.due>=today&&x.due<=new Date(Date.now()+7*86400000).toISOString().slice(0,10));
     let compliance=100;
-    if(cfg.vatRegistered&&tax&&!tax.filed&&tax.dueDate<today)compliance-=35;
-    if(overdueBills>0)compliance-=15;
-    if(state.payrollStatus!=='Paid'&&String(state.currentPeriod)<today.slice(0,7))compliance-=20;
+    compliance-=Math.min(70,taxOverdue.length*20);
+    compliance-=Math.min(20,taxDueSoon.length*5);
+    if(!taxObligations.length&&cfg.vatRegistered&&tax&&!tax.filed&&tax.dueDate<today)compliance-=35;
+    if(overdueBills>0)compliance-=10;
+    if(state.payrollStatus!=='Paid'&&String(state.currentPeriod)<today.slice(0,7))compliance-=10;
     compliance=Math.max(0,compliance);
     const parts=[
       {key:'Liquidity',score:liquidity,weight:25,page:'cashbank',copy:liquidityRatio>=1.5?'Cash cover is strong.':liquidityRatio>=1?'Cash cover is adequate but not generous.':'Cash is below current near-term obligations.'},
       {key:'Collections',score:collections,weight:25,page:'credit',copy:ar.overdue>0?money2(ar.overdue)+' is overdue.':'No overdue receivables detected.'},
       {key:'Profitability',score:profitability,weight:25,action:'business-report-view:profit-loss',copy:pnl?money2(pnl.netProfit)+' net result at '+Number(pnl.netMargin||0).toFixed(1)+'% margin.':'Profitability will strengthen as more transaction history is recorded.'},
       {key:'Inventory',score:inventory,weight:15,page:'inventory',copy:inv.low>0?inv.low+' item'+(inv.low===1?'':'s')+' at or below reorder level.':'Tracked stock is above reorder levels.'},
-      {key:'Compliance',score:compliance,weight:10,page:'tax',copy:compliance===100?'No overdue compliance signal detected.':'One or more compliance or due-date items need attention.'}
+      {key:'Compliance',score:compliance,weight:10,action:'tax-view:calendar',copy:taxOverdue.length?taxOverdue.length+' GRA obligation'+(taxOverdue.length===1?' is':'s are')+' overdue.':taxDueSoon.length?taxDueSoon.length+' GRA deadline'+(taxDueSoon.length===1?' is':'s are')+' due within 7 days.':'No overdue GRA compliance obligation detected.'}
     ];
     const score=Math.round(parts.reduce((a,x)=>a+x.score*x.weight,0)/100);
     const label=score>=85?'Excellent':score>=70?'Strong':score>=55?'Fair':score>=40?'Watch':'At risk';
@@ -160,11 +164,13 @@
     const salesInvoices=(state.customerInvoices||[]).filter(x=>String(x.issueDate||x.createdAt||'').slice(0,7)===state.currentPeriod);
     const salesThisPeriod=sum(salesInvoices,x=>x.amount);
     const cashAccounts=(state.cashAccounts||[]),cashBalance=sum(cashAccounts,x=>x.balance);
+    const taxYear=String(state.currentPeriod||today).slice(0,4),taxObligations=window.DalasiTaxCompliance?.obligations?.(state,taxYear)||[],taxOpen=taxObligations.filter(x=>x.status!=='Complete'),taxOverdue=taxOpen.filter(x=>x.due&&x.due<today),taxNext=taxOpen.filter(x=>x.due&&x.due>=today).sort((a,b)=>String(a.due).localeCompare(String(b.due)))[0];
     const healthFlags=[
       ar.overdue>0?{label:'Overdue receivables',value:money2(ar.overdue),page:'credit'}:null,
       overdueBills>0?{label:'Overdue supplier bills',value:money2(overdueBills),page:'payments'}:null,
       inv.low>0?{label:'Low-stock products',value:String(inv.low),page:'inventory'}:null,
-      state.payrollStatus!=='Paid'?{label:'Payroll status',value:esc(state.payrollStatus),page:'payroll'}:null
+      state.payrollStatus!=='Paid'?{label:'Payroll status',value:esc(state.payrollStatus),page:'payroll'}:null,
+      taxOverdue.length?{label:'Overdue GRA obligations',value:String(taxOverdue.length),action:'tax-view:calendar'}:null
     ].filter(Boolean);
     const hour=new Date().getHours(),part=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
     const greet=part+', '+esc((state.session?.name||'there').split(/\s+/)[0])+'.';
@@ -180,8 +186,9 @@
     html+=card('','invoices','','file','OPEN SALES ORDERS',money2(salesOrders.openValue),salesOrders.open+' order'+(salesOrders.open===1?'':'s')+' not invoiced');
     html+=card('payroll-command','payroll','','payroll','PAYROLL · '+shortPeriod(state.currentPeriod),money2(t.net),active+' employees · '+esc(state.payrollStatus));
     html+=card('','customers','','employees','CUSTOMERS',String(customers),ar.open+' open invoice'+(ar.open===1?'':'s'));
+    html+=card(taxOverdue.length?'cash-alert':'','tax','tax-view:calendar','shield','GRA COMPLIANCE',taxOverdue.length?taxOverdue.length+' overdue':taxOpen.length+' open',taxOverdue.length?'Immediate tax attention required':taxNext?'Next · '+taxNext.due+' · '+taxNext.title:'All tracked obligations complete');
     html+='</div>';
-    html+='<div class="surface business-health-strip"><div class="health-title"><span class="eyebrow">BUSINESS HEALTH</span><b>'+(healthFlags.length?healthFlags.length+' item'+(healthFlags.length===1?'':'s')+' need attention':'No urgent exceptions')+'</b></div><div class="health-items">'+(healthFlags.length?healthFlags.slice(0,4).map(x=>'<button data-page="'+x.page+'"><span>'+x.label+'</span><b>'+x.value+'</b>'+icon('chevron',13)+'</button>').join(''):'<div class="health-clear">'+icon('check',15)+' Core cash, collections, stock and payroll checks are clear.</div>')+'</div></div>';
+    html+='<div class="surface business-health-strip"><div class="health-title"><span class="eyebrow">BUSINESS HEALTH</span><b>'+(healthFlags.length?healthFlags.length+' item'+(healthFlags.length===1?'':'s')+' need attention':'No urgent exceptions')+'</b></div><div class="health-items">'+(healthFlags.length?healthFlags.slice(0,4).map(x=>'<button '+(x.action?'data-action="'+x.action+'"':'data-page="'+x.page+'"')+'><span>'+x.label+'</span><b>'+x.value+'</b>'+icon('chevron',13)+'</button>').join(''):'<div class="health-clear">'+icon('check',15)+' Core cash, collections, stock and payroll checks are clear.</div>')+'</div></div>';
     html+=pulse(state,h,{ar,overdueBills,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
     html+=agenda(state,h);
     html+=story(state,h,{ar,inv,salesThisPeriod,cashBalance,billOutstanding,payrollNet:t.net});
