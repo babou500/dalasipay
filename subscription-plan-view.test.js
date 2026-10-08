@@ -30,6 +30,8 @@ test('comparison uses the central catalogue and is read-only',()=>{
  for(const name of ['Free','Standard','Professional'])assert.match(html,new RegExp('>'+name+'</th>'));
  assert.match(html,/25/);
  assert.match(html,/Unlimited/);
- assert.match(html,/Upgrades, billing and restrictions are not active/);
+ assert.match(html,/No payments or upgrades are available yet/);
+ assert.match(html,/Upgrade requests coming soon/);
+ assert.match(html,/Existing Professional Preview workspaces retain their current unrestricted access/);
  assert.doesNotMatch(html,/<button|data-action=|onclick=/i);
 });
