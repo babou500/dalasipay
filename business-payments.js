@@ -43,6 +43,72 @@
     });
   }
   function billById(state,id){return (state.businessBills||[]).find(x=>x.id===id)||null;}
+  function auditValueMatches(value,ids){
+    if(value==null)return false;
+    if(Array.isArray(value))return value.some(v=>auditValueMatches(v,ids));
+    if(typeof value==='object')return Object.values(value).some(v=>auditValueMatches(v,ids));
+    return ids.has(String(value));
+  }
+  function prettyAuditAction(action){
+    const map={
+      'receivable.created':'Invoice created','receivable.status_updated':'Invoice status changed','receivable.payment_recorded':'Customer payment recorded',
+      'returns.customer_credit_issued':'Customer credit note issued','debits.customer_issued':'Customer debit note issued',
+      'bill.created':'Supplier bill created','bill.status_updated':'Supplier bill status changed','payment.created':'Supplier payment created',
+      'payment.status_updated':'Supplier payment status changed','returns.supplier_credit_recorded':'Supplier credit note recorded','debits.supplier_recorded':'Supplier debit note recorded',
+      'quote.converted':'Quotation converted to invoice','sales_order.invoiced':'Sales order converted to invoice'
+    };
+    if(map[action])return map[action];
+    return String(action||'Activity').replace(/[._-]+/g,' ').replace(/w/g,c=>c.toUpperCase());
+  }
+  function documentAuditEvents(state,ids=[]){
+    const wanted=new Set(ids.filter(Boolean).map(String));if(!wanted.size||!state.org?.id||!window.DalasiAuth?.getAudit)return [];
+    return (window.DalasiAuth.getAudit(state.org.id)||[]).filter(x=>auditValueMatches(x.metadata||{},wanted)).map(x=>({
+      kind:'audit',label:prettyAuditAction(x.action),at:x.createdAt,by:x.actorName||'System',action:x.action,metadata:x.metadata||{}
+    }));
+  }
+  function invoiceLifecycle(state,inv){
+    if(!inv)return [];
+    const payments=(state.incomingPayments||[]).filter(x=>x.invoiceId===inv.id);
+    const credits=(state.customerCreditNotes||[]).filter(x=>x.invoiceId===inv.id&&x.status!=='Void');
+    const debits=(state.customerDebitNotes||[]).filter(x=>x.invoiceId===inv.id&&x.status!=='Void');
+    const creditIds=new Set(credits.map(x=>x.id)),refunds=(state.customerRefunds||[]).filter(x=>creditIds.has(x.creditNoteId));
+    const ids=[inv.id,inv.quoteId,inv.salesOrderId,...payments.map(x=>x.id),...credits.map(x=>x.id),...debits.map(x=>x.id),...refunds.map(x=>x.id)];
+    const events=[
+      {kind:'document',label:'Invoice created',at:inv.createdAt,by:inv.createdBy},
+      inv.sentAt?{kind:'document',label:'Invoice approved & sent',at:inv.sentAt,by:inv.sentBy}:null,
+      inv.fulfilledAt?{kind:'inventory',label:'Order fulfilled / stock issued',at:inv.fulfilledAt,by:inv.fulfilledBy}:null,
+      ...payments.map(x=>({kind:'payment',label:'Payment '+(x.receiptNumber||x.id),detail:x.amount,at:x.receivedDate||x.createdAt,by:x.createdBy,sourceType:'customer-collection',sourceId:x.id})),
+      ...credits.map(x=>({kind:'credit',label:'Credit note '+(x.creditNo||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'customer-credit-note',sourceId:x.id})),
+      ...debits.map(x=>({kind:'debit',label:'Debit note '+(x.debitNo||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'customer-debit-note',sourceId:x.id})),
+      ...refunds.map(x=>({kind:'refund',label:'Customer refund '+(x.reference||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'customer-refund',sourceId:x.id})),
+      ...documentAuditEvents(state,ids)
+    ].filter(Boolean);
+    const seen=new Set();
+    return events.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))).filter(e=>{
+      const key=[e.kind,e.label,String(e.at||'').slice(0,16),e.by||''].join('|');if(seen.has(key))return false;seen.add(key);return true;
+    });
+  }
+  function billLifecycle(state,bill){
+    if(!bill)return [];
+    const payments=(state.businessPayments||[]).filter(x=>x.billId===bill.id);
+    const credits=(state.supplierCreditNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void');
+    const debits=(state.supplierDebitNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void');
+    const creditIds=new Set(credits.map(x=>x.id)),refunds=(state.supplierRefunds||[]).filter(x=>creditIds.has(x.creditNoteId));
+    const ids=[bill.id,bill.purchaseOrderId,...payments.map(x=>x.id),...credits.map(x=>x.id),...debits.map(x=>x.id),...refunds.map(x=>x.id)];
+    const events=[
+      {kind:'document',label:'Supplier bill created',at:bill.createdAt,by:bill.createdBy},
+      bill.approvedAt?{kind:'document',label:'Supplier bill approved',at:bill.approvedAt,by:bill.approvedBy}:null,
+      ...payments.map(x=>({kind:'payment',label:(x.status==='Paid'?'Payment paid ':'Payment ')+(x.receiptNumber||x.voucherNumber||x.id),detail:x.amount,at:x.paidAt||x.updatedAt||x.createdAt,by:x.updatedBy||x.createdBy,sourceType:'business-payment',sourceId:x.id})),
+      ...credits.map(x=>({kind:'credit',label:'Supplier credit '+(x.creditNo||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'supplier-credit-note',sourceId:x.id})),
+      ...debits.map(x=>({kind:'debit',label:'Supplier debit '+(x.debitNo||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'supplier-debit-note',sourceId:x.id})),
+      ...refunds.map(x=>({kind:'refund',label:'Supplier refund '+(x.reference||x.id),detail:x.amount,at:x.date||x.createdAt,by:x.createdBy,sourceType:'supplier-refund',sourceId:x.id})),
+      ...documentAuditEvents(state,ids)
+    ].filter(Boolean);
+    const seen=new Set();
+    return events.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))).filter(e=>{
+      const key=[e.kind,e.label,String(e.at||'').slice(0,16),e.by||''].join('|');if(seen.has(key))return false;seen.add(key);return true;
+    });
+  }
   function billStatusClass(status){return status==='Paid'?'paid':status==='Approved'?'approved':status==='Pending approval'?'neutral':'ready';}
   function todayIso(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
   function isoDate(d){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
@@ -92,11 +158,11 @@
   }
   function billAction(state,b){
     const balance=window.DalasiReturns?.billBalance?.(state,b)??(Number(b.amount)||0),pending=(state.businessPayments||[]).find(x=>x.billId===b.id&&x.status!=='Paid');
-    if(b.status==='Draft')return '<button class="secondary" data-action="bill-submit:'+b.id+'">Submit</button>';
-    if(b.status==='Pending approval')return '<button class="secondary" data-action="bill-approve:'+b.id+'">Approve</button>';
-    if(balance<=.004)return '<span class="payment-complete">'+(b.status==='Paid'?'Paid':'Credited')+'</span>';
-    if(pending)return '<span class="payment-complete">Payment created</span>';
-    return '<button class="primary" data-action="pay-bill:'+b.id+'">Create payment</button>';
+    if(b.status==='Draft')return '<button class="secondary" data-action="bill-view:'+b.id+'">View</button><button class="secondary" data-action="bill-submit:'+b.id+'">Submit</button>';
+    if(b.status==='Pending approval')return '<button class="secondary" data-action="bill-view:'+b.id+'">View</button><button class="secondary" data-action="bill-approve:'+b.id+'">Approve</button>';
+    if(balance<=.004)return '<button class="secondary" data-action="bill-view:'+b.id+'">View</button><span class="payment-complete">'+(b.status==='Paid'?'Paid':'Credited')+'</span>';
+    if(pending)return '<button class="secondary" data-action="bill-view:'+b.id+'">View</button><span class="payment-complete">Payment created</span>';
+    return '<button class="secondary" data-action="bill-view:'+b.id+'">View</button><button class="primary" data-action="pay-bill:'+b.id+'">Create payment</button>';
   }
   function readBillAttachment(file){
     return new Promise((resolve,reject)=>{
@@ -442,7 +508,7 @@
   function supplierAccountModal(state,h){
     const esc=h.esc,money2=h.money2,icon=h.icon,m=supplierAccount(state,state.supplierAccountId),s=m.supplier;if(!s)return '';
     const bills=m.bills.slice().sort((a,b)=>String(b.invoiceDate||b.createdAt||'').localeCompare(String(a.invoiceDate||a.createdAt||'')));
-    const billRows=bills.length?bills.map(b=>'<tr><td><b>'+esc(b.invoiceNo||b.id)+'</b></td><td>'+dueDate(b.invoiceDate)+'</td><td>'+dueDate(b.dueDate)+'</td><td><b>'+money2(window.DalasiReturns?.billBalance?.(state,b)??b.amount)+'</b><small class="cash-sub">original '+money2(b.amount)+'</small></td><td>'+esc(b.status||'Draft')+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty-inline">No supplier bills linked to this account yet.</div></td></tr>';
+    const billRows=bills.length?bills.map(b=>'<tr><td><button class="customer-doc-link" data-action="bill-view:'+esc(b.id)+'">'+esc(b.invoiceNo||b.id)+'</button></td><td>'+dueDate(b.invoiceDate)+'</td><td>'+dueDate(b.dueDate)+'</td><td><b>'+money2(window.DalasiReturns?.billBalance?.(state,b)??b.amount)+'</b><small class="cash-sub">original '+money2(b.amount)+'</small></td><td>'+esc(b.status||'Draft')+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty-inline">No supplier bills linked to this account yet.</div></td></tr>';
     const pays=m.payments.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
     const payRows=pays.length?pays.slice(0,8).map(p=>'<tr><td><b>'+esc(p.voucherNumber||p.receiptNumber||p.id)+'</b></td><td>'+dueDate(p.dueDate)+'</td><td>'+money2(p.amount)+'</td><td>'+esc(p.method||'Other')+'</td><td>'+esc(p.status||'Draft')+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty-inline">No payments linked to this supplier yet.</div></td></tr>';
     return '<div class="center-modal payment-modal customer-account-modal"><div class="modal-scrim" data-action="close-supplier-account"></div><div class="modal-box">'+
@@ -954,7 +1020,7 @@
     const current=b.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved';
     if(['Approved','Part paid','Paid'].includes(current)){ctx.toast('Posted supplier bills are locked. Use supplier credit/debit notes or payments for corrections.');return;}
     if(!allowed){ctx.toast('This supplier bill status change is not allowed. Follow Draft → Pending approval → Approved.');return;}
-    if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
+    if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';if(status==='Approved'){b.approvedAt=b.approvedAt||b.updatedAt;b.approvedBy=b.approvedBy||b.updatedBy;}ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
   }
 
   function create(ev,state,ctx){
