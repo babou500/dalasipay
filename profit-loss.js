@@ -49,6 +49,29 @@
     const items=[...map.entries()].map(([category,amount])=>({category,amount:Math.round(amount*100)/100})).sort((a,b)=>b.amount-a.amount);
     return {total:Math.round(items.reduce((a,x)=>a+x.amount,0)*100)/100,items,count:rows.length};
   }
+  function supplierBillExpenseActivity(state,start,end){
+    let total=0,count=0;
+    const posted=new Set(['Approved','Part paid','Paid']);
+    const accountFor=b=>window.DalasiAccounting?.accountByName?.(state,b?.postingAccount||'Operating Expenses')||{name:b?.postingAccount||'Operating Expenses',type:'Expense'};
+    const productBaseFor=b=>{
+      const po=b?.purchaseOrderId?(state.purchaseOrders||[]).find(x=>x.id===b.purchaseOrderId):null;if(!po)return 0;
+      let sum=0;(po.lineItems||[]).forEach(l=>{const item=l.catalogId?window.DalasiCatalog?.itemById?.(state,l.catalogId):null;if(item?.type!=='Product')return;const raw=Math.max(0,(Number(l.quantity)||0)*(Number(l.unitPrice)||0));const t=window.DalasiTax?.snapshot?.(state,raw,b.taxCode||po.taxCode||'OUT','purchase',b.taxPricingMode||po.taxPricingMode||'inclusive')||{taxNet:raw,vatRecoverable:false};sum+=t.vatRecoverable?Number(t.taxNet)||0:raw;});return round(sum);
+    };
+    (state.businessBills||[]).filter(b=>posted.has(b.status||'Draft')&&inRange(b.invoiceDate||b.createdAt,start,end)).forEach(b=>{
+      const subtotal=Number(b.subtotal)||((Number(b.amount)||0)+(Number(b.discountTotal)||0));
+      const pre=window.DalasiTax?.snapshot?.(state,subtotal,b.taxCode||'OUT','purchase',b.taxPricingMode||'inclusive')||{taxNet:subtotal,vatRecoverable:false};
+      const grossBase=round(pre.vatRecoverable?Number(pre.taxNet)||0:subtotal),productBase=Math.min(grossBase,productBaseFor(b)),otherBase=round(Math.max(0,grossBase-productBase)),a=accountFor(b);
+      if(a.type==='Expense'){total+=otherBase;count++;}
+    });
+    (state.supplierCreditNotes||[]).filter(c=>c.status!=='Void'&&inRange(c.date||c.createdAt,start,end)).forEach(c=>{
+      const b=(state.businessBills||[]).find(x=>x.id===c.billId),a=accountFor(b);if(a.type!=='Expense')return;
+      const net=round(c.taxNet??c.amount),returned=round(Math.min(net,(c.returnItems||[]).reduce((s,x)=>s+(Number(x.costAmount)||0),0)));total-=Math.max(0,net-returned);
+    });
+    (state.supplierDebitNotes||[]).filter(d=>d.status!=='Void'&&inRange(d.date||d.createdAt,start,end)).forEach(d=>{
+      const b=(state.businessBills||[]).find(x=>x.id===d.billId),a=accountFor(b);if(a.type!=='Expense')return;total+=round(d.vatRecoverable?(d.taxNet??d.amount):d.amount);
+    });
+    return {total:round(total),count};
+  }
   function manualAdjustments(state,start,end){
     let revenue=0,cogs=0,payroll=0,operating=0;
     (state.manualJournals||[]).filter(j=>j.status==='Posted'&&inRange(j.date,start,end)).forEach(j=>(j.lines||[]).forEach(x=>{
@@ -83,7 +106,7 @@
     const salesCredits=round((state.customerCreditNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0)),salesDebits=round((state.customerDebitNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0));
     const unfulfilledProductInvoices=periodInvoices.filter(inv=>window.DalasiSalesInvoices?.invoiceHasStockLines?.(state,inv)&&!inv.fulfilledAt).length;
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
-    const discountsReceived=round((state.businessBills||[]).filter(b=>(b.status||'Draft')!=='Draft'&&inRange(b.invoiceDate||b.createdAt,r.start,r.end)).reduce((a,b)=>{
+    const discountsReceived=round((state.businessBills||[]).filter(b=>['Approved','Part paid','Paid'].includes(b.status||'Draft')&&inRange(b.invoiceDate||b.createdAt,r.start,r.end)).reduce((a,b)=>{
       const subtotal=Number(b.subtotal)||((Number(b.amount)||0)+(Number(b.discountTotal)||0));
       const pre=window.DalasiTax?.snapshot?.(state,subtotal,b.taxCode||'OUT','purchase',b.taxPricingMode||'inclusive')||{taxNet:subtotal,vatRecoverable:false};
       const post=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:Number(b.amount)||0,vatRecoverable:false};
@@ -95,9 +118,9 @@
     const revenue=Math.round((invoiceRevenue-salesCredits+salesDebits+directIncome+discountsReceived+manual.revenue)*100)/100;
     const cogsBase=cogsForRange(state,r.start,r.end),cogs={total:Math.round((cogsBase.total+manual.cogs)*100)/100,estimated:cogsBase.estimated};
     const grossProfit=Math.round((revenue-cogs.total)*100)/100;
-    const exp=expenseBreakdown(state,r.start,r.end);
+    const exp=expenseBreakdown(state,r.start,r.end),supplierBillExpenses=supplierBillExpenseActivity(state,r.start,r.end);
     const basePayroll=payrollForPeriod(state,period),payroll=Math.round((basePayroll+manual.payroll)*100)/100;
-    const operatingExpenses=Math.round((exp.total+manual.operating+payroll+assets.depreciation)*100)/100;
+    const operatingExpenses=Math.round((exp.total+supplierBillExpenses.total+manual.operating+payroll+assets.depreciation)*100)/100;
     const netProfit=Math.round((grossProfit-operatingExpenses-financeCosts+assets.gain-assets.loss)*100)/100;
     return {
       period,start:r.start,end:r.end,
@@ -105,7 +128,7 @@
       directIncome:Math.round(directIncome*100)/100,discountsReceived,manualRevenue:manual.revenue,
       revenue,cogs:cogs.total,cogsEstimated:cogs.estimated,manualCogs:manual.cogs,
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
-      businessExpenses:exp.total,manualOperatingExpenses:manual.operating,expenseBreakdown:exp.items,expenseCount:exp.count,
+      businessExpenses:exp.total,supplierBillExpenses:supplierBillExpenses.total,supplierBillExpenseCount:supplierBillExpenses.count,manualOperatingExpenses:manual.operating,expenseBreakdown:exp.items,expenseCount:exp.count,
       basePayroll,manualPayroll:manual.payroll,payroll,depreciationExpense:assets.depreciation,assetDisposalGain:assets.gain,assetDisposalLoss:assets.loss,financeCosts,operatingExpenses,netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       unfulfilledProductInvoices
     };
@@ -118,7 +141,7 @@
     return {
       period:r.year+' YTD',invoiceSalesGross:sum('invoiceSalesGross'),salesDiscounts:sum('salesDiscounts'),invoiceRevenue:sum('invoiceRevenue'),salesCredits:sum('salesCredits'),salesDebits:sum('salesDebits'),directIncome:sum('directIncome'),discountsReceived:sum('discountsReceived'),manualRevenue:sum('manualRevenue'),revenue,cogs:sum('cogs'),manualCogs:sum('manualCogs'),
       grossProfit,grossMargin:revenue?Math.round(grossProfit/revenue*1000)/10:0,
-      businessExpenses:sum('businessExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),depreciationExpense:sum('depreciationExpense'),assetDisposalGain:sum('assetDisposalGain'),assetDisposalLoss:sum('assetDisposalLoss'),financeCosts:sum('financeCosts'),operatingExpenses:sum('operatingExpenses'),
+      businessExpenses:sum('businessExpenses'),supplierBillExpenses:sum('supplierBillExpenses'),manualOperatingExpenses:sum('manualOperatingExpenses'),basePayroll:sum('basePayroll'),manualPayroll:sum('manualPayroll'),payroll:sum('payroll'),depreciationExpense:sum('depreciationExpense'),assetDisposalGain:sum('assetDisposalGain'),assetDisposalLoss:sum('assetDisposalLoss'),financeCosts:sum('financeCosts'),operatingExpenses:sum('operatingExpenses'),
       netProfit,netMargin:revenue?Math.round(netProfit/revenue*1000)/10:0,
       cogsEstimated:rows.reduce((a,x)=>a+(Number(x?.cogsEstimated)||0),0)
     };
@@ -168,6 +191,7 @@
         row('Cost of goods sold',-m.cogs,-y.cogs,money2)+
         row('Gross profit',m.grossProfit,y.grossProfit,money2,true)+
         row('Business operating expenses',-m.businessExpenses,-y.businessExpenses,money2)+
+        (m.supplierBillExpenses||y.supplierBillExpenses?row('Supplier bill expenses',-m.supplierBillExpenses,-y.supplierBillExpenses,money2):'')+
         expenseRows+
         (m.manualOperatingExpenses||y.manualOperatingExpenses?row('Manual journal operating adjustments',-m.manualOperatingExpenses,-y.manualOperatingExpenses,money2):'')+
         row('Payroll & employer costs',-m.payroll,-y.payroll,money2)+
@@ -196,6 +220,7 @@
       ['Gross profit',m.grossProfit,y.grossProfit],
       ['Gross margin %',m.grossMargin,y.grossMargin],
       ['Business operating expenses',m.businessExpenses,y.businessExpenses],
+      ['Supplier bill expenses',m.supplierBillExpenses,y.supplierBillExpenses],
       ['Payroll & employer costs',m.payroll,y.payroll],
       ['Depreciation expense',m.depreciationExpense,y.depreciationExpense],
       ['Total operating expenses',m.operatingExpenses,y.operatingExpenses],
