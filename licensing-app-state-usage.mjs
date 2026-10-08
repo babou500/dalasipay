@@ -11,3 +11,9 @@ export function observedAppUsage(record){
   supplierBillsPerMonth:null
  };
 }
+
+export function observeIssuedDocuments(records,month){
+ if(!Array.isArray(records)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return null;
+ const accepted=new Set(['sent','paid','partial','partially paid','overdue','unpaid','issued']);
+ return records.filter(item=>item&&accepted.has(String(item.status||'').toLowerCase())&&typeof item.createdAt==='string'&&item.createdAt.slice(0,7)===month).length;
+}
