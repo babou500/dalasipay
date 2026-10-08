@@ -37,8 +37,8 @@ export function createSupabaseLicensingProvider({adminClient,countWorkspaceRecor
    try{
     const saved=await loadAppState(workspaceId);
     const observed=observedAppUsage(saved);
-    if(observed.employees!==null)usage=Object.freeze({...usage,employees:observed.employees});
-   }catch{/* Unknown rather than treating SQL employee count as authoritative. */}
+    usage=Object.freeze({...usage,employees:observed.employees});
+   }catch{usage=Object.freeze({...usage,employees:null});}
   }
   return {workspaceId:data.organization_id,planId:data.plan_id,professionalPreview:data.status==='professional_preview' && data.professional_preview===true,usage};
  }
