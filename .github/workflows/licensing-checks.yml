@@ -1,0 +1,51 @@
+name: Licensing safety checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'licensing-*.js'
+      - 'licensing-*.mjs'
+      - 'workspace-subscription*'
+      - 'subscription-*.js'
+      - 'subscription-*.mjs'
+      - '.github/workflows/licensing-checks.yml'
+  pull_request:
+    paths:
+      - 'licensing-*.js'
+      - 'licensing-*.mjs'
+      - 'workspace-subscription*'
+      - 'subscription-*.js'
+      - 'subscription-*.mjs'
+      - '.github/workflows/licensing-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  licensing-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: |
+          node --check licensing-policy.js
+          node --check workspace-subscription.js
+          node --check subscription-plan-view.js
+          node --check subscription-usage.js
+          node --check licensing-observer-core.mjs
+          node --check cloudflare-licensing-observer.mjs
+          node --check licensing-http-adapter.mjs
+      - name: Run licensing unit and security tests
+        run: |
+          node --test \
+            licensing-policy.test.js \
+            workspace-subscription.test.js \
+            subscription-plan-view.test.js \
+            subscription-usage.test.js \
+            cloudflare-licensing-observer.test.mjs \
+            licensing-http-adapter.test.mjs
