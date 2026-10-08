@@ -1,0 +1,30 @@
+-- Run ONLY in an isolated PostgreSQL/Supabase test database copied from the
+-- schema, never against DalasiPay production. This file intentionally does not
+-- insert real users, organizations, administrators, or subscription changes.
+-- Prerequisites: seed disposable auth.users, organizations and one pending
+-- subscription_change_requests record, and separately grant the isolated test
+-- execution role only the privileges needed for this test.
+--
+-- Test 1: successful review is atomic:
+-- BEGIN;
+-- SELECT public.review_subscription_request_internal(
+--   :'request_uuid'::uuid, :'reviewer_uuid'::uuid,
+--   'approved', 'Test-only approval review');
+-- SELECT status FROM public.subscription_change_requests
+-- WHERE id = :'request_uuid'::uuid;
+-- SELECT event_type FROM public.subscription_admin_events
+-- WHERE request_id = :'request_uuid'::uuid;
+-- ROLLBACK;
+--
+-- Test 2: force audit INSERT failure using an isolated transaction trigger,
+-- then call the review function, catch the error in a SAVEPOINT and assert
+-- that the request remains pending. Always ROLLBACK at the end.
+--
+-- Test 3: two independent test connections should attempt review of the
+-- same pending request concurrently. Only one transaction should succeed
+-- after SELECT ... FOR UPDATE; the other must fail on pending-state check.
+-- This cannot be meaningfully simulated using a single SQL session.
+--
+-- Do not grant production service_role function EXECUTE.
+-- Do not run these tests on real customer records.
+SELECT 'TEST PLAN ONLY - no mutations executed' AS safety_status;
