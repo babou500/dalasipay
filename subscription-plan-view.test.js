@@ -19,7 +19,7 @@ test('new workspace displays Free limits without enforcement',()=>{
 test('invalid workspace renders harmless error state',()=>{
  const m=view.getDisplayModel('../no',null,{existingWorkspace:true});
  assert.equal(m.valid,false);
- assert.match(view.renderReadOnly(m),/Subscription unavailable/);
+ assert.match(view.renderReadOnly(m),/Subscription information unavailable/);
 });
 test('HTML content is escaped',()=>{
  assert.equal(view.escapeHtml('<script>"&'), '&lt;script&gt;&quot;&amp;');
