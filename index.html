@@ -1935,6 +1935,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     online: navigator.onLine,
     filter: '',
     department: 'All',
+    employeeAttention: 'All',
     selectedEmployee: null,
     selectedPayslip: null,
     addOpen: false,
@@ -2832,14 +2833,36 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
 
   function employeesPage(){
-    const list=state.employees.filter(e=>(state.department==='All'||e.department===state.department)&&(`${e.name} ${e.role} ${e.id} ${e.jobGrade||''}`.toLowerCase().includes(state.filter.toLowerCase()))),active=state.employees.filter(e=>e.status==='Active').length,onboarding=onboardingQueue(),offboarding=offboardingQueue(),expiring=expiryItems(60),outOfBand=state.employees.filter(e=>e.status!=='Exited'&&!salaryBand(e).ok),pendingLeave=pendingLeaveRequests();
+    const employeeAttention=(e)=>{
+      const band=salaryBand(e),onb=window.DalasiHR.workflowProgress(e.onboarding),offboarding=!!(e.offboarding?.status&&e.offboarding.status!=='Not started'&&e.offboarding.status!=='Complete');
+      const contractEnd=e.contract?.endDate?new Date(e.contract.endDate+'T23:59:59'):null,daysToEnd=contractEnd?Math.ceil((contractEnd-new Date())/86400000):null,expiring=daysToEnd!=null&&daysToEnd>=0&&daysToEnd<=60;
+      const missing=!e.tin||!e.sshfc||!e.bank||e.bank==='Not added';
+      const flags=[];
+      if(!band.ok&&e.status!=='Exited')flags.push('Salary band');
+      if(!onb.complete&&e.status!=='Exited')flags.push('Onboarding');
+      if(offboarding)flags.push('Offboarding');
+      if(expiring)flags.push('Contract expiry');
+      if(missing&&e.status!=='Exited')flags.push('Missing details');
+      return {flags,band,onb,offboarding,expiring,missing,needs:flags.length>0};
+    };
+    const matchesAttention=(e)=>{
+      const a=employeeAttention(e),f=state.employeeAttention||'All';
+      if(f==='All')return true;
+      if(f==='Needs attention')return a.needs;
+      if(f==='Onboarding')return !a.onb.complete&&e.status!=='Exited';
+      if(f==='Salary band')return !a.band.ok&&e.status!=='Exited';
+      if(f==='Offboarding')return a.offboarding;
+      if(f==='Contract expiry')return a.expiring;
+      if(f==='Missing details')return a.missing&&e.status!=='Exited';
+      return true;
+    };
+    const list=state.employees.filter(e=>(state.department==='All'||e.department===state.department)&&matchesAttention(e)&&(`${e.name} ${e.role} ${e.id} ${e.jobGrade||''}`.toLowerCase().includes(state.filter.toLowerCase()))),active=state.employees.filter(e=>e.status==='Active').length,onboarding=onboardingQueue(),offboarding=offboardingQueue(),expiring=expiryItems(60),outOfBand=state.employees.filter(e=>e.status!=='Exited'&&!salaryBand(e).ok),pendingLeave=pendingLeaveRequests(),attentionCount=state.employees.filter(e=>employeeAttention(e).needs).length;
     return `${pageTitle('PEOPLE OPERATIONS','Employees','Manage employee lifecycle, job grades, salary bands, contracts and payroll-linked HR records.',`${periodControls(false)}${pendingLeave.length?`<button class="secondary" data-action="open-leave-review">${icon('calendar',15)} Leave approvals <span class="button-badge">${pendingLeave.length}</span></button>`:''}<button class="secondary" data-action="open-mass-update">${icon('employees',15)} Mass update</button><button class="secondary" data-action="open-import">${icon('file',15)} Import CSV</button><button class="primary" data-action="open-add">${icon('plus',16)} Add employee</button>`)}
       <div class="employee-stats">${stat('employees','Active employees',active)}${stat('check','Open onboarding',onboarding.length,onboarding.length>0)}${stat('arrow','Offboarding',offboarding.length,offboarding.length>0)}${stat('file','Expiry alerts · 60d',expiring.length,expiring.length>0)}${stat('payroll','Outside salary band',outOfBand.length,outOfBand.length>0)}</div>
       <div class="surface lifecycle-strip"><div><b>Lifecycle controls</b><p>Use onboarding/offboarding checklists instead of changing employment status manually.</p></div><div class="lifecycle-mini"><span><b>${hrDepartments().length}</b> departments</span><span><b>${hrGrades().length}</b> job grades</span><span><b>${state.hrConfig.varianceThreshold}%</b> payroll variance threshold</span></div><button class="text-btn" data-page="settings">People structure ${icon('arrow',13)}</button></div>
-      <div class="surface employee-card"><div class="table-tools"><div class="inline-search">${icon('search',16)}<input id="employee-search" value="${esc(state.filter)}" placeholder="Search name, job, ID or grade..."/></div><select id="dept-filter"><option>All</option>${hrDepartments().map(d=>`<option ${state.department===d.name?'selected':''}>${esc(d.name)}</option>`).join('')}</select><button class="secondary" data-action="download-template">CSV template</button></div>
-      <div class="table-scroll"><table><thead><tr><th>EMPLOYEE</th><th>DEPARTMENT / GRADE</th><th>EMPLOYMENT</th><th>SALARY BAND</th><th>LIFECYCLE</th><th>NET PAY</th><th></th></tr></thead><tbody>${list.map(e=>{const c=employeeCalc(e),grade=gradeForEmployee(e),band=salaryBand(e),onb=window.DalasiHR.workflowProgress(e.onboarding);return `<tr data-employee="${e.id}"><td>${person(e)}</td><td><b>${esc(e.department)}</b><small class="table-sub">${esc(grade?.id||'No grade')} · ${esc(grade?.name||'Unassigned')}</small></td><td>${esc(e.employmentType||'Permanent')}${e.contract?.endDate?`<small class="table-sub">ends ${new Date(e.contract.endDate+'T00:00:00').toLocaleDateString('en-GB')}</small>`:''}</td><td>${band.ok?'<span class="ok-text">Within band</span>':'<span class="warn-text">Outside band</span>'}</td><td>${e.offboarding?.status&&e.offboarding.status!=='Not started'?pill(e.offboarding.status,e.offboarding.status==='Complete'?'neutral':'approved'):onb.complete?pill('Onboarded','paid'):pill(`${onb.pct}% onboarding`,'approved')}</td><td><b>${money2(c.net)}</b></td><td>${icon('more',16)}</td></tr>`}).join('')}</tbody></table></div><div class="table-footer">Showing ${list.length} employees <span>·</span> ${expiring.length} contract/document expiry alerts within 60 days</div></div>`;
+      <div class="surface employee-card employee-directory"><div class="table-tools employee-directory-tools"><div><h3>Employee directory</h3><p>${attentionCount} employee${attentionCount===1?'':'s'} currently need HR review.</p></div><div class="employee-directory-filters"><div class="inline-search">${icon('search',16)}<input id="employee-search" value="${esc(state.filter)}" placeholder="Search name, job, ID or grade..."/></div><select id="dept-filter" aria-label="Filter by department"><option>All</option>${hrDepartments().map(d=>`<option ${state.department===d.name?'selected':''}>${esc(d.name)}</option>`).join('')}</select><select id="employee-attention-filter" aria-label="Filter employees by HR attention"><option ${state.employeeAttention==='All'?'selected':''}>All</option><option ${state.employeeAttention==='Needs attention'?'selected':''}>Needs attention</option><option ${state.employeeAttention==='Onboarding'?'selected':''}>Onboarding</option><option ${state.employeeAttention==='Salary band'?'selected':''}>Salary band</option><option ${state.employeeAttention==='Offboarding'?'selected':''}>Offboarding</option><option ${state.employeeAttention==='Contract expiry'?'selected':''}>Contract expiry</option><option ${state.employeeAttention==='Missing details'?'selected':''}>Missing details</option></select><button class="secondary" data-action="download-template">CSV template</button></div></div>
+      <div class="table-scroll"><table><thead><tr><th>EMPLOYEE</th><th>DEPARTMENT / GRADE</th><th>EMPLOYMENT</th><th>HR ATTENTION</th><th>LIFECYCLE</th><th>NET PAY</th><th>ACTIONS</th></tr></thead><tbody>${list.length?list.map(e=>{const c=employeeCalc(e),grade=gradeForEmployee(e),a=employeeAttention(e);return `<tr data-employee="${e.id}" class="${a.needs?'employee-row-attention':''}"><td>${person(e)}</td><td><b>${esc(e.department)}</b><small class="table-sub">${esc(grade?.id||'No grade')} · ${esc(grade?.name||'Unassigned')}</small></td><td>${esc(e.employmentType||'Permanent')}${e.contract?.endDate?`<small class="table-sub">ends ${new Date(e.contract.endDate+'T00:00:00').toLocaleDateString('en-GB')}</small>`:''}</td><td>${a.needs?`<div class="employee-attention-cell"><span class="attention-dot"></span><div><b>${esc(a.flags[0])}</b><small>${a.flags.length>1?`+${a.flags.length-1} more review item${a.flags.length>2?'s':''}`:'Review recommended'}</small></div></div>`:'<span class="employee-clear-status">✓ Clear</span>'}</td><td>${a.offboarding?pill(e.offboarding.status,e.offboarding.status==='Complete'?'neutral':'approved'):a.onb.complete?pill('Onboarded','paid'):pill(`${a.onb.pct}% onboarding`,'approved')}</td><td><b>${money2(c.net)}</b><small class="table-sub">${a.band.ok?'In salary band':'Review salary band'}</small></td><td><div class="employee-row-actions"><button type="button" class="secondary tiny" data-action="edit:${e.id}" title="Edit employee">${icon('save',12)} Edit</button><button type="button" class="secondary tiny" data-employee="${e.id}" title="View employee record">View ${icon('arrow',12)}</button></div></td></tr>`}).join(''):`<tr><td colspan="7"><div class="empty-inline">No employees match the current search and filters.</div></td></tr>`}</tbody></table></div><div class="table-footer"><span>Showing <strong>${list.length}</strong> of ${state.employees.length} employees</span><span>${attentionCount} need review · ${expiring.length} expiry alert${expiring.length===1?'':'s'} within 60 days</span></div></div>`;
   }
-
 
   function stat(ic,label,value,warn=false){return `<div class="surface stat"><span class="${warn?'warn-bg':''}">${icon(ic,17)}</span><div><b>${value}</b><small>${label}</small></div></div>`}
   function employeeDrawer(e){
@@ -3355,6 +3378,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const pbs=document.getElementById('payment-beneficiary-select');if(pbs)pbs.addEventListener('change',e=>{state.paymentBeneficiaryId=e.target.value||null;render()});
     const es=document.getElementById('employee-search'); if(es) es.addEventListener('input',e=>{state.filter=e.target.value;employeesTableOnly()});
     const df=document.getElementById('dept-filter'); if(df) df.addEventListener('change',e=>{state.department=e.target.value;render()});
+    const eaf=document.getElementById('employee-attention-filter'); if(eaf) eaf.addEventListener('change',e=>{state.employeeAttention=e.target.value;render()});
     const sc=document.getElementById('settings-company'); if(sc) sc.addEventListener('input',e=>state.settingsCompany=e.target.value);
     const blf=document.getElementById('brand-logo-file');if(blf)blf.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{state.branding.logoData=await processBrandLogoFile(file);save();toast('Company logo uploaded and added to payslips');render();}catch(err){toast(err?.message||'Unable to upload logo');}});
     const ss=document.getElementById('scheme-select'); if(ss) ss.addEventListener('change',e=>{state.settingsScheme=e.target.value;render()});
