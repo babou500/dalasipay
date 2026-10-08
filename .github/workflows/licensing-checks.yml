@@ -51,6 +51,7 @@ jobs:
           node --check licensing-app-state-usage.mjs
           node --check licensing-readiness.mjs
           node --check licensing-admin-contract.mjs
+          node --check licensing-admin-authorization.mjs
           node --check subscription-admin-preview.js
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
@@ -71,6 +72,7 @@ jobs:
             licensing-app-state-usage.test.mjs \
             licensing-readiness.test.mjs \
             licensing-admin-contract.test.mjs \
+            licensing-admin-authorization.test.mjs \
             subscription-admin-preview.test.js \
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
