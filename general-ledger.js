@@ -58,6 +58,7 @@
 
     // Cash account opening balances
     (state.cashAccounts||[]).forEach(a=>{
+      if(a.openingMigrationJournalId)return;
       const amount=round(a.openingBalance||0);if(!amount)return;
       pushJournal(out,'OPEN-'+a.id,a.openingDate||a.createdAt||today,a.reference||a.name,'Cash account opening',[
         {account:cashAccountName(state,a.id),debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
@@ -291,6 +292,7 @@
 
     // Business loans: drawdowns/opening balances, interest accruals and repayments.
     (state.businessLoans||[]).forEach(l=>{
+      if(l.openingMigrationJournalId&&l.source==='Opening balance')return;
       const principal=round(l.principal);if(!principal)return;
       pushJournal(out,'LOAN-'+l.id,l.startDate||l.createdAt,l.reference||l.id,'Loan recognition',[
         {account:l.source==='Cash drawdown'?cashAccountName(state,l.accountId):'Opening Balance Equity',debit:principal,memo:l.lender||''},
@@ -315,14 +317,15 @@
 
     // Fixed assets: acquisition, depreciation and disposal.
     (state.fixedAssets||[]).forEach(a=>{
+      const migratedOpening=!!a.openingMigrationJournalId&&a.source==='Opening balance';
       const cost=round(a.cost),openingAccum=round(a.openingAccumDep),source=a.source==='Cash purchase'?cashAccountName(state,a.accountId):'Opening Balance Equity';
-      if(cost){
+      if(cost&&!migratedOpening){
         pushJournal(out,'FA-'+a.id,a.acquisitionDate||a.createdAt,a.reference||a.assetNo||a.id,'Fixed asset acquisition',[
           {account:'Property & Equipment, Cost',debit:cost,memo:a.name||a.category||''},
           {account:source,credit:cost,memo:a.source||'Opening balance'}
         ]);
       }
-      if(openingAccum){
+      if(openingAccum&&!migratedOpening){
         pushJournal(out,'FAOPENDEP-'+a.id,a.acquisitionDate||a.createdAt,a.reference||a.assetNo||a.id,'Opening accumulated depreciation',[
           {account:'Opening Balance Equity',debit:openingAccum,memo:a.name||''},
           {account:'Accumulated Depreciation',credit:openingAccum,memo:a.name||''}
