@@ -11,6 +11,9 @@ on:
       - 'subscription-*.js'
       - 'subscription-*.mjs'
       - '.github/workflows/licensing-checks.yml'
+      - 'cloudflare-licensing-worker/**'
+      - 'supabase-licensing-provider*'
+      - 'verified-licensing-endpoint*'
   pull_request:
     paths:
       - 'licensing-*.js'
@@ -19,6 +22,9 @@ on:
       - 'subscription-*.js'
       - 'subscription-*.mjs'
       - '.github/workflows/licensing-checks.yml'
+      - 'cloudflare-licensing-worker/**'
+      - 'supabase-licensing-provider*'
+      - 'verified-licensing-endpoint*'
 
 permissions:
   contents: read
@@ -43,6 +49,7 @@ jobs:
           node --check licensing-http-adapter.mjs
           node --check supabase-licensing-provider.mjs
           node --check verified-licensing-endpoint.mjs
+          node --check cloudflare-licensing-worker/index.mjs
       - name: Run licensing unit and security tests
         run: |
           node --test \
@@ -54,4 +61,5 @@ jobs:
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
             supabase-licensing-provider.test.mjs \
-            verified-licensing-endpoint.test.mjs
+            verified-licensing-endpoint.test.mjs \
+            cloudflare-licensing-worker/index.test.mjs
