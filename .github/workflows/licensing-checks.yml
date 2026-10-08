@@ -44,6 +44,7 @@ jobs:
           node --check workspace-subscription.js
           node --check subscription-plan-view.js
           node --check subscription-usage.js
+          node --check subscription-verify.js
           node --check licensing-observer-core.mjs
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
@@ -57,6 +58,7 @@ jobs:
             workspace-subscription.test.js \
             subscription-plan-view.test.js \
             subscription-usage.test.js \
+            subscription-verify.test.js \
             cloudflare-licensing-observer.test.mjs \
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
