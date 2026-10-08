@@ -134,7 +134,7 @@ BEGIN
           '44444444-4444-4444-8444-444444444444',
           '22222222-2222-4222-8222-222222222222',
           'platform_admin_revoked',NULL);
- EXCEPTION WHEN not_null_violation THEN NULL;
+ EXCEPTION WHEN check_violation THEN NULL;
  END;
  IF NOT EXISTS(SELECT 1 FROM public.subscription_platform_admins WHERE user_id='11111111-1111-4111-8111-111111111111') THEN
   RAISE EXCEPTION 'Revocation not rolled back';
@@ -160,3 +160,6 @@ BEGIN
  END IF;
 END $$;
 SELECT 'PASS: disposable administrator appointment and revocation atomicity' AS result;
+
+-- Reset the disposable audit log for the following concurrency test.
+TRUNCATE public.subscription_admin_events;
