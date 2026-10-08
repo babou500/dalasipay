@@ -179,7 +179,7 @@
       }
     });
 
-    // Supplier bills that are not draft/paid. Supplier discounts are posted separately as discounts received.
+    // Supplier bills. Product PO lines clear inventory receipt clearing; the remainder posts to the selected expense/asset account.
     (state.businessBills||[]).forEach(b=>{
       if((b.status||'Draft')==='Draft')return;
       const amt=round(b.amount);if(!amt)return;
@@ -189,8 +189,22 @@
       const net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
       const grossExpenseBase=round(preDiscountTax.vatRecoverable?preDiscountTax.taxNet:subtotalGross);
       const discountReceived=round(Math.max(0,grossExpenseBase-net));
+      const po=b.purchaseOrderId?(state.purchaseOrders||[]).find(x=>x.id===b.purchaseOrderId):null;
+      let productBase=0;
+      if(po){
+        (po.lineItems||[]).forEach(l=>{
+          const item=l.catalogId?window.DalasiCatalog?.itemById?.(state,l.catalogId):null;if(item?.type!=='Product')return;
+          const raw=Math.max(0,(Number(l.quantity)||0)*(Number(l.unitPrice)||0));
+          const pt=window.DalasiTax?.snapshot?.(state,raw,b.taxCode||po.taxCode||'OUT','purchase',b.taxPricingMode||po.taxPricingMode||'inclusive')||{taxNet:raw,vatRecoverable:false};
+          productBase+=pt.vatRecoverable?Number(pt.taxNet)||0:raw;
+        });
+      }
+      productBase=round(Math.min(grossExpenseBase,Math.max(0,productBase)));
+      const otherBase=round(Math.max(0,grossExpenseBase-productBase));
+      const mapped=postingAccount(state,b.postingAccount||po?.postingAccount||'Operating Expenses','Operating Expenses');
       pushJournal(out,'BILL-'+b.id,b.invoiceDate||b.createdAt,b.invoiceNo||b.id,'Supplier bill',[
-        {account:'Opening / Mapping Suspense',debit:grossExpenseBase,memo:b.description||'Supplier bill account mapping pending'},
+        {account:'Inventory Receipt Clearing',debit:productBase,memo:productBase?'Clear received product value from '+(po?.poNumber||'purchase order'):''},
+        {account:mapped,debit:otherBase,memo:b.description||b.category||'Supplier bill'},
         {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT on discounted supplier bill':''},
         {account:'Discounts Received',credit:discountReceived,memo:discountReceived?'Supplier discount received':''},
         {account:'Accounts Payable',credit:amt,memo:b.supplier||''}
