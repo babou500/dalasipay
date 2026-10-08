@@ -1,0 +1,1 @@
+const test=require('node:test');const assert=require('node:assert/strict');const {render}=require('./subscription-admin-preview.js');test('inactive administration roadmap cannot change plans',()=>{const html=render();assert.match(html,/Not active/);assert.doesNotMatch(html,/<button|<form|data-action=/i);});
