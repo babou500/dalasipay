@@ -1310,3 +1310,172 @@ body{background:
   .sales-action-item{grid-template-columns:28px minmax(0,1fr)}
   .sales-action-item>button{grid-column:2;justify-self:start}
 }
+
+
+/* DalasiPay v0.94 — unified product UI system */
+:root{
+  --ui-space-1:4px;--ui-space-2:8px;--ui-space-3:12px;--ui-space-4:16px;--ui-space-5:20px;--ui-space-6:24px;
+  --ui-focus:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent);
+  --ui-danger:#a84242;--ui-danger-bg:#fbeceb;--ui-info:#356d9c;--ui-info-bg:#eaf3fb;
+}
+.content{padding-bottom:64px}
+.page-title{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:22px;
+  margin-bottom:22px;padding:2px 0 18px
+}
+.page-title .eyebrow{font-size:9px;font-weight:850;letter-spacing:.13em;color:var(--primary)}
+.page-title h1{font-size:28px;line-height:1.08;margin:5px 0 7px}
+.page-title p{font-size:11.5px;line-height:1.5;margin:0;color:var(--muted)}
+.page-actions{display:flex;justify-content:flex-end;align-items:center;gap:7px;flex-wrap:wrap}
+.page-actions select{min-height:38px}
+
+.primary,.secondary,.text-btn,button{
+  -webkit-tap-highlight-color:transparent
+}
+.primary,.secondary{
+  min-height:38px;border-radius:9px;padding:0 13px;font-weight:780;
+  transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .1s ease,opacity .14s ease
+}
+.primary:hover:not(:disabled){box-shadow:0 5px 14px color-mix(in srgb,var(--primary) 16%,transparent)}
+.secondary:hover:not(:disabled){border-color:color-mix(in srgb,var(--primary) 28%,var(--border));background:var(--soft-2);color:var(--primary)}
+.primary:focus-visible,.secondary:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{
+  outline:0;box-shadow:var(--ui-focus);border-color:color-mix(in srgb,var(--primary) 52%,var(--border))
+}
+button:disabled,.primary:disabled,.secondary:disabled{
+  opacity:.48;cursor:not-allowed;transform:none!important;box-shadow:none!important
+}
+
+.surface{border-radius:14px}
+.employee-card,.ledger-card,.report-library,.settings-card,.report-card{overflow:clip}
+.table-tools{
+  gap:16px;min-height:62px;padding:13px 15px;
+  border-bottom:1px solid var(--border)
+}
+.table-tools>div:first-child{min-width:0}
+.table-tools>div:first-child h3{font-size:12.5px;line-height:1.25;margin:0 0 4px}
+.table-tools>div:first-child p{font-size:9.8px;line-height:1.45;margin:0;color:var(--muted)}
+.table-tools>.inline-buttons,.table-tools>.register-tools{justify-content:flex-end}
+
+.table-scroll{position:relative;max-width:100%}
+.employee-card table,.report-table,.report-preview-table,.ledger-card table{width:100%;border-collapse:separate;border-spacing:0}
+.employee-card th,.report-table th,.report-preview-table th,.ledger-card th{
+  position:sticky;top:0;z-index:2;height:38px;
+  background:color-mix(in srgb,var(--panel-2) 94%,var(--panel));
+  color:var(--muted);font-size:8.7px;font-weight:850;letter-spacing:.075em;text-transform:uppercase;
+  border-bottom:1px solid var(--border)
+}
+.employee-card td,.report-table td,.report-preview-table td,.ledger-card td{
+  min-height:44px;border-bottom:1px solid color-mix(in srgb,var(--border) 80%,transparent);
+  font-variant-numeric:tabular-nums
+}
+.employee-card tbody tr,.report-table tbody tr,.report-preview-table tbody tr,.ledger-card tbody tr{transition:background .11s ease}
+.employee-card tbody tr:hover,.report-table tbody tr:hover,.report-preview-table tbody tr:hover,.ledger-card tbody tr:hover{
+  background:color-mix(in srgb,var(--soft-2) 72%,var(--panel))
+}
+.employee-card tbody tr:last-child td,.report-table tbody tr:last-child td,.report-preview-table tbody tr:last-child td,.ledger-card tbody tr:last-child td{border-bottom:0}
+td:last-child .inline-buttons{justify-content:flex-end}
+
+.pill{
+  min-height:24px;padding:0 8px;border-radius:999px;font-size:8.8px;font-weight:850;
+  letter-spacing:.035em;text-transform:none
+}
+.pill.warning,.pill.overdue,.pill.pending,.pill.action-required{
+  background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 24%,var(--border));color:var(--warn)
+}
+.pill.danger,.pill.failed,.pill.void,.pill.rejected{
+  background:var(--ui-danger-bg);border-color:color-mix(in srgb,var(--ui-danger) 22%,var(--border));color:var(--ui-danger)
+}
+.pill.info,.pill.reviewed,.pill.filed{
+  background:var(--ui-info-bg);border-color:color-mix(in srgb,var(--ui-info) 22%,var(--border));color:var(--ui-info)
+}
+.pill.reversed,.pill.closed{
+  background:color-mix(in srgb,var(--muted) 9%,var(--panel));border-color:var(--border);color:var(--muted)
+}
+
+.sales-summary>.surface,.expense-summary>.surface,.accounting-summary>.surface,.business-report-kpis>.surface{
+  border-radius:13px;position:relative;overflow:hidden
+}
+.sales-summary>.surface:after,.expense-summary>.surface:after,.accounting-summary>.surface:after,.business-report-kpis>.surface:after{
+  content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,color-mix(in srgb,var(--primary) 42%,transparent),transparent)
+}
+.sales-summary b,.expense-summary b,.accounting-summary b,.business-report-kpis b{font-variant-numeric:tabular-nums}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:9.5px;font-weight:760;letter-spacing:.025em;color:var(--muted)}
+.field input,.field select,.field textarea,input,select,textarea{
+  border-radius:9px;border-color:var(--border);transition:border-color .13s ease,box-shadow .13s ease,background .13s ease
+}
+.field input:hover,.field select:hover,.field textarea:hover,input:hover,select:hover,textarea:hover{
+  border-color:color-mix(in srgb,var(--primary) 24%,var(--border))
+}
+textarea{padding:10px 11px;line-height:1.45;resize:vertical}
+.form-grid{gap:14px 12px}
+
+.modal-scrim{background:rgba(6,20,16,.56)}
+.modal-box,.command-box{
+  border-radius:16px;border-color:color-mix(in srgb,var(--border) 88%,transparent);
+  box-shadow:0 28px 90px rgba(7,34,27,.2)
+}
+.modal-head{
+  min-height:72px;padding:17px 20px;background:color-mix(in srgb,var(--panel) 96%,transparent);
+  border-bottom:1px solid var(--border)
+}
+.modal-head h2{font-size:19px;line-height:1.2;margin:2px 0 3px;letter-spacing:-.35px}
+.modal-head p{font-size:10px;line-height:1.4;color:var(--muted);margin:0}
+.modal-head .close{flex:0 0 auto}
+.modal-actions{
+  min-height:64px;padding:12px 20px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:flex-end;gap:8px;
+  background:color-mix(in srgb,var(--panel) 96%,transparent)
+}
+.close{cursor:pointer;transition:background .12s ease,color .12s ease}
+.close:hover{background:var(--soft);color:var(--primary)}
+
+.payment-notice,.ledger-note,.bs-note,.account-parent-note{
+  line-height:1.5
+}
+.ledger-warning-note{
+  border-color:color-mix(in srgb,var(--warn) 24%,var(--border));background:var(--warn-bg);color:color-mix(in srgb,var(--warn) 90%,var(--text))
+}
+
+.empty-inline{
+  min-height:104px;display:grid;place-items:center;padding:30px 18px!important;
+  color:var(--muted);font-size:10.5px;line-height:1.55
+}
+
+.register-search,.inline-search{
+  min-height:36px;border-radius:9px;background:var(--panel)
+}
+.register-search:focus-within,.inline-search:focus-within{
+  border-color:color-mix(in srgb,var(--primary) 48%,var(--border));box-shadow:var(--ui-focus)
+}
+
+.sales-tabs,.expense-tabs,.accounting-tabs,.reports-tabs{
+  border-radius:12px
+}
+.sales-tabs button,.expense-tabs button,.accounting-tabs button,.reports-tabs button{
+  transition:background .12s ease,color .12s ease,box-shadow .12s ease
+}
+
+@media(max-width:900px){
+  .page-title{grid-template-columns:1fr;align-items:start;gap:13px}
+  .page-actions{justify-content:flex-start}
+  .table-tools{align-items:flex-start;flex-direction:column}
+  .table-tools>.inline-buttons,.table-tools>.register-tools{width:100%;justify-content:flex-start}
+}
+@media(max-width:620px){
+  .content{padding-left:13px;padding-right:13px}
+  .page-title h1{font-size:24px}
+  .page-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .page-actions>*{width:100%;min-width:0}
+  .page-actions>:only-child{grid-column:1/-1}
+  .primary,.secondary{min-height:40px}
+  .modal-box,.command-box{margin:5vh 8px 0;width:calc(100% - 16px);max-height:94vh;border-radius:16px}
+  .modal-head{padding:15px 16px}.modal-actions{padding:11px 16px}
+  .modal-actions .primary,.modal-actions .secondary{flex:1}
+  .employee-card th,.employee-card td,.report-table th,.report-table td{padding:10px 11px}
+}
+@media(max-width:420px){
+  .page-actions{grid-template-columns:1fr}
+  .page-actions>*{grid-column:1}
+}
