@@ -513,7 +513,10 @@
   }
   function updateReceivable(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update customer invoices.');return;}
-    const inv=receivableById(state,id);if(!inv)return;if(window.DalasiMonthClose?.isClosed(state,inv.issueDate||inv.createdAt)){ctx.toast('This invoice belongs to a closed accounting period. Reopen the period before changing it.');return;}inv.status=status;inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(status==='Sent'){inv.sentAt=inv.sentAt||inv.updatedAt;inv.sentBy=inv.sentBy||inv.updatedBy;}
+    const inv=receivableById(state,id);if(!inv)return;
+    if((inv.status||'Draft')!=='Draft'){ctx.toast('Issued invoices are locked. Use a credit note, debit note or payment instead of changing the original invoice.');return;}
+    if(status!=='Sent'){ctx.toast('A draft invoice can only be issued/sent from this workflow.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,inv.issueDate||inv.createdAt)){ctx.toast('This invoice belongs to a closed accounting period. Reopen the period before changing it.');return;}inv.status=status;inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(status==='Sent'){inv.sentAt=inv.sentAt||inv.updatedAt;inv.sentBy=inv.sentBy||inv.updatedBy;}
     ctx.audit('receivable.status_updated',{invoiceId:id,invoiceNo:inv.invoiceNo,status});ctx.save();ctx.toast(inv.invoiceNo+': '+status);ctx.render();
   }
   function recordIncomingPayment(ev,state,ctx){
@@ -947,7 +950,11 @@
   }
   function updateBill(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update bills.');return;}
-    const b=billById(state,id);if(!b)return;if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
+    const b=billById(state,id);if(!b)return;
+    const current=b.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved';
+    if(['Approved','Part paid','Paid'].includes(current)){ctx.toast('Posted supplier bills are locked. Use supplier credit/debit notes or payments for corrections.');return;}
+    if(!allowed){ctx.toast('This supplier bill status change is not allowed. Follow Draft → Pending approval → Approved.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
   }
 
   function create(ev,state,ctx){
