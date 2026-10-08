@@ -32,15 +32,15 @@
   function optionHtml(state,selected=''){return '<option value="">Choose account</option>'+accounts(state).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc(a.code+' · '+a.name+(a.parentName?' · under '+a.parentName:''))+'</option>').join('');}
   function modal(state,h){
     const {field,icon,money2}=h,d=state.openingMigrationDraft||buildDraft(state),t=totals(d.lines),existing=(state.manualJournals||[]).find(j=>j.openingMigration);
-    const rows=(d.lines||[]).map((x,i)=>'<div class="journal-line opening-migration-line" data-ob-line="'+i+'"><select name="obAccount">'+optionHtml(state,x.account)+'</select><input name="obMemo" value="'+esc(x.memo||'')+'" placeholder="Description"><input name="obDebit" type="number" min="0" step="0.01" value="'+(x.debit||'')+'" placeholder="Debit"><input name="obCredit" type="number" min="0" step="0.01" value="'+(x.credit||'')+'" placeholder="Credit"><button type="button" class="secondary tiny" data-action="opening-migration-remove:'+i+'">×</button></div>').join('');
+    const rows=(d.lines||[]).map((x,i)=>'<div class="journal-line opening-migration-line" data-ob-line="'+i+'"><select name="obAccount">'+optionHtml(state,x.account)+'</select><input name="obMemo" value="'+esc(x.memo||'')+'" placeholder="Description"><input name="obDebit" type="number" min="0" step="0.01" value="'+(x.debit||'')+'" placeholder="Debit"><input name="obCredit" type="number" min="0" step="0.01" value="'+(x.credit||'')+'" placeholder="Credit"><button type="button" class="journal-remove" data-action="opening-migration-remove:'+i+'">×</button></div>').join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-opening-migration"></div><form id="opening-migration-form" class="modal-box wide">'+
       '<div class="modal-head"><div><div class="eyebrow">ACCOUNTING MIGRATION</div><h2>Opening Balance Migration</h2><p>Build one complete opening trial balance and post it only when total debits equal total credits.</p></div><button type="button" class="close" data-action="close-opening-migration">×</button></div>'+
       (existing?'<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Opening migration already posted</b><p>'+esc(existing.journalNo||existing.id)+' was posted on '+esc(existing.date||'')+'. Reverse that journal before importing another opening trial balance.</p></div></div>':'')+
       '<div class="form-grid">'+field('Opening date','<input name="obDate" type="date" value="'+esc(d.date||'')+'" required>')+field('Reference','<input name="obReference" value="'+esc(d.reference||'OPENING-TB')+'" required>')+'</div>'+
       '<div class="payment-notice"><span>'+icon('reports',17)+'</span><div><b>Existing operational openings have been loaded</b><p>Bank opening balances, opening fixed assets and opening loans are included automatically. Add the remaining equity, liabilities, receivables, payables or other balances needed to complete the opening trial balance.</p></div></div>'+
-      '<div class="journal-lines-head"><span>ACCOUNT</span><span>DESCRIPTION</span><span>DEBIT</span><span>CREDIT</span><span></span></div><div id="opening-migration-lines">'+rows+'</div>'+
+      '<div class="journal-head"><span>ACCOUNT</span><span>DESCRIPTION</span><span>DEBIT</span><span>CREDIT</span><span></span></div><div id="opening-migration-lines">'+rows+'</div>'+
       '<div class="inline-buttons" style="padding:12px 20px"><button type="button" class="secondary" data-action="opening-migration-add">'+icon('plus',14)+' Add line</button></div>'+
-      '<div class="journal-total-bar '+(t.balanced?'balanced':'unbalanced')+'"><span>Total debit <b id="ob-total-debit">'+money2(t.debit)+'</b></span><span>Total credit <b id="ob-total-credit">'+money2(t.credit)+'</b></span><span>Difference <b id="ob-difference">'+money2(Math.abs(t.difference))+'</b></span><strong id="ob-balance-status">'+(t.balanced?'BALANCED':'NOT BALANCED')+'</strong></div>'+
+      '<div class="journal-totals"><span>Total debit <b id="ob-total-debit">'+money2(t.debit)+'</b></span><span>Total credit <b id="ob-total-credit">'+money2(t.credit)+'</b></span><span class="journal-diff '+(t.balanced?'ok':'')+'">Difference <b id="ob-difference">'+money2(Math.abs(t.difference))+'</b> · <em id="ob-balance-status">'+(t.balanced?'BALANCED':'NOT BALANCED')+'</em></span></div>'+
       '<div class="modal-note"><b>Important:</b> DalasiPay will not create a suspense plug for this migration. The import is blocked until the opening trial balance balances exactly.</div>'+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-opening-migration">Cancel</button><button type="submit" class="primary" '+(existing?'disabled':'')+'>'+icon('check',14)+' Validate & post opening balance</button></div></form></div>';
   }
@@ -54,6 +54,10 @@
   function syncFromDom(state){const f=document.getElementById('opening-migration-form');if(f)readForm(f,state);}
   function addLine(state,ctx){syncFromDom(state);state.openingMigrationDraft=state.openingMigrationDraft||buildDraft(state);state.openingMigrationDraft.lines.push(line('',0,0,''));ctx.render();}
   function removeLine(index,state,ctx){syncFromDom(state);if((state.openingMigrationDraft?.lines||[]).length<=2){ctx.toast('Keep at least two opening-balance lines.');return;}state.openingMigrationDraft.lines.splice(Number(index),1);ctx.render();}
+  function bind(form,state,money2){
+    const update=()=>{const d=readForm(form,state),t=totals(d.lines),a=document.getElementById('ob-total-debit'),b=document.getElementById('ob-total-credit'),c=document.getElementById('ob-difference'),e=document.getElementById('ob-balance-status'),wrap=c?.closest('.journal-diff');if(a)a.textContent=money2(t.debit);if(b)b.textContent=money2(t.credit);if(c)c.textContent=money2(Math.abs(t.difference));if(e)e.textContent=t.balanced?'BALANCED':'NOT BALANCED';if(wrap)wrap.classList.toggle('ok',t.balanced);};
+    form.addEventListener('input',update);form.addEventListener('change',update);update();
+  }
   function submit(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to post opening balances.');return;}
     if((state.manualJournals||[]).some(j=>j.openingMigration)){ctx.toast('An opening migration has already been posted. Reverse it before importing another.');return;}
@@ -77,5 +81,5 @@
     state.openingMigrationOpen=false;state.openingMigrationDraft=null;state.accountingTab='journals';state.journalDetailId=id;
     ctx.audit('accounting.opening_migration_posted',{journalId:id,journalNo,date:d.date,debit:t.debit,credit:t.credit,lineCount:d.lines.length});ctx.save();ctx.toast(journalNo+' opening trial balance posted');ctx.render();
   }
-  window.DalasiOpeningMigration={buildDraft,totals,modal,addLine,removeLine,submit,readForm};
+  window.DalasiOpeningMigration={buildDraft,totals,modal,bind,addLine,removeLine,submit,readForm};
 })();
