@@ -190,14 +190,14 @@
     return b.preferredMethod||'Payment method not set';
   }
   function action(p){
-    if(p.status==='Draft')return '<button class="secondary" data-action="payment-submit:'+p.id+'">Submit</button>';
-    if(p.status==='Pending approval')return '<button class="secondary" data-action="payment-approve:'+p.id+'">Approve</button>';
-    if(p.status==='Approved')return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button>';
-    if(p.status==='Paid')return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="secondary" data-action="payment-doc:receipt:'+p.id+'">Receipt PDF</button><button class="secondary" data-action="payment-reverse:'+p.id+'">Request reversal</button>';
-    if(p.status==='Reversed')return '<span class="payment-complete">Reversed</span>';
-    return '<span class="payment-complete">'+esc(p.status||'Closed')+'</span>';
+    const view='<button class="secondary tiny" data-action="payment-view:'+p.id+'">View</button>';
+    if(p.status==='Draft')return '<div class="row-action-shell">'+view+'<button class="secondary" data-action="payment-submit:'+p.id+'">Submit</button></div>';
+    if(p.status==='Pending approval')return '<div class="row-action-shell">'+view+'<button class="primary" data-action="payment-approve:'+p.id+'">Approve</button></div>';
+    if(p.status==='Approved')return '<div class="row-action-shell">'+view+'<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button></div>';
+    if(p.status==='Paid')return '<div class="row-action-shell">'+view+'<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher</button><button class="secondary" data-action="payment-doc:receipt:'+p.id+'">Receipt</button><button class="secondary" data-action="payment-reverse:'+p.id+'">Reverse</button></div>';
+    if(p.status==='Reversed')return '<div class="row-action-shell">'+view+'<span class="payment-complete">Reversed</span></div>';
+    return '<div class="row-action-shell">'+view+'<span class="payment-complete">'+esc(p.status||'Closed')+'</span></div>';
   }
-
   function nextDocumentNumber(prefix,state){
     const year=new Date().getFullYear(),rows=state.businessPayments||[];
     const count=rows.filter(x=>prefix==='PV'?x.voucherNumber:x.receiptNumber).length+1;
@@ -870,31 +870,34 @@
   function paymentPanel(state,h){
     const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon;
     const rows=(state.businessPayments||[]).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-    const t=totals(rows);
+    const t=totals(rows),today=todayIso();
     const chips=TYPES.map(x=>'<span>'+esc(x)+'</span>').join('');
+    const accountName=id=>window.DalasiCashBank?.accountById?.(state,id)?.name||'No account selected';
     const tableRows=rows.length?rows.map(p=>{
-      const b=beneficiaryById(state,p.beneficiaryId);
+      const b=beneficiaryById(state,p.beneficiaryId),bill=billById(state,p.billId),dueDays=p.dueDate?Math.ceil((new Date(p.dueDate+'T00:00:00')-new Date(today+'T00:00:00'))/86400000):null;
+      const dueCue=p.status==='Paid'?'<span class="payment-due-cue paid">Paid</span>':p.status==='Reversed'?'<span class="payment-due-cue">Reversed</span>':dueDays===null?'<span class="payment-due-cue">No due date</span>':dueDays<0?'<span class="payment-due-cue overdue">'+Math.abs(dueDays)+'d overdue</span>':dueDays===0?'<span class="payment-due-cue due">Due today</span>':dueDays<=7?'<span class="payment-due-cue due">Due in '+dueDays+'d</span>':'<span class="payment-due-cue">Due '+dueDate(p.dueDate)+'</span>';
       return '<tr>'+
-        '<td><div class="payment-payee"><b>'+esc(p.payee)+'</b><small>'+esc(p.reference||p.id)+(b?' · Saved beneficiary':'')+'</small></div></td>'+
-        '<td>'+esc(p.type)+'</td>'+
-        '<td class="payment-amount">'+money2(p.amount)+'</td>'+
-        '<td>'+esc(p.method)+'</td>'+
-        '<td>'+dueDate(p.dueDate)+'</td>'+
+        '<td><div class="payment-payee payment-register-payee"><b>'+esc(p.payee)+'</b><small>'+esc(p.reference||p.id)+(bill?' · Bill '+esc(bill.invoiceNo||bill.id):b?' · Saved beneficiary':'')+'</small></div></td>'+
+        '<td><div class="payment-register-context"><b>'+esc(p.type||'Other payment')+'</b><small>'+esc(p.method||'Other')+'</small></div></td>'+
+        '<td><div class="payment-register-amount"><b>'+money2(p.amount)+'</b><small>'+esc(accountName(p.accountId))+'</small></div></td>'+
+        '<td><div class="payment-register-due"><b>'+dueDate(p.dueDate)+'</b>'+dueCue+'</div></td>'+
         '<td>'+pill(p.status,statusClass(p.status))+'</td>'+
-        '<td><div class="payment-status-actions">'+action(p)+'</div></td>'+
+        '<td><div class="payment-status-actions payment-register-actions">'+action(p)+'</div></td>'+
       '</tr>';
-    }).join(''):'<tr><td colspan="7"><div class="empty-inline">No business payments recorded yet. Add your first supplier, contractor, reimbursement or other payment.</div></td></tr>';
-    return '<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Payment control, not money movement</b><p>DalasiPay records, approves and tracks business payments. Bank and mobile-money transfers remain disabled until a verified payment-provider integration is connected.</p></div></div>'+
+    }).join(''):'<tr><td colspan="6"><div class="empty-inline">No business payments recorded yet. Add your first supplier, contractor, reimbursement or other payment.</div></td></tr>';
+    return '<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Controlled payment approval workflow</b><p>Payments progress from Draft → Pending approval → Approved → Paid. The linked cash/bank account is posted only when the payment is marked Paid.</p></div></div>'+
       '<div class="payment-overview">'+
         '<div class="surface"><span>Recorded payments</span><b>'+t.count+'</b><small>'+money2(t.total)+' total value</small></div>'+
         '<div class="surface"><span>Pending approval</span><b>'+money2(t.pending)+'</b><small>awaiting review</small></div>'+
         '<div class="surface"><span>Approved</span><b>'+money2(t.approved)+'</b><small>ready to pay</small></div>'+
         '<div class="surface"><span>Paid</span><b>'+money2(t.paid)+'</b><small>recorded as completed</small></div>'+
       '</div>'+
+      '<div class="payment-workflow-strip"><div class="done"><span>1</span><b>Draft</b><small>Prepared</small></div><i></i><div><span>2</span><b>Pending approval</b><small>Reviewed</small></div><i></i><div><span>3</span><b>Approved</b><small>Voucher ready</small></div><i></i><div><span>4</span><b>Paid</b><small>Cash/Bank posted</small></div></div>'+
       '<div class="payment-type-chips">'+chips+'</div>'+
-      '<div class="surface employee-card">'+
-        '<div class="table-tools"><div><h3>Business payment register</h3><p>Suppliers, contractors, expenses and other business obligations</p></div><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button></div>'+
-        '<div class="table-scroll"><table><thead><tr><th>PAYEE</th><th>TYPE</th><th>AMOUNT</th><th>METHOD</th><th>DUE DATE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+      '<div class="surface employee-card payment-register-card">'+
+        '<div class="table-tools"><div><h3>Business payment register</h3><p>Approval status, supplier context, paying account and settlement documents</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="business-payment-register" placeholder="Search payee, bill, reference or account"></label><button class="primary" data-action="open-business-payment">'+icon('plus',14)+' Add payment</button></div></div>'+
+        '<div class="table-scroll"><table data-register-table="business-payment-register"><thead><tr><th>PAYEE / REFERENCE</th><th>TYPE / METHOD</th><th>AMOUNT / ACCOUNT</th><th>DUE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
+        '<div class="table-footer"><span>Showing <strong>'+rows.length+'</strong> payment'+(rows.length===1?'':'s')+'</span><span>'+money2(t.pending)+' pending · '+money2(t.approved)+' approved · '+money2(t.paid)+' paid</span></div>'+
       '</div>';
   }
   function beneficiaryPanel(state,h){
@@ -1312,5 +1315,33 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  
+  function paymentDetailModal(state,h){
+    const p=(state.businessPayments||[]).find(x=>x.id===state.paymentDetailId);if(!p)return '';
+    const esc=h.esc,money2=h.money2,icon=h.icon,pill=h.pill,bill=billById(state,p.billId),ben=beneficiaryById(state,p.beneficiaryId),account=window.DalasiCashBank?.accountById?.(state,p.accountId),status=p.status||'Draft';
+    const steps=['Draft','Pending approval','Approved','Paid'],idx=status==='Reversed'?steps.length-1:Math.max(0,steps.indexOf(status));
+    const timeline=[
+      {label:'Payment created',at:p.createdAt,by:p.createdBy},
+      p.submittedAt?{label:'Submitted for approval',at:p.submittedAt,by:p.submittedBy||p.updatedBy}:null,
+      p.approvedAt?{label:'Approved · '+(p.voucherNumber||'Voucher'),at:p.approvedAt,by:p.approvedBy}:null,
+      p.paidAt?{label:'Marked paid · '+(p.receiptNumber||'Receipt'),at:p.paidAt,by:p.updatedBy}:null,
+      p.reversedAt?{label:'Payment reversed'+(p.reversalReason?' · '+p.reversalReason:''),at:p.reversedAt,by:p.reversedBy||p.updatedBy}:null
+    ].filter(Boolean).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-payment-detail"></div><aside class="record-drawer payment-detail-drawer">'+
+      '<div class="record-drawer-head"><div><div class="eyebrow">BUSINESS PAYMENT</div><h2>'+esc(p.voucherNumber||p.receiptNumber||p.id)+'</h2><p>'+esc(p.payee||'Payee')+'</p></div><button class="close" data-action="close-payment-detail">×</button></div>'+
+      '<div class="record-hero"><div><span>Payment amount</span><b>'+money2(p.amount)+'</b><small>'+esc(p.method||'Other')+' · '+esc(account?.name||'No account selected')+'</small></div>'+pill(status,statusClass(status))+'</div>'+
+      '<div class="payment-detail-progress">'+steps.map((s,i)=>'<div class="'+(i<=idx&&status!=='Reversed'?'active':'')+'"><span>'+String(i+1)+'</span><b>'+s+'</b></div>').join('<i></i>')+'</div>'+
+      '<div class="record-facts"><div><span>Payment type</span><b>'+esc(p.type||'Other payment')+'</b></div><div><span>Method</span><b>'+esc(p.method||'Other')+'</b></div><div><span>Due date</span><b>'+dueDate(p.dueDate)+'</b></div><div><span>Reference</span><b>'+esc(p.reference||'—')+'</b></div><div><span>Pay from account</span><b>'+esc(account?.name||'Not selected')+'</b></div><div><span>Linked supplier</span><b>'+esc(ben?.name||p.payee||'—')+'</b></div><div><span>Linked bill</span><b>'+(bill?'<button class="customer-doc-link" data-action="bill-view:'+esc(bill.id)+'">'+esc(bill.invoiceNo||bill.id)+'</button>':'Direct payment')+'</b></div><div><span>Description</span><b>'+esc(p.description||bill?.description||'—')+'</b></div></div>'+
+      '<section class="record-section"><div class="record-section-head"><b>Approval & payment history</b><span>'+timeline.length+' event'+(timeline.length===1?'':'s')+'</span></div><div class="record-timeline">'+timeline.map(x=>'<div><i></i><span><b>'+esc(x.label)+'</b><small>'+esc(String(x.at||'').slice(0,16).replace('T',' '))+(x.by?' · '+esc(x.by):'')+'</small></span></div>').join('')+'</div></section>'+
+      '<section class="record-section"><div class="record-section-head"><b>Accounting effect</b></div><div class="payment-detail-accounting"><div><span>When paid</span><b>Debit supplier payable / obligation</b><strong>'+money2(p.amount)+'</strong></div><div><span>When paid</span><b>Credit '+esc(account?.name||'Cash / Bank')+'</b><strong>'+money2(p.amount)+'</strong></div></div></section>'+
+      '<div class="record-drawer-actions">'+
+        (status==='Draft'?'<button class="primary" data-action="payment-submit:'+p.id+'">Submit for approval</button>':'')+
+        (status==='Pending approval'?'<button class="primary" data-action="payment-approve:'+p.id+'">Approve payment</button>':'')+
+        (['Approved','Paid'].includes(status)?'<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">'+icon('download',13)+' Voucher PDF</button>':'')+
+        (status==='Approved'?'<button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button>':'')+
+        (status==='Paid'?'<button class="secondary" data-action="payment-doc:receipt:'+p.id+'">'+icon('download',13)+' Receipt PDF</button><button class="secondary" data-action="payment-reverse:'+p.id+'">Request reversal</button>':'')+
+        '<button class="secondary" data-action="close-payment-detail">Close</button>'+
+      '</div></aside></div>';
+  }
+window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
