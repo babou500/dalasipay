@@ -195,7 +195,12 @@
   }
   function updateExpense(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update expenses.');return;}
-    const x=expenseById(state,id);if(!x)return;if(window.DalasiMonthClose?.isClosed(state,x.expenseDate||x.createdAt)){ctx.toast('This expense belongs to a closed accounting period. Reopen the period before changing it.');return;}x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
+    const x=expenseById(state,id);if(!x)return;
+    const current=x.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved'||current==='Approved'&&status==='Paid';
+    if(current==='Paid'){ctx.toast('Paid expenses are locked. Use a reversal or correcting entry instead of changing the original expense.');return;}
+    if(!allowed){ctx.toast('This expense status change is not allowed. Follow Draft → Pending approval → Approved → Paid.');return;}
+    if(status==='Paid'&&(!x.accountId||!window.DalasiCashBank?.accountById?.(state,x.accountId))){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this expense paid.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,x.expenseDate||x.createdAt)){ctx.toast('This expense belongs to a closed accounting period. Reopen the period before changing it.');return;}x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
     if(status==='Approved'){x.approvedAt=x.approvedAt||x.updatedAt;x.approvedBy=x.approvedBy||x.updatedBy}
     if(status==='Paid'){x.paidAt=x.paidAt||x.updatedAt;x.paidBy=x.paidBy||x.updatedBy;if(x.accountId)window.DalasiCashBank?.post(state,{accountId:x.accountId,date:(x.paidAt||x.expenseDate||new Date().toISOString()).slice(0,10),direction:'out',amount:x.amount,type:'Business expense',counterparty:x.merchant,reference:x.reference||x.expenseNo||'',description:x.description||x.category,sourceType:'expense',sourceId:x.id,sourceKey:'expense:'+x.id+':out',createdBy:state.session?.name||'User'});}
     ctx.audit('expense.status_updated',{expenseId:id,status,amount:x.amount,merchant:x.merchant});ctx.save();ctx.toast((x.expenseNo||x.id)+': '+status);ctx.render();
@@ -239,6 +244,9 @@
   function updatePurchase(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update purchase orders.');return;}
     const x=purchaseById(state,id);if(!x)return;
+    const current=x.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved'||current==='Approved'&&status==='Ordered'||current==='Ordered'&&status==='Received'||current==='Received'&&status==='Closed';
+    if(['Closed','Cancelled'].includes(current)){ctx.toast('Closed purchase orders are locked. Create a new purchase order or adjustment instead.');return;}
+    if(!allowed){ctx.toast('This purchase order status change is not allowed. Follow the normal approval and receiving sequence.');return;}
     if(status==='Received'&&window.DalasiMonthClose?.isClosed(state,new Date().toISOString().slice(0,10))){ctx.toast('The current accounting period is closed. Reopen it before receiving inventory.');return;}
     if(status==='Received'&&!x.inventoryReceivedAt)receivePurchaseInventory(x,state,ctx);
     x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
