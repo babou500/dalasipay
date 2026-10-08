@@ -61,3 +61,8 @@
 #settings-subscription-section .subscription-admin-preview-card .subscription-admin-category{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#64746e)}
 #settings-subscription-section .subscription-admin-preview-card p{font-size:12px;line-height:1.5;color:var(--muted,#64746e);margin:0}
 #settings-subscription-section .subscription-admin-disabled{display:inline-block;align-self:flex-start;margin-top:auto;padding:5px 9px;background:var(--panel-2,#f5f9f7);border-radius:7px;font-size:11px;font-weight:750;color:var(--muted,#64746e)}
+
+/* Four balanced administration cards on desktop; two on tablets. */
+#settings-subscription-section .subscription-admin-preview .subscription-admin-steps{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+#settings-subscription-section .subscription-admin-preview-card{min-height:160px}
+@media(max-width:600px){#settings-subscription-section .subscription-admin-preview .subscription-admin-steps{grid-template-columns:1fr}}
