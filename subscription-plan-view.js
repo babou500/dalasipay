@@ -24,8 +24,10 @@
  // Text escaping is mandatory before passing model data into any HTML renderer.
  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
  function renderReadOnly(model){
-  if(!model?.valid)return '<section class="subscription-overview" aria-label="Subscription & plans"><h3>Subscription unavailable</h3><p>Subscription data could not be verified. No changes have been made.</p></section>';
-  return '<section class="subscription-overview" aria-label="Subscription & plans"><h3>Subscription &amp; Plans</h3><p><strong>Current plan: '+escapeHtml(model.title)+'</strong></p><p>'+escapeHtml(model.note)+'</p><h4>Plan allowances</h4><dl>'+model.usage.map(item=>'<div><dt>'+escapeHtml(item.label)+'</dt><dd>'+escapeHtml(item.limitLabel)+'</dd></div>').join('')+'</dl><h4>Included features</h4><ul>'+model.features.map(item=>'<li>'+escapeHtml(item.label)+': '+(item.included?'Included':'Not included')+'</li>').join('')+'</ul></section>';
+  if(!model?.valid)return '<section class="subscription-overview" aria-label="Current subscription"><p>Subscription information unavailable. No changes were made.</p></section>';
+  const allowances=model.usage.map(item=>'<div class="subscription-allowance"><dt>'+escapeHtml(item.label)+'</dt><dd>'+escapeHtml(item.limitLabel)+'</dd></div>').join('');
+  const features=model.features.map(item=>'<li class="'+(item.included?'included':'excluded')+'">'+escapeHtml(item.label)+(item.included?'':' (not included)')+'</li>').join('');
+  return '<section class="subscription-overview" aria-label="Current subscription"><div class="subscription-hero"><div><div class="subscription-eyebrow">Your current plan</div><h3>'+escapeHtml(model.title)+'</h3><p>'+escapeHtml(model.note)+'</p></div><span class="subscription-pill">'+(model.preview?'Development access':'Read-only')+'</span></div><h4 class="subscription-heading">Plan allowances</h4><dl class="subscription-allowances">'+allowances+'</dl><h4 class="subscription-heading">Included features</h4><ul class="subscription-features">'+features+'</ul></section>';
  }
  function renderPlanComparison(){
   const ids=['free','standard','professional'];
