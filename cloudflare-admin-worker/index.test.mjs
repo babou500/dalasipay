@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from './index.mjs';
 const uid='11111111-1111-4111-8111-111111111111';
-const env={DALASIPAY_SUPABASE_URL:'https://test.supabase.co',DALASIPAY_SUPABASE_PUBLISHABLE_KEY:'test-public',DALASIPAY_SUPABASE_SERVICE_ROLE_KEY:'test-only'};
+const env={DALASIPAY_SUPABASE_URL:'https://test.supabase.co',DALASIPAY_SUPABASE_PUBLISHABLE_KEY:'test-public',ADMIN_MEMBERSHIP_SERVICE:{fetch:async()=>Response.json({authorized:false})}};
 const url='https://admin.example.test/internal/admin/session';
 test('unconfigured or unrelated endpoints disclose nothing',async()=>{
  assert.equal((await worker.fetch(new Request(url),{})).status,503);
@@ -10,14 +10,15 @@ test('unconfigured or unrelated endpoints disclose nothing',async()=>{
 });
 test('validated owner without platform-admin membership is denied',async()=>{
  const old=globalThis.fetch;
- globalThis.fetch=async(target)=>String(target).includes('/auth/v1/user')?Response.json({id:uid}):Response.json([]);
+ globalThis.fetch=async()=>Response.json({id:uid});
  try{const r=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer sample-token'}}),env);assert.equal(r.status,403);assert.deepEqual(await r.json(),{authorized:false});}
  finally{globalThis.fetch=old;}
 });
 test('verified platform operator receives status without exposing credentials',async()=>{
  const old=globalThis.fetch;
- globalThis.fetch=async(target)=>String(target).includes('/auth/v1/user')?Response.json({id:uid}):Response.json([{user_id:uid}]);
- try{const r=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer sample-token'}}),env);assert.equal(r.status,200);assert.deepEqual(await r.json(),{authorized:true});assert.match(r.headers.get('cache-control'),/no-store/);}
+ globalThis.fetch=async()=>Response.json({id:uid});
+ const adminEnv={...env,ADMIN_MEMBERSHIP_SERVICE:{fetch:async()=>Response.json({authorized:true})}};
+ try{const r=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer sample-token'}}),adminEnv);assert.equal(r.status,200);assert.deepEqual(await r.json(),{authorized:true});assert.match(r.headers.get('cache-control'),/no-store/);}
  finally{globalThis.fetch=old;}
 });
 
@@ -35,8 +36,9 @@ test('expired or forged bearer token is denied before administrator lookup',asyn
 });
 test('identity lookup failure returns unavailable rather than authorization',async()=>{
  const old=globalThis.fetch;
- globalThis.fetch=async target=>String(target).includes('/auth/v1/user')?Response.json({id:uid}):Response.json({message:'restricted'},{status:403});
- try{const res=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer valid-token'}}),env);assert.equal(res.status,503);assert.deepEqual(await res.json(),{authorized:false});}
+ globalThis.fetch=async()=>Response.json({id:uid});
+ const blockedEnv={...env,ADMIN_MEMBERSHIP_SERVICE:{fetch:async()=>Response.json({message:'restricted'},{status:403})}};
+ try{const res=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer valid-token'}}),blockedEnv);assert.equal(res.status,503);assert.deepEqual(await res.json(),{authorized:false});}
  finally{globalThis.fetch=old;}
 });
 test('caller cannot spoof identity or invoke writes',async()=>{
