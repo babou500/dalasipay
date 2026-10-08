@@ -5,6 +5,32 @@
   const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const yearOf=v=>{const y=String(v||'').slice(0,4);return /^\d{4}$/.test(y)?y:'';};
   const monthIds=year=>Array.from({length:12},(_,i)=>String(year)+'-'+String(i+1).padStart(2,'0'));
+  function nextJournalNo(state){
+    const y=new Date().getFullYear(),prefix='JRN-'+y+'-';let max=0;
+    (state.manualJournals||[]).forEach(x=>{const n=String(x.journalNo||'');if(n.startsWith(prefix))max=Math.max(max,Number(n.slice(prefix.length))||0);});
+    return prefix+String(max+1).padStart(5,'0');
+  }
+  function closingLines(state){
+    const tb=window.DalasiGeneralLedger?.trialBalance?.(state)||{accounts:[]},lines=[];
+    (tb.accounts||[]).filter(a=>a.type==='Revenue').forEach(a=>{const amt=round(a.credit-a.debit);if(Math.abs(amt)>.004)lines.push({account:a.name,accountCode:a.code,accountType:'Revenue',debit:amt>0?amt:0,credit:amt<0?Math.abs(amt):0,memo:'Year-end close'});});
+    (tb.accounts||[]).filter(a=>a.type==='Expense').forEach(a=>{const amt=round(a.debit-a.credit);if(Math.abs(amt)>.004)lines.push({account:a.name,accountCode:a.code,accountType:'Expense',debit:amt<0?Math.abs(amt):0,credit:amt>0?amt:0,memo:'Year-end close'});});
+    const debit=round(lines.reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round(lines.reduce((a,x)=>a+(Number(x.credit)||0),0)),diff=round(debit-credit);
+    if(Math.abs(diff)>.004)lines.push({account:'Retained Earnings',accountCode:'3200',accountType:'Equity',debit:diff<0?Math.abs(diff):0,credit:diff>0?diff:0,memo:'Transfer annual result to retained earnings'});
+    return lines;
+  }
+  function postClosingJournal(state,year,closeId,user){
+    const lines=closingLines(state),debit=round(lines.reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round(lines.reduce((a,x)=>a+(Number(x.credit)||0),0));
+    if(!lines.length||Math.abs(debit-credit)>.01)return null;
+    const now=new Date().toISOString(),id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextJournalNo(state);
+    const j={id,journalNo,date:String(year)+'-12-31',reference:'YE-CLOSE-'+year,memo:'Year-end closing entries for '+year,lines,debit,credit,status:'Posted',yearEndClosing:true,yearEndCloseId:closeId,createdAt:now,createdBy:user,postedAt:now,postedBy:user,updatedAt:now};
+    state.manualJournals=state.manualJournals||[];state.manualJournals.unshift(j);return j;
+  }
+  function reverseClosingJournal(state,rec,user,reason){
+    const src=(state.manualJournals||[]).find(x=>x.id===rec.closingJournalId);if(!src)return null;
+    const now=new Date().toISOString(),id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextJournalNo(state),lines=(src.lines||[]).map(x=>({...x,debit:Number(x.credit)||0,credit:Number(x.debit)||0,memo:'Reversal of year-end close '+rec.year}));
+    const rev={id,journalNo,date:String(rec.year)+'-12-31',reference:'REV-'+(src.journalNo||src.id),memo:'Reversal of '+(src.journalNo||src.id)+' · '+reason,lines,debit:src.credit,credit:src.debit,status:'Posted',yearEndClosing:true,yearEndClosingReversal:true,reversalOf:src.id,createdAt:now,createdBy:user,postedAt:now,postedBy:user,updatedAt:now};
+    state.manualJournals.unshift(rev);src.reversalJournalId=id;src.reversedAt=now;src.reversedBy=user;src.reversalReason=reason;return rev;
+  }
 
   function record(state,year){
     return (state.yearEndCloses||[]).find(x=>String(x.year)===String(year)&&x.status==='Closed')||null;
@@ -84,23 +110,41 @@
     year=String(year||'');
     if(record(state,year)){ctx.toast(year+' is already closed.');return;}
     const rd=readiness(state,year);if(!rd?.ready){ctx.toast('Close all 12 months and resolve every year-end control first.');return;}
-    const now=new Date().toISOString(),snap=snapshot(state,year),user=state.session?.name||'User';
+    const now=new Date().toISOString(),snap=snapshot(state,year),user=state.session?.name||'User',id='YEC-'+Date.now().toString(36).toUpperCase();
+    const closingJournal=postClosingJournal(state,year,id,user);if(!closingJournal){ctx.toast('Year-end closing journal could not be created. Review the Trial Balance.');return;}
     state.yearEndCloses=state.yearEndCloses||[];
-    state.yearEndCloses.unshift({id:'YEC-'+Date.now().toString(36).toUpperCase(),year,status:'Closed',checks:rd.checks.map(x=>({id:x.id,label:x.label,done:x.done,detail:x.detail})),snapshot:snap,closedAt:now,closedBy:user});
-    ctx.audit('accounting.year_closed',{year,snapshot:snap});ctx.save();ctx.toast(year+' financial year closed and locked');ctx.render();
+    state.yearEndCloses.unshift({id,year,status:'Closed',checks:rd.checks.map(x=>({id:x.id,label:x.label,done:x.done,detail:x.detail})),snapshot:snap,closingJournalId:closingJournal.id,closingJournalNo:closingJournal.journalNo,retainedEarningsTransfer:round(snap.netProfit),closedAt:now,closedBy:user});
+    ctx.audit('accounting.year_closed',{year,snapshot:snap,closingJournalId:closingJournal.id,closingJournalNo:closingJournal.journalNo,retainedEarningsTransfer:round(snap.netProfit)});ctx.save();ctx.toast(year+' financial year closed and profit transferred to retained earnings');ctx.render();
   }
-  function reopen(year,state,ctx){
+  function openReopen(year,state,ctx){
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can reopen a closed financial year.');return;}
     const rec=record(state,year);if(!rec){ctx.toast('This financial year is not closed.');return;}
-    rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=state.session?.name||'User';
-    ctx.audit('accounting.year_reopened',{year,closeId:rec.id});ctx.save();ctx.toast(String(year)+' financial year reopened');ctx.render();
+    state.yearReopenYear=String(year);ctx.render();
+  }
+  function reopenModal(state,h){
+    const year=state.yearReopenYear,rec=year?record(state,year):null;if(!year||!rec)return '';
+    const {icon,esc}=h;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-year-reopen"></div><form id="year-reopen-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">YEAR-END CONTROL</div><h2>Reopen '+esc(year)+'</h2><p>The year-end closing journal will be reversed and the reason retained permanently.</p></div><button type="button" class="close" data-action="close-year-reopen">×</button></div>'+
+      '<div class="payment-notice"><span>'+icon('alert',17)+'</span><div><b>Year-end accounting will be reopened</b><p>DalasiPay preserves the original closing journal and posts an opposite system reversal. Reclose the year after all corrections are complete.</p></div></div>'+
+      '<div class="form-grid"><label class="field" style="grid-column:1/-1"><span>Mandatory reopen reason</span><textarea name="reason" rows="4" minlength="8" placeholder="Explain why this financial year must be reopened" required></textarea></label></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-year-reopen">Cancel</button><button class="primary" type="submit">'+icon('lock',14)+' Reopen year</button></div></form></div>';
+  }
+  function reopenSubmit(ev,state,ctx){
+    ev.preventDefault();const year=String(state.yearReopenYear||'');
+    if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can reopen a closed financial year.');return;}
+    const rec=record(state,year);if(!rec){state.yearReopenYear=null;ctx.toast('This financial year is not closed.');ctx.render();return;}
+    const reason=String(new FormData(ev.target).get('reason')||'').trim();if(reason.length<8){ctx.toast('Enter a clear reason for reopening the financial year.');return;}
+    const user=state.session?.name||'User',rev=reverseClosingJournal(state,rec,user,reason);
+    rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=user;rec.reopenReason=reason;rec.closingReversalJournalId=rev?.id||'';rec.closingReversalJournalNo=rev?.journalNo||'';
+    state.yearReopenYear=null;ctx.audit('accounting.year_reopened',{year,closeId:rec.id,reason,closingReversalJournalId:rec.closingReversalJournalId});ctx.save();ctx.toast(year+' financial year reopened and closing journal reversed');ctx.render();
   }
   function exportRecord(year,state,ctx){
     const rec=(state.yearEndCloses||[]).find(x=>String(x.year)===String(year));if(!rec){ctx.toast('Year-end close record not found');return;}
-    const s=rec.snapshot||{},rows=[['Year-End Close',year],['Status',rec.status],['Closed by',rec.closedBy],['Closed at',rec.closedAt],['Reopened by',rec.reopenedBy||''],['Reopened at',rec.reopenedAt||''],[],['Annual financial snapshot','Amount'],['Revenue',s.revenue],['COGS',s.cogs],['Gross profit',s.grossProfit],['Operating expenses',s.operatingExpenses],['Net profit',s.netProfit],['Total assets',s.totalAssets],['Total liabilities',s.totalLiabilities],['Total equity',s.totalEquity],['Trial Balance debits',s.trialDebits],['Trial Balance credits',s.trialCredits],[],['Control','Status','Detail'],...(rec.checks||[]).map(x=>[x.label,x.done?'Ready':'Resolve',x.detail])];
+    const s=rec.snapshot||{},rows=[['Year-End Close',year],['Status',rec.status],['Closed by',rec.closedBy],['Closed at',rec.closedAt],['Reopened by',rec.reopenedBy||''],['Reopened at',rec.reopenedAt||''],['Reopen reason',rec.reopenReason||''],['Closing journal',rec.closingJournalNo||''],['Closing reversal journal',rec.closingReversalJournalNo||''],['Retained earnings transfer',rec.retainedEarningsTransfer||0],[],['Annual financial snapshot','Amount'],['Revenue',s.revenue],['COGS',s.cogs],['Gross profit',s.grossProfit],['Operating expenses',s.operatingExpenses],['Net profit',s.netProfit],['Total assets',s.totalAssets],['Total liabilities',s.totalLiabilities],['Total equity',s.totalEquity],['Trial Balance debits',s.trialDebits],['Trial Balance credits',s.trialCredits],[],['Control','Status','Detail'],...(rec.checks||[]).map(x=>[x.label,x.done?'Ready':'Resolve',x.detail])];
     const csv=rows.map(r=>r.map(v=>{const q=String(v??'');return /[",\n]/.test(q)?'"'+q.replace(/"/g,'""')+'"':q;}).join(',')).join('\n');
     ctx.downloadText('dalasipay-year-close-'+year+'.csv',csv);ctx.toast('Year-end close record downloaded');
   }
 
-  window.DalasiYearClose={record,isClosed,availableYears,readiness,snapshot,panel,closeYear,reopen,exportRecord};
+  window.DalasiYearClose={record,isClosed,availableYears,readiness,snapshot,panel,closeYear,openReopen,reopenModal,reopenSubmit,closingLines,exportRecord};
 })();
