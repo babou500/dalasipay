@@ -15,6 +15,10 @@
   function mask(value){const s=String(value||'').replace(/\s+/g,'');if(!s)return 'Not added';return s.length<=4?'•••• '+s:'•••• '+s.slice(-4);}
   function beneficiaryById(state,id){return (state.paymentBeneficiaries||[]).find(x=>x.id===id)||null;}
   function normPartyText(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function normRef(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');}
+  function sameMoney(a,b){return Math.abs((Number(a)||0)-(Number(b)||0))<=.004;}
+  function activePaymentStatus(v){return !['Cancelled','Void'].includes(String(v||'Draft'));}
+
   function resolveBeneficiaryForTransaction(state,{beneficiaryId='',name='',email=''}={}){
     const byId=beneficiaryById(state,beneficiaryId);if(byId)return byId;
     const n=normPartyText(name),e=normPartyText(email),active=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
@@ -607,7 +611,7 @@
     if(saved.creditStatus==='Hold'){ctx.toast(saved.name+' is on credit hold. Release the hold before creating a new invoice.');return;}
     if(window.DalasiMonthClose?.isClosed(state,issueDate)){ctx.toast('That accounting period is closed. Reopen it before creating this invoice.');return;}
     let invoiceNo=String(fd.get('invoiceNo')||'').trim();if(!invoiceNo)invoiceNo=nextReceivableNumber('INV',state);
-    if((state.customerInvoices||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase())){ctx.toast('That customer invoice number already exists.');return;}
+    if((state.customerInvoices||[]).some(x=>normRef(x.invoiceNo)===normRef(invoiceNo))){ctx.toast('That customer invoice number already exists.');return;}
     const id='AR-'+Date.now().toString(36).toUpperCase(),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,totals.total,String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),'sale',taxPricingMode)||{taxCode:'OUT',taxPricingMode,vatRate:0,taxGross:totals.total,taxNet:totals.total,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.customerInvoices=state.customerInvoices||[];
     state.customerInvoices.unshift({id,invoiceNo,customerId:saved.id,customerName:saved.name,customerEmail:typedEmail||saved.email||'',customerPhone:typedPhone||saved.phone||'',lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:Number(tax.taxGross)||totals.total,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),issueDate,dueDate,reference:String(fd.get('reference')||saved.reference||'').trim(),description,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.receivableOpen=false;state.receivableCustomerId=null;state.receivableDraft=null;ctx.audit('receivable.created',{invoiceId:id,invoiceNo,customerId:saved.id,customerName:saved.name,amount:totals.total,lineCount:lines.length,dueDate});ctx.save();ctx.toast('Customer invoice '+invoiceNo+' saved as draft and linked to '+saved.name);ctx.render();
@@ -629,9 +633,11 @@
     state.incomingPayments=state.incomingPayments||[];
     const receivedDate=String(fd.get('receivedDate')||todayIso()),accountId=String(fd.get('accountId')||state.paymentSelectedAccountId||'')||null;
     if(!accountId||!window.DalasiCashBank?.accountById?.(state,accountId)){ctx.toast('Choose a Cash, Bank or Mobile Money account before recording this payment.');return;}
+    const paymentReference=String(fd.get('reference')||'').trim(),referenceKey=normRef(paymentReference);
+    if(referenceKey&&(state.incomingPayments||[]).some(x=>x.accountId===accountId&&normRef(x.reference)===referenceKey)){ctx.toast('A customer receipt with this payment reference is already recorded in the selected account.');return;}
     if(window.DalasiMonthClose?.isClosed(state,receivedDate)){ctx.toast('That accounting period is closed. Reopen it before recording this receipt.');return;}
-    state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate,method:String(fd.get('method')||'Bank transfer'),accountId,reference:String(fd.get('reference')||'').trim(),note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    if(accountId)window.DalasiCashBank?.post(state,{accountId,date:receivedDate,direction:'in',amount,type:'Customer collection',counterparty:inv.customerName,reference:String(fd.get('reference')||receiptNumber).trim(),description:'Collection for '+(inv.invoiceNo||invoiceId),sourceType:'customer-collection',sourceId:id,sourceKey:'customer-collection:'+id+':in',createdBy:state.session?.name||'User'});
+    state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate,method:String(fd.get('method')||'Bank transfer'),accountId,reference:paymentReference,note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    if(accountId)window.DalasiCashBank?.post(state,{accountId,date:receivedDate,direction:'in',amount,type:'Customer collection',counterparty:inv.customerName,reference:paymentReference||receiptNumber,description:'Collection for '+(inv.invoiceNo||invoiceId),sourceType:'customer-collection',sourceId:id,sourceKey:'customer-collection:'+id+':in',createdBy:state.session?.name||'User'});
     const remaining=Math.max(0,balance-amount);inv.status=remaining<=0.004?'Paid':'Part paid';inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(inv.status==='Paid')inv.paidAt=inv.updatedAt;
     state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;state.paymentSelectedAccountId=null;ctx.audit('receivable.payment_recorded',{invoiceId,invoiceNo:inv.invoiceNo,incomingPaymentId:id,receiptNumber,amount,balanceRemaining:remaining});ctx.save();ctx.toast('Payment recorded · Receipt '+receiptNumber+' created');ctx.render();
   }
@@ -1043,7 +1049,10 @@
     const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),grossAmount=Number(fd.get('amount')||0),discountReceived=Math.max(0,Number(fd.get('discountReceived')||0)),amount=Math.max(0,grossAmount-discountReceived),due=String(fd.get('dueDate')||'');
     if(!supplier||!invoiceNo||grossAmount<=0||discountReceived>grossAmount||amount<=0||!due){ctx.toast('Supplier, invoice number, valid gross amount, discount and due date are required.');return;}
     const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
-    if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
+    if((state.businessBills||[]).some(x=>{
+      const sameSupplier=(beneficiaryId&&x.beneficiaryId===beneficiaryId)||normPartyText(x.supplier)===normPartyText(supplier);
+      return sameSupplier&&normRef(x.invoiceNo)===normRef(invoiceNo);
+    })){ctx.toast('That supplier invoice is already recorded for this supplier.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
     const id='BILL-'+Date.now().toString(36).toUpperCase(),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',taxPricingMode,vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
     state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),postingAccount:String(fd.get('postingAccount')||'Operating Expenses'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
@@ -1063,10 +1072,21 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create business payments.');return;}
     const fd=new FormData(ev.target),amount=Number(fd.get('amount')||0),typedPayee=String(fd.get('payee')||'').trim(),billId=String(fd.get('billId')||state.paymentBillId||''),linkedBill=billId?billById(state,billId):null,selectedBeneficiaryId=String(fd.get('beneficiaryId')||linkedBill?.beneficiaryId||''),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedPayee||linkedBill?.supplier||''}),beneficiaryId=ben?.id||selectedBeneficiaryId,payee=ben?.name||typedPayee||linkedBill?.supplier||'';
     if(!payee||amount<=0){ctx.toast('Enter a payee and a valid payment amount.');return;}
-    if(billId){const linked=billById(state,billId),bal=window.DalasiReturns?.billBalance?.(state,linked)??(Number(linked?.amount)||0);if(!linked||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}if(amount>bal+.004){ctx.toast('Payment amount cannot exceed the supplier bill balance after credits.');return;}}
+    const paymentReference=String(fd.get('reference')||'').trim(),paymentAccountId=String(fd.get('accountId')||state.paymentSelectedAccountId||'')||null,dueDate=String(fd.get('dueDate')||'');
+    if(billId){
+      const linked=billById(state,billId),bal=window.DalasiReturns?.billBalance?.(state,linked)??(Number(linked?.amount)||0);
+      if(!linked||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}
+      if(amount>bal+.004){ctx.toast('Payment amount cannot exceed the supplier bill balance after credits.');return;}
+      const openDuplicate=(state.businessPayments||[]).find(x=>x.billId===billId&&activePaymentStatus(x.status)&&x.status!=='Paid');
+      if(openDuplicate){ctx.toast('A payment for this supplier bill is already in progress. Complete or cancel it before creating another.');return;}
+    }else if(paymentReference&&normRef(paymentReference)){
+      const refKey=normRef(paymentReference);
+      const duplicate=(state.businessPayments||[]).some(x=>activePaymentStatus(x.status)&&normRef(x.reference)===refKey&&sameMoney(x.amount,amount)&&((beneficiaryId&&x.beneficiaryId===beneficiaryId)||normPartyText(x.payee)===normPartyText(payee)));
+      if(duplicate){ctx.toast('A matching business payment with this reference is already recorded.');return;}
+    }
     const id='BP-'+Date.now().toString(36).toUpperCase();
     state.businessPayments=state.businessPayments||[];
-    state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),accountId:String(fd.get('accountId')||state.paymentSelectedAccountId||'')||null,dueDate:String(fd.get('dueDate')||''),reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),accountId:paymentAccountId,dueDate,reference:paymentReference,description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     if(billId){const bill=billById(state,billId);if(bill){bill.paymentId=id;bill.updatedAt=new Date().toISOString();}}
     state.paymentOpen=false;state.paymentBeneficiaryId=null;state.paymentBillId=null;
     ctx.audit('payment.created',{paymentId:id,beneficiaryId:beneficiaryId||null,payee,amount});ctx.save();ctx.toast('Business payment saved as draft');ctx.render();
@@ -1084,6 +1104,7 @@
   function update(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
+    if((p.status||'Draft')===status){ctx.toast(p.payee+': already '+String(status).toLowerCase()+'.');return;}
     if(status==='Paid'&&(!p.accountId||!window.DalasiCashBank?.accountById?.(state,p.accountId))){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this payment paid.');return;}
     if(status==='Paid'&&window.DalasiMonthClose?.isClosed(state,todayIso())){ctx.toast('The current accounting period is closed. Reopen it before posting this payment.');return;}
     p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=p.paidAt||new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.accountId)window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:state.session?.name||'User'});if(p.billId){const bill=billById(state,p.billId);if(bill){const remaining=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,(Number(bill.amount)||0)-(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));bill.status=remaining<=.004?'Paid':'Part paid';if(remaining<=.004)bill.paidAt=p.paidAt;else delete bill.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
