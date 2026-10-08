@@ -65,3 +65,20 @@ BEGIN
 END $$;
 DROP TRIGGER test_fail_audit ON public.subscription_admin_events;
 SELECT 'PASS: atomic success and audit-failure rollback' AS result;
+ALTER TABLE public.subscription_admin_events ADD COLUMN target_user_id uuid REFERENCES auth.users(id);
+ALTER TABLE public.subscription_admin_events ADD CONSTRAINT admin_event_target_check
+CHECK (event_type NOT IN ('platform_admin_appointed','platform_admin_revoked') OR target_user_id IS NOT NULL);
+DO $
+BEGIN
+ BEGIN
+  INSERT INTO public.subscription_admin_events(organization_id,request_id,event_type)
+  VALUES('33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444','platform_admin_appointed');
+  RAISE EXCEPTION 'Missing target accepted';
+ EXCEPTION WHEN check_violation THEN NULL;
+ END;
+ IF EXISTS(SELECT 1 FROM public.subscription_admin_events) THEN
+   RAISE EXCEPTION 'Invalid admin event was inserted';
+ END IF;
+END $;
+SELECT 'PASS: administrative audit event requires target identity' AS admin_audit_result;
+
