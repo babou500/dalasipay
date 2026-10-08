@@ -17,7 +17,7 @@
   function normPartyText(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
   function normRef(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');}
   function sameMoney(a,b){return Math.abs((Number(a)||0)-(Number(b)||0))<=.004;}
-  function activePaymentStatus(v){return !['Cancelled','Void'].includes(String(v||'Draft'));}
+  function activePaymentStatus(v){return !['Cancelled','Void','Reversed'].includes(String(v||'Draft'));}
 
   function resolveBeneficiaryForTransaction(state,{beneficiaryId='',name='',email=''}={}){
     const byId=beneficiaryById(state,beneficiaryId);if(byId)return byId;
@@ -193,7 +193,9 @@
     if(p.status==='Draft')return '<button class="secondary" data-action="payment-submit:'+p.id+'">Submit</button>';
     if(p.status==='Pending approval')return '<button class="secondary" data-action="payment-approve:'+p.id+'">Approve</button>';
     if(p.status==='Approved')return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-paid:'+p.id+'">Mark paid</button>';
-    return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="primary" data-action="payment-doc:receipt:'+p.id+'">Receipt PDF</button>';
+    if(p.status==='Paid')return '<button class="secondary" data-action="payment-doc:voucher:'+p.id+'">Voucher PDF</button><button class="secondary" data-action="payment-doc:receipt:'+p.id+'">Receipt PDF</button><button class="secondary" data-action="payment-reverse:'+p.id+'">Reverse</button>';
+    if(p.status==='Reversed')return '<span class="payment-complete">Reversed</span>';
+    return '<span class="payment-complete">'+esc(p.status||'Closed')+'</span>';
   }
 
   function nextDocumentNumber(prefix,state){
@@ -318,7 +320,7 @@
   function customerStatusClass(status){return status==='Inactive'?'neutral':'ready';}
   function receivableById(state,id){return (state.customerInvoices||[]).find(x=>x.id===id)||null;}
   function incomingPaymentById(state,id){return (state.incomingPayments||[]).find(x=>x.id===id)||null;}
-  function incomingForInvoice(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id);}
+  function incomingForInvoice(state,id){return (state.incomingPayments||[]).filter(x=>x.invoiceId===id&&!x.reversedAt&&x.status!=='Reversed');}
   function receivablePaid(state,id){return incomingForInvoice(state,id).reduce((a,x)=>a+(Number(x.amount)||0),0);}
   function receivableBalance(state,invoice){return window.DalasiReturns?.invoiceBalance?.(state,invoice)??Math.max(0,(Number(invoice?.amount)||0)-receivablePaid(state,invoice?.id));}
   function receivableStatus(state,invoice){
@@ -340,7 +342,7 @@
     const rows=state.customerInvoices||[],payments=state.incomingPayments||[],today=todayIso();
     let outstanding=0,overdue=0,open=0;
     rows.forEach(inv=>{const status=receivableStatus(state,inv),bal=receivableBalance(state,inv);if(status!=='Draft'&&status!=='Paid'){outstanding+=bal;open++;if(inv.dueDate&&inv.dueDate<today)overdue+=bal;}});
-    return {count:rows.length,open,outstanding,overdue,collected:payments.reduce((a,x)=>a+(Number(x.amount)||0),0)};
+    return {count:rows.length,open,outstanding,overdue,collected:payments.filter(x=>!x.reversedAt&&x.status!=='Reversed').reduce((a,x)=>a+(Number(x.amount)||0),0)};
   }
   function receivableAction(state,invoice){
     const status=receivableStatus(state,invoice);
@@ -497,7 +499,7 @@
     const limit=Math.max(0,Number(cust.creditLimit)||0),available=limit>0?Math.max(0,limit-m.outstanding):0,util=limit>0?Math.min(100,Math.round((m.outstanding/limit)*100)):0;
     const creditTone=(cust.creditStatus||'Open')==='Hold'?'hold':(limit>0&&util>=90?'warning':'ok');
     const rows=invoices.length?invoices.map(inv=>{const bal=receivableBalance(state,inv),st=receivableStatus(state,inv);return '<tr><td><button class="customer-doc-link" data-action="invoice-view:'+inv.id+'">'+esc(inv.invoiceNo)+'</button></td><td>'+dueDate(inv.issueDate)+'</td><td>'+dueDate(inv.dueDate)+'</td><td>'+money2(inv.amount)+'</td><td><b>'+money2(bal)+'</b></td><td>'+h.pill(st,receivableStatusClass(st))+'</td><td><div class="customer-row-actions"><button class="secondary tiny" data-action="invoice-view:'+inv.id+'">View</button>'+(bal>.004&&st!=='Draft'?'<button class="primary tiny" data-action="record-incoming:'+inv.id+'">Pay</button>':'')+'</div></td></tr>'}).join(''):'<tr><td colspan="7"><div class="empty-inline">No invoices for this customer yet.</div></td></tr>';
-    const payRows=payments.length?payments.slice(0,8).map(p=>{const inv=receivableById(state,p.invoiceId);return '<div class="customer-payment-item"><div><b>'+esc(p.receiptNumber||p.id)+'</b><small>'+dueDate(p.receivedDate||String(p.createdAt||'').slice(0,10))+' · '+esc(inv?.invoiceNo||'Invoice')+' · '+esc(p.method||'Payment')+'</small></div><strong>'+money2(p.amount)+'</strong><button class="secondary tiny" data-action="receivable-doc:receipt:'+p.id+'">Receipt</button></div>'}).join(''):'<div class="empty-inline">No payments recorded for this customer yet.</div>';
+    const payRows=payments.length?payments.slice(0,8).map(p=>{const inv=receivableById(state,p.invoiceId),reversed=p.status==='Reversed'||p.reversedAt;return '<div class="customer-payment-item"><div><b>'+esc(p.receiptNumber||p.id)+'</b><small>'+dueDate(p.receivedDate||String(p.createdAt||'').slice(0,10))+' · '+esc(inv?.invoiceNo||'Invoice')+' · '+esc(reversed?'Reversed':(p.method||'Payment'))+(p.reversalReason?' · '+esc(p.reversalReason):'')+'</small></div><strong>'+money2(p.amount)+'</strong><button class="secondary tiny" data-action="receivable-doc:receipt:'+p.id+'">Receipt</button>'+(!reversed?'<button class="secondary tiny" data-action="incoming-reverse:'+p.id+'">Reverse</button>':'')+'</div>'}).join(''):'<div class="empty-inline">No payments recorded for this customer yet.</div>';
     return '<div class="center-modal payment-modal customer-account-modal"><div class="modal-scrim" data-action="close-customer-account"></div><div class="modal-box">'+
       '<div class="modal-head customer-360-head"><div><div class="eyebrow">CUSTOMER ACCOUNT 360°</div><h2>'+esc(cust.name)+'</h2><p>'+esc(cust.contact||cust.email||cust.phone||paymentTermsLabel(cust.termDays))+'</p></div><div class="customer-360-head-actions">'+h.pill(cust.status||'Active',customerStatusClass(cust.status||'Active'))+'<button type="button" class="close" data-action="close-customer-account">×</button></div></div>'+
       '<div class="customer-account-summary customer-360-summary"><div><span>Invoiced</span><b>'+money2(m.invoiced)+'</b><small>lifetime customer sales</small></div><div><span>Collected</span><b>'+money2(m.collected)+'</b><small>'+collectionRate+'% collection rate</small></div><div class="'+(m.outstanding?'customer-balance-open':'')+'"><span>Outstanding</span><b>'+money2(m.outstanding)+'</b><small>'+openInvoices.length+' open invoice'+(openInvoices.length===1?'':'s')+'</small></div><div class="'+(m.overdue?'customer-balance-overdue':'')+'"><span>Overdue</span><b>'+money2(m.overdue)+'</b><small>'+overdueInvoices.length+' overdue invoice'+(overdueInvoices.length===1?'':'s')+'</small></div></div>'+
@@ -532,7 +534,7 @@
     const credits=(state.supplierCreditNotes||[]).filter(x=>x.billId===b.id&&x.status!=='Void'),debits=(state.supplierDebitNotes||[]).filter(x=>x.billId===b.id&&x.status!=='Void');
     const timeline=billLifecycle(state,b);
     const eventRows=timeline.length?timeline.map(e=>'<div><i></i><span><b>'+esc(e.label)+(e.detail!=null?' · '+money2(e.detail):'')+'</b><small>'+esc(e.at?String(e.at).slice(0,16).replace('T',' '):'')+(e.by?' · '+esc(e.by):'')+'</small></span>'+(e.sourceType&&e.sourceId?'<button class="secondary tiny" data-action="source-open:'+esc(e.sourceType)+':'+esc(e.sourceId)+'">View</button>':'')+'</div>').join(''):'<div class="empty-inline">No activity recorded yet.</div>';
-    const paymentRows=payments.length?payments.map(p=>'<div class="invoice-payment-row"><div><strong>'+esc(p.receiptNumber||p.voucherNumber||p.id)+'</strong><small>'+esc(String(p.paidAt||p.updatedAt||p.createdAt||'').slice(0,10))+' · '+esc(p.method||'Payment')+' · '+esc(p.status||'Draft')+'</small></div><b>'+money2(p.amount)+'</b></div>').join(''):'<div class="empty-inline">No payments linked to this bill.</div>';
+    const paymentRows=payments.length?payments.map(p=>'<div class="invoice-payment-row"><div><strong>'+esc(p.receiptNumber||p.voucherNumber||p.id)+'</strong><small>'+esc(String(p.paidAt||p.updatedAt||p.createdAt||'').slice(0,10))+' · '+esc(p.method||'Payment')+' · '+esc(p.status||'Draft')+(p.reversalReason?' · '+esc(p.reversalReason):'')+'</small></div><b>'+money2(p.amount)+'</b>'+(p.status==='Paid'?'<button class="secondary tiny" data-action="payment-reverse:'+esc(p.id)+'">Reverse</button>':'')+'</div>').join(''):'<div class="empty-inline">No payments linked to this bill.</div>';
     const adjustmentRows=[...credits.map(x=>({type:'Credit',ref:x.creditNo||x.id,amount:-Math.abs(Number(x.amount)||0),date:x.date||x.createdAt})),...debits.map(x=>({type:'Debit',ref:x.debitNo||x.id,amount:Number(x.amount)||0,date:x.date||x.createdAt}))].sort((a,z)=>String(z.date||'').localeCompare(String(a.date||'')));
     const adjustments=adjustmentRows.length?adjustmentRows.map(x=>'<div class="invoice-payment-row"><div><strong>'+esc(x.type+' · '+x.ref)+'</strong><small>'+esc(String(x.date||'').slice(0,10))+'</small></div><b>'+money2(x.amount)+'</b></div>').join(''):'<div class="empty-inline">No supplier credits or debits linked to this bill.</div>';
     const status=b.status||'Draft',taxLabel=(window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'Out of scope')+' · '+(tax.taxPricingMode==='exclusive'?'VAT exclusive':'VAT inclusive');
@@ -1110,6 +1112,33 @@
     p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=p.paidAt||new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.accountId)window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:state.session?.name||'User'});if(p.billId){const bill=billById(state,p.billId);if(bill){const remaining=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,(Number(bill.amount)||0)-(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));bill.status=remaining<=.004?'Paid':'Part paid';if(remaining<=.004)bill.paidAt=p.paidAt;else delete bill.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
     ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null});ctx.save();ctx.toast(status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):(p.payee+': '+status));ctx.render();
   }
+  function reversalReason(label){
+    const reason=String(window.prompt('Reason for reversing '+label+'? The original record will remain in the audit trail.')||'').trim();
+    if(!reason)return '';
+    if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return '';}
+    return reason;
+  }
+  function reversePayment(id,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse payments.');return;}
+    const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
+    if(p.status!=='Paid'||p.reversedAt){ctx.toast('Only an unreversed paid payment can be reversed.');return;}
+    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
+    const reason=reversalReason(p.receiptNumber||p.voucherNumber||p.id);if(!reason)return;
+    const now=new Date().toISOString(),actor=state.session?.name||'User';
+    const cashReversal=window.DalasiCashBank?.reverseSource?.(state,'business-payment:'+p.id+':out',actor)||null;
+    p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalCashTransactionId=cashReversal?.id||null;p.updatedAt=now;p.updatedBy=actor;
+    if(p.billId){const bill=billById(state,p.billId);if(bill){const paid=(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0),credited=(state.supplierCreditNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),debited=(state.supplierDebitNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),remaining=Math.max(0,(Number(bill.amount)||0)+debited-credited-paid);bill.status=remaining<=.004?'Paid':(paid>0?'Part paid':'Approved');if(bill.status!=='Paid')delete bill.paidAt;bill.updatedAt=now;bill.updatedBy=actor;}}
+    ctx.audit('payment.reversed',{paymentId:p.id,receiptNumber:p.receiptNumber||null,voucherNumber:p.voucherNumber||null,amount:p.amount,payee:p.payee,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();ctx.toast((p.receiptNumber||p.voucherNumber||p.id)+' reversed');ctx.render();
+  }
+  function reverseIncomingPayment(id,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse customer receipts.');return;}
+    const p=incomingPaymentById(state,id);if(!p)return;if(p.reversedAt||p.status==='Reversed'){ctx.toast('This customer receipt is already reversed.');return;}
+    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
+    const reason=reversalReason(p.receiptNumber||p.id);if(!reason)return;const now=new Date().toISOString(),actor=state.session?.name||'User';
+    const cashReversal=window.DalasiCashBank?.reverseSource?.(state,'customer-collection:'+p.id+':in',actor)||null;p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalCashTransactionId=cashReversal?.id||null;
+    const inv=receivableById(state,p.invoiceId);if(inv){const balance=receivableBalance(state,inv),paid=receivablePaid(state,inv);inv.status=balance<=.004?'Paid':(paid>0?'Part paid':'Sent');if(inv.status!=='Paid')delete inv.paidAt;inv.updatedAt=now;inv.updatedBy=actor;}
+    ctx.audit('receivable.payment_reversed',{invoiceId:p.invoiceId,incomingPaymentId:p.id,receiptNumber:p.receiptNumber||null,amount:p.amount,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();ctx.toast((p.receiptNumber||p.id)+' reversed');ctx.render();
+  }
   function updateBeneficiary(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update beneficiaries.');return;}
     const b=beneficiaryById(state,id);if(!b)return;b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';
@@ -1120,5 +1149,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
