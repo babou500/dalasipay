@@ -1903,7 +1903,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   window.DalasiPilot={readiness};
 })();
 
-</script><script src="./cash-bank.js?v=20261008-0105"></script><script src="./tax-vat.js?v=20261008-0052"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./business-payments.js?v=20261008-0135"></script><script src="./expenses-purchases.js?v=20261008-0135"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-0052"></script><script src="./profit-loss.js?v=20261008-0135"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js"></script><script src="./returns-credits.js"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-0135"></script><script src="./balance-sheet.js"></script><script src="./general-ledger.js?v=20261008-0135"></script><script src="./accounting-journals.js?v=20261008-0135"></script><script src="./month-end-close.js"></script><script src="./year-end-close.js"></script><script src="./dashboard-command.js"></script><script src="./business-reports.js"></script><!-- app.js -->
+</script><script src="./cash-bank.js?v=20261008-0205"></script><script src="./tax-vat.js?v=20261008-0052"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./business-payments.js?v=20261008-0135"></script><script src="./expenses-purchases.js?v=20261008-0135"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-0052"></script><script src="./profit-loss.js?v=20261008-0135"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js"></script><script src="./returns-credits.js"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-0135"></script><script src="./balance-sheet.js"></script><script src="./general-ledger.js?v=20261008-0205"></script><script src="./accounting-journals.js?v=20261008-0135"></script><script src="./month-end-close.js"></script><script src="./year-end-close.js"></script><script src="./dashboard-command.js"></script><script src="./business-reports.js"></script><!-- app.js -->
 <script>
 (() => {
   const seedEmployees = window.DALASIPAY_SEED || [];
@@ -3410,6 +3410,29 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function emailEmployee(e){location.href=`mailto:${encodeURIComponent(e.email)}?subject=${encodeURIComponent(periodLabel(state.currentPeriod)+' Payslip')}&body=${encodeURIComponent(`Hello ${e.name},\n\nYour ${periodLabel(state.currentPeriod)} payslip is ready.\n\nRegards,\n${state.company}`)}`;state.sent[e.id]={status:'Prepared',channel:'Email',at:new Date().toISOString()};save();toast(`Email app opened for ${e.name}`)}
   function whatsappEmployee(e){const p=e.phone.replace(/[^0-9]/g,'');window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hello ${e.name}, your ${periodLabel(state.currentPeriod)} payslip is ready. This message was prepared by DalasiPay.`)}`,'_blank');state.sent[e.id]={status:'Prepared',channel:'WhatsApp',at:new Date().toISOString()};save();toast(`WhatsApp opened for ${e.name}`)}
 
+  function openSourceRecord(type,id){
+    type=String(type||'');id=String(id||'');
+    if(!type||!id)return;
+    const go=page=>{state.page=page;state.searchOpen=false;state.notifOpen=false;state.mobileOpen=false;};
+    if(type==='customer-invoice'){go('invoices');state.salesTab='invoices';state.invoiceDetailId=id;}
+    else if(type==='customer-collection'){
+      const p=(state.incomingPayments||[]).find(x=>x.id===id);if(p?.invoiceId){go('invoices');state.salesTab='invoices';state.invoiceDetailId=p.invoiceId;}else{go('payments');state.paymentTab='receivables';}
+    }
+    else if(type==='supplier-bill'){go('payments');state.paymentTab='bills';const b=(state.businessBills||[]).find(x=>x.id===id);state.supplierAccountId=b?.beneficiaryId||null;}
+    else if(type==='business-payment'){go('payments');state.paymentTab='payments';}
+    else if(type==='expense'){go('expenses');state.expenseTab='expenses';}
+    else if(type==='revenue'){go('invoices');state.salesTab='revenue';}
+    else if(type==='vat-payment'){go('tax');}
+    else if(type==='customer-credit-note'||type==='customer-refund'){go('returns');state.returnsView='customer';}
+    else if(type==='supplier-credit-note'||type==='supplier-refund'){go('returns');state.returnsView='supplier';}
+    else if(type==='customer-debit-note'){go('debits');state.debitView='customer';}
+    else if(type==='supplier-debit-note'){go('debits');state.debitView='supplier';}
+    else if(type==='fixed-asset'){go('assets');}
+    else if(type==='loan'||type==='loan-repayment'||type==='loan-drawdown'){go('loans');}
+    else {toast('This source is preserved in the ledger audit trail but does not yet have a dedicated detail screen.');}
+    render();
+  }
+
   document.addEventListener('click', async e => {
     const target=e.target.closest('[data-page],[data-action],[data-step],[data-employee],[data-search-employee],[data-export],[data-org],[data-run]'); if(!target)return;
     if(target.dataset.notificationId)markNotificationRead(target.dataset.notificationId);
@@ -3422,6 +3445,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(target.dataset.run){state.selectedRun=state.runs.find(r=>r.id===target.dataset.run)||null;render();return;}
     const a=target.dataset.action;if(!a)return;
     if(a==='toggle-quick-create'){state.quickCreateOpen=!state.quickCreateOpen;state.notifOpen=false;render();return;}
+    if(a.startsWith('source-open:')){const p=a.split(':');openSourceRecord(p[1],p.slice(2).join(':'));return;}
     if(a.startsWith('search-jump:')){
       const parts=a.split(':'),kind=parts[1],id=parts.slice(2).join(':');state.searchOpen=false;
       if(kind==='customer'){state.page='customers';state.customerAccountId=id;}
