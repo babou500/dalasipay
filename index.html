@@ -3358,7 +3358,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const rpf=document.getElementById('recurring-payment-form');if(rpf)rpf.addEventListener('submit',saveRecurringBusinessPayment);
     const arvf=document.getElementById('receivable-form');if(arvf)arvf.addEventListener('submit',saveCustomerInvoice);
     const rcif=document.getElementById('recurring-invoice-form');if(rcif)rcif.addEventListener('submit',e=>window.DalasiRecurringInvoices.create(e,state,{can,audit,save,toast,render}));
-    const ipf=document.getElementById('incoming-payment-form');if(ipf)ipf.addEventListener('submit',saveIncomingPayment);
+    const ipf=document.getElementById('incoming-payment-form');if(ipf)ipf.addEventListener('submit',saveIncomingPayment);if(ipf)window.DalasiBusinessPayments?.bindIncomingPaymentPreview?.(ipf,state);
     const cff=document.getElementById('credit-followup-form');if(cff)cff.addEventListener('submit',e=>window.DalasiCreditControl.saveFollowUp(e,state,{can,audit,save,toast,render}));
     const rsf=document.getElementById('reminder-settings-form');if(rsf)rsf.addEventListener('submit',e=>window.DalasiReminders.saveSettings(e,state,{can,audit,save,toast,render}));
     const clf=document.getElementById('credit-limit-form');if(clf)clf.addEventListener('submit',e=>window.DalasiCreditControl.saveLimit(e,state,{can,audit,save,toast,render}));
