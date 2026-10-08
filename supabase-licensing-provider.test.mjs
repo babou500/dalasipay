@@ -34,3 +34,17 @@ test('subscription snapshot is read-only and usage remains unknown',async()=>{
  assert.equal(f.calls[0].table,'workspace_subscriptions');
 });
 test('server client is mandatory',()=>assert.throws(()=>createSupabaseLicensingProvider({}),TypeError));
+
+test('trusted usage counts appear only in server snapshot',async()=>{
+ const p=createSupabaseLicensingProvider({adminClient:fake().adminClient,countWorkspaceRecords:async(table,workspaceId)=>{assert.equal(workspaceId,org);return table==='employees'?7:3;}});
+ const snapshot=await p.loadWorkspaceSnapshot({workspaceId:org});
+ assert.equal(snapshot.usage.users,3);
+ assert.equal(snapshot.usage.employees,7);
+ assert.equal(snapshot.usage.invoicesPerMonth,null);
+});
+test('count service outage does not block subscription verification',async()=>{
+ const p=createSupabaseLicensingProvider({adminClient:fake().adminClient,countWorkspaceRecords:async()=>{throw Error('private network detail')}});
+ const snapshot=await p.loadWorkspaceSnapshot({workspaceId:org});
+ assert.equal(snapshot.usage.users,null);
+ assert.equal(snapshot.usage.employees,null);
+});
