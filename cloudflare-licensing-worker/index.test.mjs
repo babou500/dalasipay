@@ -70,3 +70,31 @@ test('preflight only allows the DalasiPay origin',async()=>{
  assert.equal(denied.status,403);
  assert.equal(denied.headers.get('access-control-allow-origin'),null);
 });
+
+test('trusted record counts returned only for authorized workspace',async()=>{
+ const previous=globalThis.fetch;
+ const counts=[];
+ globalThis.fetch=async(target,options)=>{
+  const url=String(target);
+  if(url.includes('/auth/v1/user'))return Response.json({id:user});
+  if(options?.method==='HEAD'){
+   counts.push(url);
+   const count=url.includes('/employees?')?'4':'2';
+   return new Response(null,{status:200,headers:{'content-range':'0-0/'+count}});
+  }
+  if(url.includes('organization_members'))return Response.json([{user_id:user}]);
+  if(url.includes('workspace_subscriptions'))return Response.json([{organization_id:org,plan_id:'professional',status:'professional_preview',professional_preview:true}]);
+  throw Error('unexpected request');
+ };
+ try{
+  const response=await worker.fetch(new Request(url,{headers:{authorization:'Bearer valid-token'}}),env);
+  assert.equal(response.status,200);
+  const body=await response.json();
+  assert.equal(body.usage.users.count,2);
+  assert.equal(body.usage.employees.count,4);
+  assert.equal(body.usage.invoicesPerMonth.count,null);
+  assert.equal(body.enforcementActive,false);
+  assert.equal(counts.length,2);
+  assert.ok(counts.every(x=>x.includes('organization_id=eq.')));
+ }finally{globalThis.fetch=previous;}
+});
