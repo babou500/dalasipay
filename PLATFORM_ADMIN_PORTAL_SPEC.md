@@ -30,3 +30,7 @@ Status: DESIGN CONTRACT ONLY. No live route, login page, or administration API i
 ## Admin Worker source prepared (not deployed)
 
 `cloudflare-admin-worker/index.mjs` implements only `/internal/admin/session` with injected Supabase Auth verification and privileged allowlist lookup. No Wrangler file, domain, deployment or frontend route has been created. **Production blocker:** privileges on `subscription_platform_admins` are revoked even from `service_role`, so the draft Worker will fail closed until a separately reviewed least-privilege lookup mechanism is designed. Do not grant general table privileges merely to activate this draft. No admin has been appointed. CI tests use mocked responses and do not prove production database access.
+
+## Trusted identity boundary
+
+The unmounted session handler now rejects userId, actorId and adminId query parameters, and obtains actor identity only from trusted token verification. This is defense in depth, not an authorization substitute. The lookup function must also reject all externally supplied user IDs, and production access remains blocked until a reviewed execution principal exists. No admin endpoint has been deployed.
