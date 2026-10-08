@@ -1611,3 +1611,88 @@ textarea{padding:10px 11px;line-height:1.45;resize:vertical}
   .crumb{font-size:9.5px}
   .command-welcome{align-items:flex-start;flex-direction:column}
 }
+
+
+/* DalasiPay v0.96 — restore dashboard colour hierarchy */
+.business-command-grid .command-card{
+  border-color:color-mix(in srgb,var(--border) 86%,transparent);
+  background:linear-gradient(145deg,var(--panel),color-mix(in srgb,var(--panel-2) 68%,var(--panel)));
+}
+.business-command-grid .command-card .command-icon{
+  background:color-mix(in srgb,var(--primary) 8%,var(--panel));
+  color:var(--primary)
+}
+.business-command-grid .cash-command{
+  background:linear-gradient(145deg,#eef4ff,#f9fbff);
+  border-color:#dce6fb
+}
+.business-command-grid .cash-command .command-icon{background:#e4ebff;color:#5268a2}
+.business-command-grid .money-in-command{
+  background:linear-gradient(145deg,#edf8f2,#fbfdfc);
+  border-color:#d9eee3
+}
+.business-command-grid .money-in-command .command-icon{background:#def1e7;color:#1d7359}
+.business-command-grid .payables-command{
+  background:linear-gradient(145deg,#fff7ef,#fffdf9);
+  border-color:#f1e1cd
+}
+.business-command-grid .payables-command .command-icon{background:#f9ead8;color:#a36b2a}
+.business-command-grid .sales-command{
+  background:linear-gradient(145deg,#edf8f5,#fbfdfc);
+  border-color:#d8ece5
+}
+.business-command-grid .sales-command .command-icon{background:#def0ea;color:#16745e}
+.business-command-grid .inventory-command{
+  background:linear-gradient(145deg,#f7f2ff,#fdfbff);
+  border-color:#e7ddf5
+}
+.business-command-grid .inventory-command .command-icon{background:#ece3f8;color:#72539b}
+.business-command-grid .orders-command{
+  background:linear-gradient(145deg,#f1f6fb,#fcfdff);
+  border-color:#dfe8f0
+}
+.business-command-grid .orders-command .command-icon{background:#e5edf5;color:#52708b}
+.business-command-grid .payroll-command{
+  background:linear-gradient(145deg,#eef9f7,#fbfdfd);
+  border-color:#d5eee8
+}
+.business-command-grid .payroll-command .command-icon{background:#dff2ed;color:#176c5c}
+.business-command-grid .customers-command{
+  background:linear-gradient(145deg,#f5f9f2,#fcfdfb);
+  border-color:#e1ecdb
+}
+.business-command-grid .customers-command .command-icon{background:#e9f2e3;color:#5d7d45}
+.business-command-grid .tax-command{
+  background:linear-gradient(145deg,#fff8f2,#fffdfb);
+  border-color:#efdcca
+}
+.business-command-grid .tax-command .command-icon{background:#f8eadc;color:#9c682f}
+.business-command-grid .tax-command.cash-alert{
+  background:linear-gradient(145deg,#fff1ef,#fffafa);
+  border-color:#e9c6c2
+}
+.business-command-grid .tax-command.cash-alert .command-icon{background:#f8dfdb;color:#a84242}
+
+.business-command-grid .command-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 28px rgba(11,49,39,.075)
+}
+.business-command-grid .command-card small{color:color-mix(in srgb,var(--muted) 88%,var(--text))}
+.business-command-grid .command-card b{color:var(--text)}
+.business-health-strip{
+  background:linear-gradient(145deg,#f7fbf9,#ffffff);
+  border-color:#dfe9e4
+}
+.health-items button{background:#fbfcfb}
+:root[data-theme="dark"] .business-command-grid .cash-command,
+:root[data-theme="dark"] .business-command-grid .money-in-command,
+:root[data-theme="dark"] .business-command-grid .payables-command,
+:root[data-theme="dark"] .business-command-grid .sales-command,
+:root[data-theme="dark"] .business-command-grid .inventory-command,
+:root[data-theme="dark"] .business-command-grid .orders-command,
+:root[data-theme="dark"] .business-command-grid .payroll-command,
+:root[data-theme="dark"] .business-command-grid .customers-command,
+:root[data-theme="dark"] .business-command-grid .tax-command{
+  background:linear-gradient(145deg,var(--panel),var(--panel-2));
+  border-color:var(--border)
+}
