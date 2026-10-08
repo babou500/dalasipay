@@ -20,3 +20,7 @@ Verify exactly one expected administrator, run a second-person review of the rec
 
 ## Unfinished
 No operator identified, no approval received, no trusted UUID established, no admin inserted, no administration API enabled.
+
+## Audit event schema prepared (2026-10-08)
+
+The `subscription_admin_events` table now accepts `platform_admin_appointed` and `platform_admin_revoked` event types and requires a non-null `target_user_id` for those events. Existing audit history remains append-only. This is schema preparation only: it does not grant anyone administrator privileges, create an appointment, or enable an API. A disposable PostgreSQL constraint test has been added to `tests/licensing-postgres-atomic.sql`; successful CI execution is pending.
