@@ -21,3 +21,10 @@ test('displays validated server usage and never invents missing counts',async()=
  assert.match(missing.message,/users: Unavailable, employees: Unavailable/);
  assert.doesNotMatch(missing.message,/not-returned/);
 });
+
+test('shows provisional monthly diagnostics without treating them as licensing counts',async()=>{
+ const v=await verify({workspaceId:org,getSession:async()=>({access_token:'x'}),request:async()=>({ok:true,status:200,json:async()=>({ok:true,workspaceId:org,planId:'professional-preview',enforcementActive:false,usage:{users:{count:1},employees:{count:2}},monthlyDiagnostics:{month:'2026-10',invoices:2,supplierBills:0,authoritative:false}})})});
+ assert.equal(v.ok,true);assert.match(v.message,/Provisional 2026-10 document counts/);
+ assert.match(v.message,/issued invoices: 2, supplier bills: 0/);
+ assert.match(v.message,/licensing usage remains unverified/);
+});
