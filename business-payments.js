@@ -917,10 +917,12 @@
         field('Saved beneficiary','<select name="beneficiaryId">'+beneficiaryOptions+'</select>')+
         field('Supplier name','<input name="supplier" placeholder="e.g. ABC Supplies Ltd">')+
         field('Invoice number','<input name="invoiceNo" placeholder="e.g. INV-1042" required>')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Amount before discount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Discount received (GMD)','<input name="discountReceived" type="number" min="0" step="0.01" value="0" placeholder="0.00">')+
         field('Invoice date','<input name="invoiceDate" type="date">')+
         field('Due date','<input name="dueDate" type="date" required>')+
         field('Category','<select name="category"><option>Supplies / inventory</option><option>Professional services</option><option>Rent / utilities</option><option>Government / statutory</option><option>Travel / logistics</option><option>Other expense</option></select>')+
+        field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+
         field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
         field('VAT pricing',window.DalasiTax?.pricingOptions?.('inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
         field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
@@ -940,7 +942,7 @@
     if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
     const id='BILL-'+Date.now().toString(36).toUpperCase(),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',taxPricingMode,vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
-    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),postingAccount:String(fd.get('postingAccount')||'Operating Expenses'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
