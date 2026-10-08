@@ -69,9 +69,11 @@
       if((r.status||'Active')!=='Active')return;
       add({type:'Recurring payment',icon:'calendar',title:r.payee||r.name||'Recurring commitment',detail:r.description||r.reference||'Scheduled payment',date:r.nextDueDate,amount:Number(r.amount)||0,page:'payments'});
     });
-    if(window.DalasiTax?.returnSummary){
-      const tax=window.DalasiTax.returnSummary(state,state.taxPeriod||state.currentPeriod),cfg=window.DalasiTax.settings?.(state)||{};
-      if(cfg.vatRegistered&&!tax.filed)add({type:'VAT',icon:'shield',title:'VAT return due',detail:'GRA · '+esc(tax.period),date:tax.dueDate,amount:Math.max(0,Number(tax.netVat)||0),page:'tax'});
+    if(window.DalasiTaxCompliance?.obligations){
+      const year=String(state.currentPeriod||todayIso).slice(0,4);
+      window.DalasiTaxCompliance.obligations(state,year).filter(x=>x.status!=='Complete').forEach(x=>{
+        add({type:x.type,icon:'shield',title:x.title,detail:'GRA · '+x.period,date:x.due,amount:0,action:'tax-view:calendar'});
+      });
     }
     items.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
     const show=items.slice(0,7),overdue=items.filter(x=>x.overdue).length;
