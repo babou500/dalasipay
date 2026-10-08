@@ -18,7 +18,7 @@ export function evaluateSubscription(snapshot) {
  }));
  const diagnostic=snapshot.monthlyDiagnostics;
  const safeCount=n=>Number.isSafeInteger(n)&&n>=0?n:null;
- const monthlyDiagnostics=diagnostic&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(diagnostic.month||'')?{
+ const monthlyDiagnostics=diagnostic&&/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(diagnostic.month||'')?{
   month:diagnostic.month,
   invoices:safeCount(diagnostic.invoices),
   supplierBills:safeCount(diagnostic.supplierBills),
