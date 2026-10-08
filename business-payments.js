@@ -867,7 +867,8 @@
         field('Obligation name','<input name="name" placeholder="e.g. Office rent" required>')+
         field('Saved beneficiary','<select name="beneficiaryId">'+beneficiaryOptions+'</select>')+
         field('Payee if not saved','<input name="payee" placeholder="Optional manual payee">')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Gross amount before discount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+        field('Discount received (GMD)','<input name="discountReceived" type="number" min="0" step="0.01" value="0" placeholder="0.00">')+
         field('Frequency','<select name="frequency">'+frequencyOptions+'</select>')+
         field('Next due date','<input name="nextDueDate" type="date" required>')+
         field('Create draft before due','<select name="leadDays"><option value="0">On due date</option><option value="3">3 days before</option><option value="5" selected>5 days before</option><option value="7">7 days before</option><option value="14">14 days before</option></select>')+
@@ -930,13 +931,13 @@
   async function createBill(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add bills.');return;}
-    const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),amount=Number(fd.get('amount')||0),due=String(fd.get('dueDate')||'');
-    if(!supplier||!invoiceNo||amount<=0||!due){ctx.toast('Supplier, invoice number, amount and due date are required.');return;}
+    const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),grossAmount=Number(fd.get('amount')||0),discountReceived=Math.max(0,Number(fd.get('discountReceived')||0)),amount=Math.max(0,grossAmount-discountReceived),due=String(fd.get('dueDate')||'');
+    if(!supplier||!invoiceNo||grossAmount<=0||discountReceived>grossAmount||amount<=0||!due){ctx.toast('Supplier, invoice number, valid gross amount, discount and due date are required.');return;}
     const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
     if((state.businessBills||[]).some(x=>String(x.invoiceNo).toLowerCase()===invoiceNo.toLowerCase()&&String(x.supplier).toLowerCase()===supplier.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
     const id='BILL-'+Date.now().toString(36).toUpperCase(),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase')||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
-    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
