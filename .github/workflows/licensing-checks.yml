@@ -49,4 +49,5 @@ jobs:
             subscription-plan-view.test.js \
             subscription-usage.test.js \
             cloudflare-licensing-observer.test.mjs \
-            licensing-http-adapter.test.mjs
+            licensing-http-adapter.test.mjs \
+            licensing-startup-guard.test.js
