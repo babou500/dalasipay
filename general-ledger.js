@@ -80,13 +80,19 @@
       ]);
     });
 
-    // Customer collections
+    // Customer collections. Reversed receipts keep the original posting and add an opposite entry on the reversal date.
     (state.incomingPayments||[]).forEach(p=>{
       const amt=round(p.amount);if(!amt)return;
       pushJournal(out,'COL-'+p.id,p.receivedDate||p.createdAt,p.receiptNumber||p.reference||p.id,'Customer collection',[
         {account:cashAccountName(state,p.accountId),debit:amt,memo:p.customerName||''},
         {account:'Accounts Receivable',credit:amt,memo:'Customer collection'}
       ]);
+      if(p.reversedAt){
+        pushJournal(out,'COL-REV-'+p.id,p.reversedAt,p.receiptNumber||p.reference||p.id,'Customer collection reversal',[
+          {account:'Accounts Receivable',debit:amt,memo:p.reversalReason||'Receipt reversal'},
+          {account:cashAccountName(state,p.accountId),credit:amt,memo:p.customerName||''}
+        ]);
+      }
     });
 
     // Customer credit notes and cash refunds.
@@ -164,17 +170,24 @@
       }
     });
 
-    // Expenses
+    // Expenses. A reversed paid expense keeps its original posting and receives an opposite journal on the reversal date.
     (state.businessExpenses||[]).forEach(x=>{
-      if(!['Approved','Paid'].includes(x.status))return;
+      if(!['Approved','Paid','Reversed'].includes(x.status))return;
       const amt=round(x.amount);if(!amt)return;
       const tax=window.DalasiTax?.meta?.(state,x,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false},net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
-      if(x.status==='Paid'){
+      if(x.status==='Paid'||x.status==='Reversed'){
         pushJournal(out,'EXP-'+x.id,x.expenseDate||x.paidAt||x.createdAt,x.expenseNo||x.reference||x.id,'Paid expense',[
           {account:'Operating Expenses',debit:net,memo:x.category||x.description||''},
           {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
           {account:cashAccountName(state,x.accountId),credit:amt,memo:x.merchant||''}
         ]);
+        if(x.reversedAt){
+          pushJournal(out,'EXP-REV-'+x.id,x.reversedAt,x.expenseNo||x.reference||x.id,'Expense reversal',[
+            {account:cashAccountName(state,x.accountId),debit:amt,memo:x.merchant||''},
+            {account:'VAT Input Recoverable',credit:vat,memo:vat?'Reverse recoverable input VAT':''},
+            {account:'Operating Expenses',credit:net,memo:x.reversalReason||x.category||'Expense reversal'}
+          ]);
+        }
       }else{
         pushJournal(out,'EXP-'+x.id,x.expenseDate||x.createdAt,x.expenseNo||x.reference||x.id,'Accrued expense',[
           {account:'Operating Expenses',debit:net,memo:x.category||x.description||''},
@@ -248,14 +261,21 @@
       ]);
     });
 
-    // Paid business payments. If bill-linked, clear A/P; otherwise map to suspense until account/category selection exists.
+    // Paid business payments. Reversed payments retain the original entry and add an opposite entry on the reversal date.
     (state.businessPayments||[]).forEach(p=>{
-      if(p.status!=='Paid')return;
+      if(!['Paid','Reversed'].includes(p.status))return;
       const amt=round(p.amount);if(!amt)return;
+      const clearing=p.billId?'Accounts Payable':'Opening / Mapping Suspense';
       pushJournal(out,'PAY-'+p.id,p.paidAt||p.dueDate||p.createdAt,p.receiptNumber||p.voucherNumber||p.reference||p.id,'Business payment',[
-        {account:p.billId?'Accounts Payable':'Opening / Mapping Suspense',debit:amt,memo:p.payee||''},
+        {account:clearing,debit:amt,memo:p.payee||''},
         {account:cashAccountName(state,p.accountId),credit:amt,memo:p.description||''}
       ]);
+      if(p.reversedAt){
+        pushJournal(out,'PAY-REV-'+p.id,p.reversedAt,p.receiptNumber||p.voucherNumber||p.reference||p.id,'Business payment reversal',[
+          {account:cashAccountName(state,p.accountId),debit:amt,memo:p.payee||''},
+          {account:clearing,credit:amt,memo:p.reversalReason||p.description||'Payment reversal'}
+        ]);
+      }
     });
 
     // VAT payments to GRA.
