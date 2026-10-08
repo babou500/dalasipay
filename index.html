@@ -3353,7 +3353,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const pnf=document.getElementById('payroll-note-form');if(pnf)pnf.addEventListener('submit',savePayrollNote);
     const acf=document.getElementById('approval-comment-form');if(acf)acf.addEventListener('submit',saveApprovalComment);
     const epl=document.getElementById('employee-portal-leave-form');if(epl)epl.addEventListener('submit',submitPortalLeave);
-    const bpf=document.getElementById('business-payment-form');if(bpf)bpf.addEventListener('submit',saveBusinessPayment);
+    const bpf=document.getElementById('business-payment-form');if(bpf)bpf.addEventListener('submit',saveBusinessPayment);if(bpf)window.DalasiBusinessPayments?.bindSupplierPaymentPreview?.(bpf,state);
     const bnf=document.getElementById('beneficiary-form');if(bnf)bnf.addEventListener('submit',savePaymentBeneficiary);
     const blf2=document.getElementById('business-bill-form');if(blf2)blf2.addEventListener('submit',saveBusinessBill);if(blf2)window.DalasiBusinessPayments?.bindBillPreview?.(blf2,state);
     const rpf=document.getElementById('recurring-payment-form');if(rpf)rpf.addEventListener('submit',saveRecurringBusinessPayment);
