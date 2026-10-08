@@ -48,6 +48,7 @@ jobs:
           node --check licensing-observer-core.mjs
           node --check licensing-usage-observer.mjs
           node --check licensing-app-state-usage.mjs
+          node --check licensing-readiness.mjs
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
           node --check supabase-licensing-provider.mjs
@@ -64,6 +65,7 @@ jobs:
             cloudflare-licensing-observer.test.mjs \
             licensing-usage-observer.test.mjs \
             licensing-app-state-usage.test.mjs \
+            licensing-readiness.test.mjs \
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
             supabase-licensing-provider.test.mjs \
