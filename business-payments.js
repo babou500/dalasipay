@@ -1262,14 +1262,38 @@
     state.paymentBeneficiaries.push({id,name,kind,contact:String(fd.get('contact')||'').trim(),phone:String(fd.get('phone')||'').trim(),email:String(fd.get('email')||'').trim(),preferredMethod:String(fd.get('preferredMethod')||'Bank transfer'),bankName:String(fd.get('bankName')||'').trim(),accountName:String(fd.get('accountName')||'').trim(),accountNumber:String(fd.get('accountNumber')||'').trim(),mobileProvider:String(fd.get('mobileProvider')||'').trim(),mobileNumber:String(fd.get('mobileNumber')||'').trim(),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     state.beneficiaryOpen=false;state.beneficiaryDefaultKind='';ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind});ctx.save();ctx.toast(name+(kind==='Supplier / vendor'?' added as a supplier':' added as a beneficiary'));ctx.render();
   }
-  function update(id,status,state,ctx){
+  function update(id,status,state,ctx,meta={}){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
     if((p.status||'Draft')===status){ctx.toast(p.payee+': already '+String(status).toLowerCase()+'.');return;}
-    if(status==='Paid'&&(!p.accountId||!window.DalasiCashBank?.accountById?.(state,p.accountId))){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this payment paid.');return;}
-    if(status==='Paid'&&window.DalasiMonthClose?.isClosed(state,todayIso())){ctx.toast('The current accounting period is closed. Reopen it before posting this payment.');return;}
-    p.status=status;p.updatedAt=new Date().toISOString();p.updatedBy=state.session?.name||'User';if(status==='Approved'){p.approvedAt=p.approvedAt||p.updatedAt;p.approvedBy=p.approvedBy||p.updatedBy;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);}if(status==='Paid'){p.paidAt=p.paidAt||new Date().toISOString();p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);if(p.accountId)window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:state.session?.name||'User'});if(p.billId){const bill=billById(state,p.billId);if(bill){const remaining=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,(Number(bill.amount)||0)-(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));bill.status=remaining<=.004?'Paid':'Part paid';if(remaining<=.004)bill.paidAt=p.paidAt;else delete bill.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}}
-    ctx.audit('payment.status_updated',{paymentId:id,status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null});ctx.save();ctx.toast(status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):(p.payee+': '+status));ctx.render();
+    const actor=state.session?.name||'User',now=new Date().toISOString(),comment=String(meta.comment||'').trim();
+    if(status==='Pending approval'){
+      p.status=status;p.submittedAt=now;p.submittedBy=actor;p.updatedAt=now;p.updatedBy=actor;
+    }else if(status==='Approved'){
+      if((p.status||'Draft')!=='Pending approval'){ctx.toast('Submit the payment for approval first.');return;}
+      if(p.createdBy&&p.createdBy===actor){ctx.toast('The person who created this payment cannot approve it. Another authorized user must review it.');return;}
+      if(!comment){ctx.toast('Add an approval comment before approving the payment.');return;}
+      p.status=status;p.approvedAt=now;p.approvedBy=actor;p.approvalComment=comment;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);p.updatedAt=now;p.updatedBy=actor;
+    }else if(status==='Draft'&&meta.returnForCorrection){
+      if(!comment){ctx.toast('Add a reason before returning the payment for correction.');return;}
+      p.status='Draft';p.returnedAt=now;p.returnedBy=actor;p.returnReason=comment;p.updatedAt=now;p.updatedBy=actor;
+    }else if(status==='Rejected'){
+      if(!comment){ctx.toast('Add a rejection reason before rejecting the payment.');return;}
+      p.status='Rejected';p.rejectedAt=now;p.rejectedBy=actor;p.rejectionReason=comment;p.updatedAt=now;p.updatedBy=actor;
+    }else if(status==='Paid'){
+      if(!p.accountId||!window.DalasiCashBank?.accountById?.(state,p.accountId)){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this payment paid.');return;}
+      if(window.DalasiMonthClose?.isClosed(state,todayIso())){ctx.toast('The current accounting period is closed. Reopen it before posting this payment.');return;}
+      if((p.status||'Draft')!=='Approved'){ctx.toast('Approve the payment before marking it paid.');return;}
+      p.status='Paid';p.paidAt=p.paidAt||now;p.paidBy=actor;p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);p.updatedAt=now;p.updatedBy=actor;
+      window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:actor});
+      if(p.billId){const bill=billById(state,p.billId);if(bill){const remaining=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,(Number(bill.amount)||0)-(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));bill.status=remaining<=.004?'Paid':'Part paid';if(remaining<=.004)bill.paidAt=p.paidAt;else delete bill.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}
+    }else{
+      p.status=status;p.updatedAt=now;p.updatedBy=actor;
+    }
+    ctx.audit('payment.status_updated',{paymentId:id,status:p.status,amount:p.amount,payee:p.payee,voucherNumber:p.voucherNumber||null,receiptNumber:p.receiptNumber||null,comment:comment||null,returnedForCorrection:!!meta.returnForCorrection});
+    ctx.save();
+    const msg=p.status==='Paid'?(p.payee+': Paid · Receipt '+p.receiptNumber+' created'):p.status==='Approved'?(p.payee+': Approved · Voucher '+p.voucherNumber+' created'):meta.returnForCorrection?(p.payee+': Returned for correction'):p.status==='Rejected'?(p.payee+': Rejected'):(p.payee+': '+p.status);
+    ctx.toast(msg);ctx.render();
   }
   function reversalReason(label){
     const reason=String(window.prompt('Reason for reversing '+label+'? The original record will remain in the audit trail.')||'').trim();
@@ -1316,6 +1340,29 @@
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
   
+  function paymentApprovalModal(state,h){
+    const cfg=state.paymentApprovalAction,p=(state.businessPayments||[]).find(x=>x.id===cfg?.id);if(!p)return '';
+    const esc=h.esc,icon=h.icon,mode=cfg.mode||'approve',approve=mode==='approve',reject=mode==='reject';
+    const title=approve?'Approve payment':reject?'Reject payment':'Return for correction';
+    const copy=approve?'Record what you reviewed before approving this payment.':reject?'Record why this payment should not proceed.':'Explain what needs to be corrected before the payment is resubmitted.';
+    const sameMaker=p.createdBy&&(state.session?.name||'User')===p.createdBy;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-payment-approval"></div><form id="payment-approval-form" class="modal-box"><input type="hidden" name="paymentId" value="'+esc(p.id)+'"><input type="hidden" name="mode" value="'+esc(mode)+'">'+
+      '<div class="modal-head"><div><div class="eyebrow">PAYMENT CONTROL</div><h2>'+esc(title)+'</h2><p>'+esc(copy)+'</p></div><button type="button" class="close" data-action="close-payment-approval">×</button></div>'+
+      '<div class="payment-approval-facts"><div><span>Payee</span><b>'+esc(p.payee)+'</b></div><div><span>Amount</span><b>'+h.money2(p.amount)+'</b></div><div><span>Prepared by</span><b>'+esc(p.createdBy||'Unknown')+'</b></div><div><span>Status</span><b>'+esc(p.status||'Draft')+'</b></div></div>'+
+      (approve&&sameMaker?'<div class="warn-box compact">'+icon('alert',16)+'<div><b>Maker-checker control</b><p>You created this payment, so you cannot approve it. Another authorized user must review it.</p></div></div>':'')+
+      h.field(approve?'Approval comment':reject?'Rejection reason':'Correction required','<textarea name="comment" rows="4" placeholder="'+(approve?'What did you review? Note supporting evidence or checks performed.':reject?'Why should this payment be rejected?':'What must be corrected before resubmission?')+'" required></textarea>')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-payment-approval">Cancel</button><button class="'+(reject?'danger':'primary')+'" type="submit" '+(approve&&sameMaker?'disabled':'')+'>'+esc(title)+'</button></div></form></div>';
+  }
+
+  function handlePaymentApproval(ev,state,ctx){
+    ev.preventDefault();const fd=new FormData(ev.target),id=String(fd.get('paymentId')||''),mode=String(fd.get('mode')||'approve'),comment=String(fd.get('comment')||'').trim();
+    if(!comment){ctx.toast('Add a comment or reason before continuing.');return;}
+    state.paymentApprovalAction=null;
+    if(mode==='approve')update(id,'Approved',state,ctx,{comment});
+    else if(mode==='reject')update(id,'Rejected',state,ctx,{comment});
+    else update(id,'Draft',state,ctx,{comment,returnForCorrection:true});
+  }
+
   function paymentDetailModal(state,h){
     const p=(state.businessPayments||[]).find(x=>x.id===state.paymentDetailId);if(!p)return '';
     const esc=h.esc,money2=h.money2,icon=h.icon,pill=h.pill,bill=billById(state,p.billId),ben=beneficiaryById(state,p.beneficiaryId),account=window.DalasiCashBank?.accountById?.(state,p.accountId),status=p.status||'Draft';
@@ -1343,5 +1390,5 @@
         '<button class="secondary" data-action="close-payment-detail">Close</button>'+
       '</div></aside></div>';
   }
-window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
