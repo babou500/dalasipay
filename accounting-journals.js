@@ -29,6 +29,14 @@
   function accountOptions(state,selected=''){
     return '<option value="">Choose account</option>'+orderedAccounts(state).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name)+'</option>').join('');
   }
+  function purchasePostingAccounts(state){
+    const excluded=new Set(['Cash & Bank','Undeposited Funds','Accounts Receivable','VAT Input Recoverable','Supplier Refund Receivable','Accumulated Depreciation','Accounts Payable','Accrued Expenses','Accrued Interest Payable','Customer Refunds Payable','Payroll Payable','VAT Output Payable','Payroll / Statutory Payable','Loans & Borrowings','Other Liabilities','Inventory Receipt Clearing','Owner / Share Capital','Opening Retained Earnings','Opening Balance Equity','Opening / Mapping Suspense']);
+    return orderedAccounts(state).filter(a=>['Asset','Expense'].includes(a.type)&&!excluded.has(a.name));
+  }
+  function purchasePostingOptions(state,selected='Operating Expenses'){
+    const rows=purchasePostingAccounts(state);
+    return '<option value="">Choose expense / asset account</option>'+rows.map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name)+'</option>').join('');
+  }
   function lineRow(state,line={},i=0){
     return '<div class="journal-line" data-journal-line>'+
       '<select name="journalAccount" required>'+accountOptions(state,line.account||'')+'</select>'+
@@ -166,5 +174,5 @@
       '<div class="surface employee-card"><div class="table-tools"><div><h3>Manual journal register</h3><p>Adjustments, accruals, depreciation, suspense clearing and accounting corrections</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="journal-register" placeholder="Search journals"></label></div></div><div class="table-scroll"><table data-register-table="journal-register"><thead><tr><th>JOURNAL</th><th>DATE</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
 
-  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,accountModal,render};
+  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,accountModal,render};
 })();
