@@ -16,5 +16,13 @@ export function evaluateSubscription(snapshot) {
   const valid=Number.isSafeInteger(count)&&count>=0;
   return [key,{count:valid?count:null,limit,overLimit:valid&&limit!==null?count>limit:null}];
  }));
- return {ok:true,mode:'observe_only',workspaceId:snapshot.workspaceId,planId:professionalPreview?'professional-preview':planId,professionalPreview,usage:counters,enforcementActive:false};
+ const diagnostic=snapshot.monthlyDiagnostics;
+ const safeCount=n=>Number.isSafeInteger(n)&&n>=0?n:null;
+ const monthlyDiagnostics=diagnostic&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(diagnostic.month||'')?{
+  month:diagnostic.month,
+  invoices:safeCount(diagnostic.invoices),
+  supplierBills:safeCount(diagnostic.supplierBills),
+  authoritative:false
+ }:null;
+ return {ok:true,mode:'observe_only',workspaceId:snapshot.workspaceId,planId:professionalPreview?'professional-preview':planId,professionalPreview,usage:counters,monthlyDiagnostics,enforcementActive:false};
 }
