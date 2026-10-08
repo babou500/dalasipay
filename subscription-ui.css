@@ -1,0 +1,21 @@
+/* Subscription presentation only. No entitlements or startup behavior. */
+#settings-subscription-section .subscription-overview{margin-top:8px}
+#settings-subscription-section .subscription-hero{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:22px;border-radius:16px;border:1px solid var(--border,#dfe8e4);background:var(--panel-2,#f5f9f7)}
+#settings-subscription-section .subscription-hero h3{font-size:22px;margin:6px 0 5px}
+#settings-subscription-section .subscription-hero p{margin:0;color:var(--muted,#64746e);line-height:1.6;max-width:640px}
+#settings-subscription-section .subscription-eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted,#64746e)}
+#settings-subscription-section .subscription-pill{border:1px solid var(--border,#dfe8e4);border-radius:40px;padding:7px 12px;font-size:12px;font-weight:750;background:var(--panel,#fff)}
+#settings-subscription-section .subscription-heading{margin:24px 0 12px;font-size:16px}
+#settings-subscription-section .subscription-allowances{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+#settings-subscription-section .subscription-allowance{border:1px solid var(--border,#dfe8e4);background:var(--panel,#fff);padding:16px;border-radius:12px;min-width:0}
+#settings-subscription-section .subscription-allowance dt{color:var(--muted,#64746e);font-size:12px;margin-bottom:8px}
+#settings-subscription-section .subscription-allowance dd{margin:0;font-size:19px;font-weight:800;overflow-wrap:anywhere}
+#settings-subscription-section .subscription-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;list-style:none;padding:0;margin:0}
+#settings-subscription-section .subscription-features li{padding:10px 12px;border:1px solid var(--border,#dfe8e4);border-radius:9px;font-size:12px}
+#settings-subscription-section .subscription-features li.included::before{content:'✓';font-weight:900;color:var(--good,#087e62);margin-right:9px}
+#settings-subscription-section .subscription-features li.excluded{color:var(--muted,#64746e)}
+#settings-subscription-section .subscription-features li.excluded::before{content:'–';margin-right:9px}
+#settings-subscription-section .subscription-comparison{border-top:1px solid var(--border,#dfe8e4);padding-top:18px}
+#settings-subscription-section .subscription-comparison table th,#settings-subscription-section .subscription-comparison table td{padding:12px 11px;border-bottom:1px solid var(--border,#dfe8e4);font-size:12px}
+#settings-subscription-section .subscription-comparison table thead th{font-weight:800;background:var(--panel-2,#f5f9f7)}
+@media(max-width:600px){#settings-subscription-section .subscription-hero{padding:16px}#settings-subscription-section .subscription-allowances{grid-template-columns:repeat(2,minmax(0,1fr))}}
