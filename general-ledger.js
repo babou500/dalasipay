@@ -181,7 +181,7 @@
 
     // Supplier bills. Product PO lines clear inventory receipt clearing; the remainder posts to the selected expense/asset account.
     (state.businessBills||[]).forEach(b=>{
-      if((b.status||'Draft')==='Draft')return;
+      if(!['Approved','Part paid','Paid'].includes(b.status||'Draft'))return;
       const amt=round(b.amount);if(!amt)return;
       const discountGross=round(b.discountTotal||0),subtotalGross=round(b.subtotal||((Number(b.amount)||0)+discountGross));
       const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false};
@@ -211,13 +211,16 @@
       ]);
     });
 
-    // Supplier credit notes and cash refunds.
+    // Supplier credit notes reverse the original bill mapping. Product returns clear the receipt-clearing account.
     (state.supplierCreditNotes||[]).filter(x=>x.status!=='Void').forEach(c=>{
       const gross=round(c.amount),net=round(c.taxNet??gross),vat=round(c.vatAmount),ap=round(c.apReduction),refund=round(c.refundReceivable);if(!gross)return;
+      const bill=(state.businessBills||[]).find(b=>b.id===c.billId),mapped=postingAccount(state,bill?.postingAccount||'Operating Expenses','Operating Expenses');
+      const returnedBase=round(Math.min(net,(c.returnItems||[]).reduce((a,x)=>a+(Number(x.costAmount)||0),0))),mappedBase=round(Math.max(0,net-returnedBase));
       pushJournal(out,'SCN-'+c.id,c.date||c.createdAt,c.creditNo||c.supplierReference||c.id,'Supplier credit note',[
         {account:'Accounts Payable',debit:ap,memo:c.billNo||''},
         {account:'Supplier Refund Receivable',debit:refund,memo:c.supplier||''},
-        {account:'Opening / Mapping Suspense',credit:net,memo:c.note||'Supplier bill credit'},
+        {account:'Inventory Receipt Clearing',credit:returnedBase,memo:returnedBase?'Returned inventory against '+(c.billNo||'supplier bill'):''},
+        {account:mapped,credit:mappedBase,memo:c.note||'Supplier bill credit'},
         {account:'VAT Input Recoverable',credit:vat,memo:vat?'Recoverable input VAT reversed':''}
       ]);
     });
@@ -229,11 +232,12 @@
       ]);
     });
 
-    // Supplier debit notes / additional charges.
+    // Supplier debit notes follow the original bill's mapped expense/asset account.
     (state.supplierDebitNotes||[]).filter(x=>x.status!=='Void').forEach(d=>{
       const gross=round(d.amount),net=round(d.taxNet??gross),vat=round(d.vatRecoverable?d.vatAmount:0);if(!gross)return;
+      const bill=(state.businessBills||[]).find(b=>b.id===d.billId),mapped=postingAccount(state,bill?.postingAccount||'Operating Expenses','Operating Expenses');
       pushJournal(out,'SDN-'+d.id,d.date||d.createdAt,d.debitNo||d.supplierReference||d.id,'Supplier debit note',[
-        {account:'Opening / Mapping Suspense',debit:round(d.vatRecoverable?net:gross),memo:d.note||'Supplier additional charge'},
+        {account:mapped,debit:round(d.vatRecoverable?net:gross),memo:d.note||'Supplier additional charge'},
         {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT added':''},
         {account:'Accounts Payable',credit:gross,memo:d.supplier||''}
       ]);
