@@ -42,6 +42,7 @@ jobs:
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
           node --check supabase-licensing-provider.mjs
+          node --check verified-licensing-endpoint.mjs
       - name: Run licensing unit and security tests
         run: |
           node --test \
@@ -52,4 +53,5 @@ jobs:
             cloudflare-licensing-observer.test.mjs \
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
-            supabase-licensing-provider.test.mjs
+            supabase-licensing-provider.test.mjs \
+            verified-licensing-endpoint.test.mjs
