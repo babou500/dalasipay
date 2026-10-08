@@ -624,21 +624,48 @@
   function incomingPaymentModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,money2=h.money2,inv=receivableById(state,state.incomingPaymentInvoiceId);
     if(!inv)return '';
-    const balance=receivableBalance(state,inv);
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-incoming-payment"></div><form id="incoming-payment-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">MONEY IN</div><h2>Record customer payment</h2><p>'+esc(inv.customerName)+' · '+esc(inv.invoiceNo)+'</p></div><button type="button" class="close" data-action="close-incoming-payment">×</button></div>'+
-      '<div class="selected-bill"><b>Balance outstanding</b><span>'+money2(balance)+'</span></div>'+
+    const balance=receivableBalance(state,inv),paid=receivablePaid(state,inv),original=Number(inv.amount)||0;
+    return '<div class="center-modal payment-modal incoming-payment-modal"><div class="modal-scrim" data-action="close-incoming-payment"></div><form id="incoming-payment-form" class="modal-box wide incoming-payment-form">'+
+      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER RECEIPT</div><h2>Record payment</h2><p>'+esc(inv.customerName)+' · '+esc(inv.invoiceNo)+'</p></div><button type="button" class="close" data-action="close-incoming-payment">×</button></div>'+
+      '<div class="incoming-payment-overview"><div><span>Invoice total</span><b>'+money2(original)+'</b></div><div><span>Collected</span><b>'+money2(paid)+'</b></div><div class="due"><span>Outstanding</span><b>'+money2(balance)+'</b></div></div>'+
       '<input type="hidden" name="invoiceId" value="'+esc(inv.id)+'">'+
-      '<div class="form-grid">'+
-        field('Amount received (GMD)','<input name="amount" type="number" min="0.01" max="'+balance+'" step="0.01" value="'+balance.toFixed(2)+'" required>')+
-        field('Date received','<input name="receivedDate" type="date" value="'+todayIso()+'" required>')+
-        field('Payment method','<select name="method"><option>Bank transfer</option><option>Mobile money</option><option>Cash</option><option>Cheque</option><option>Other</option></select>')+
-        field('Deposit to account',window.DalasiCashBank.accountSelect(state,'accountId',state.paymentSelectedAccountId||'','Select cash / bank account')+(!(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').length?'<button type="button" class="secondary tiny" data-action="payment-add-cash-account">+ Add cash/bank account</button>':''))+
-        field('Payment reference','<input name="reference" placeholder="Bank, transfer or receipt reference">')+
+      '<div class="incoming-payment-grid"><div class="incoming-payment-fields">'+
+        '<section class="payment-form-section"><div class="payment-form-section-head"><span>'+icon('bank',16)+'</span><div><h3>Payment details</h3><p>Record where the money was received and how the customer paid.</p></div></div><div class="form-grid">'+
+          field('Amount received (GMD)','<input name="amount" type="number" min="0.01" max="'+balance+'" step="0.01" value="'+balance.toFixed(2)+'" required>')+
+          field('Date received','<input name="receivedDate" type="date" value="'+todayIso()+'" required>')+
+          field('Payment method','<select name="method"><option>Bank transfer</option><option>Mobile money</option><option>Cash</option><option>Cheque</option><option>Other</option></select>')+
+          field('Deposit to account',window.DalasiCashBank.accountSelect(state,'accountId',state.paymentSelectedAccountId||'','Select cash / bank account')+(!(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').length?'<button type="button" class="secondary tiny" data-action="payment-add-cash-account">+ Add cash/bank account</button>':''))+
+          field('Payment reference','<input name="reference" placeholder="Bank, transfer or receipt reference">')+
+          field('Note','<input name="note" placeholder="Optional collection note">')+
+        '</div></section>'+
       '</div>'+
-      field('Note','<input name="note" placeholder="Optional collection note">')+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-incoming-payment">Cancel</button><button class="primary" type="submit">'+icon('check',14)+' Record payment</button></div>'+
+      '<aside class="incoming-payment-summary" aria-live="polite"><div class="incoming-payment-summary-head"><span class="eyebrow">LIVE REVIEW</span><h3>Receipt summary</h3></div>'+
+        '<div class="incoming-payment-summary-row"><span>Amount being recorded</span><b data-payment-preview-amount>'+money2(balance)+'</b></div>'+
+        '<div class="incoming-payment-summary-row"><span>Balance after payment</span><b data-payment-preview-remaining>'+money2(0)+'</b></div>'+
+        '<div class="incoming-payment-summary-row"><span>Resulting invoice status</span><b data-payment-preview-status>Paid</b></div>'+
+        '<div class="incoming-payment-posting"><span>EXPECTED ACCOUNTING EFFECT</span><div><small>Debit cash / bank</small><b data-payment-preview-debit>'+money2(balance)+'</b></div><div><small>Credit customer receivable</small><b data-payment-preview-credit>'+money2(balance)+'</b></div><p>The selected Cash, Bank or Mobile Money account receives the payment. The customer receivable reduces by the same amount.</p></div>'+
+      '</aside></div>'+
+      '<div class="incoming-payment-footer"><div class="invoice-create-assurance">'+icon('check',15)+' <span>A receipt number is created automatically. Part-payments keep the invoice open for the remaining balance.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-incoming-payment">Cancel</button><button class="primary" type="submit">'+icon('check',14)+' Record payment</button></div></div>'+
     '</form></div>';
+  }
+
+  function bindIncomingPaymentPreview(form,state){
+    if(!form||form.dataset.paymentPreviewBound==='1')return;
+    form.dataset.paymentPreviewBound='1';
+    const inv=receivableById(state,state.incomingPaymentInvoiceId);if(!inv)return;
+    const outstanding=receivableBalance(state,inv),money=n=>'D'+(Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const update=()=>{
+      const amount=Math.max(0,Number(new FormData(form).get('amount')||0)),remaining=Math.max(0,outstanding-amount),status=amount<=0?'Awaiting amount':remaining<=0.004?'Paid':'Part paid';
+      const put=(sel,val)=>{const el=form.querySelector(sel);if(el)el.textContent=val;};
+      put('[data-payment-preview-amount]',money(amount));
+      put('[data-payment-preview-remaining]',money(remaining));
+      put('[data-payment-preview-status]',status);
+      put('[data-payment-preview-debit]',money(amount));
+      put('[data-payment-preview-credit]',money(amount));
+    };
+    form.addEventListener('input',update);
+    form.addEventListener('change',update);
+    update();
   }
   function createReceivable(ev,state,ctx){
     ev.preventDefault();
@@ -1202,5 +1229,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
