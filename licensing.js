@@ -5,7 +5,7 @@ const PLANS={
   free:{
     id:'free',name:'Free',tagline:'For micro and very small businesses',
     limits:{users:2,employees:5,monthlyInvoices:25,monthlyBills:25,companies:1},
-    features:['Core accounting','Customer invoices & receipts','Supplier bills & payments','Cash & bank','Basic financial reports','VAT-ready records']
+    features:['Core accounting','Customer invoices & receipts','Supplier bills & payments','Payroll up to 5 employees','Cash & bank','Basic financial reports','VAT-ready records']
   },
   standard:{
     id:'standard',name:'Standard',tagline:'For growing small businesses',
@@ -41,7 +41,7 @@ function usage(state){
   const bills=(state.businessBills||[]).filter(x=>String(x.invoiceDate||x.createdAt||'').slice(0,7)===period).length;
   const employees=(state.employees||[]).filter(x=>(x.status||'Active')!=='Exited').length;
   let users=0;
-  try{users=state.org&&window.DalasiAuth?window.DalasiAuth.listMembers(state.org.id).length:0}catch{}
+  try{const members=state.org&&window.DalasiAuth?window.DalasiAuth.listMembers(state.org.id):[],pending=state.org&&window.DalasiAuth?window.DalasiAuth.listInvitations(state.org.id).filter(x=>x.status==='Pending'):[];users=members.length+pending.length}catch{}
   return {users,employees,monthlyInvoices:invoices,monthlyBills:bills,companies:(state.organizations||[]).length||1};
 }
 function limitStatus(state,key){
