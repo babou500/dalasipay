@@ -2581,7 +2581,17 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
   function toast(msg){ state.toast=msg; render(); clearTimeout(toast.t); toast.t=setTimeout(()=>{state.toast='';render()},2500); }
   function pageTitle(eyebrow,title,copy,actions=''){return `<div class="page-title"><div>${eyebrow?`<div class="eyebrow">${eyebrow}</div>`:''}<h1>${title}</h1><p>${copy}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
-  function pill(text,cls='neutral'){return `<span class="pill ${cls}">${text}</span>`}
+  function pill(text,cls='neutral'){
+    const raw=String(text||''),key=raw.toLowerCase();
+    if(cls==='neutral'){
+      if(/paid|posted|approved|reconciled|complete|active|ready/.test(key))cls='ready';
+      else if(/filed|reviewed|submitted|processed/.test(key))cls='filed';
+      else if(/overdue|pending|action required|missing|due/.test(key))cls='warning';
+      else if(/failed|rejected|void|cancelled|error/.test(key))cls='danger';
+      else if(/reversed|closed|inactive/.test(key))cls='reversed';
+    }
+    return `<span class="pill ${cls}">${raw}</span>`;
+  }
   function amount(label,value,note='',total=false){return `<div class="amount ${total?'total':''}"><span>${label}${note?`<small>${note}</small>`:''}</span><b>${value}</b></div>`}
   function person(e){return `<div class="person"><span>${esc(e.initials)}</span><div><b>${esc(e.name)}</b><small>${esc(e.id)} · ${esc(e.role)}</small></div></div>`}
   function rowAction(iconName,action,title){return `<button data-action="${action}" title="${title}">${icon(iconName,16)}</button>`}
