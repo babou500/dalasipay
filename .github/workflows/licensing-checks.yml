@@ -70,6 +70,7 @@ jobs:
           node --check cloudflare-admin-worker/index.mjs
           node --check cloudflare-admin-worker/dashboard-preview.mjs
           node --check cloudflare-admin-worker/protected-dashboard.mjs
+          node --check cloudflare-admin-worker/access-jwt.mjs
           node --check cloudflare-admin-worker/private-membership.mjs
           node --check cloudflare-admin-worker/membership-integration.mjs
           node --check cloudflare-licensing-worker/index.mjs
@@ -101,6 +102,7 @@ jobs:
             cloudflare-admin-worker/index.test.mjs \
             cloudflare-admin-worker/dashboard-preview.test.mjs \
             cloudflare-admin-worker/protected-dashboard.test.mjs \
+            cloudflare-admin-worker/access-jwt.test.mjs \
             cloudflare-admin-worker/private-membership.test.mjs \
             cloudflare-admin-worker/membership-integration.test.mjs \
             cloudflare-licensing-worker/index.test.mjs
