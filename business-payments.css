@@ -414,3 +414,196 @@
   }
   .supplier-bills-register .register-search{width:100%}
 }
+
+
+/* DalasiPay v1.16 — professional supplier bill creation */
+.supplier-bill-create-modal{padding:16px}
+.supplier-bill-create-form{
+  width:min(1160px,calc(100vw - 32px));
+  max-width:1160px;
+  max-height:94vh;
+  margin:2vh auto;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 315px;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  overflow:hidden;
+}
+.supplier-bill-create-head{
+  grid-column:1/-1;
+  padding:19px 22px;
+}
+.supplier-bill-create-head h2{font-size:21px}
+.supplier-bill-create-head p{margin:5px 0 0;color:var(--muted);font-size:10.5px}
+.supplier-bill-create-body{
+  min-width:0;
+  overflow:auto;
+  padding:16px 16px 18px 22px;
+  display:grid;
+  gap:13px;
+}
+.supplier-bill-create-section{
+  border:1px solid var(--border);
+  border-radius:13px;
+  background:var(--panel);
+  overflow:hidden;
+}
+.supplier-bill-create-section-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 15px;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel-2) 62%,var(--panel));
+}
+.supplier-bill-create-section-head>span{
+  width:30px;height:30px;border-radius:8px;
+  display:grid;place-items:center;flex:none;
+  background:var(--soft);color:var(--primary)
+}
+.supplier-bill-create-section-head h3{margin:0 0 2px;font-size:12.5px}
+.supplier-bill-create-section-head p{margin:0;color:var(--muted);font-size:9.5px;line-height:1.4}
+.supplier-bill-create-section .form-grid{padding:15px;gap:12px}
+.supplier-bill-create-note{
+  margin:-1px 15px 15px;
+  padding:10px 11px;
+  border-radius:9px;
+  background:var(--panel-2);
+  color:var(--muted);
+  font-size:9.4px;
+  line-height:1.5
+}
+.supplier-bill-description{padding:15px}
+.supplier-bill-description .field{margin:0}
+.supplier-bill-live-summary{
+  margin:16px 22px 18px 0;
+  align-self:start;
+  position:sticky;
+  top:0;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--panel);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden
+}
+.supplier-bill-live-summary-head{
+  padding:15px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(145deg,var(--panel),var(--soft-2))
+}
+.supplier-bill-live-summary-head h3{margin:3px 0 0;font-size:14px}
+.supplier-bill-live-totals{padding:8px 16px}
+.supplier-bill-live-totals>div{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:9px 0;
+  border-bottom:1px solid var(--border)
+}
+.supplier-bill-live-totals>div:last-child{border-bottom:0}
+.supplier-bill-live-totals span{color:var(--muted);font-size:9.5px}
+.supplier-bill-live-totals b{font-size:10.5px}
+.supplier-bill-live-totals .total{margin-top:3px;padding-top:12px}
+.supplier-bill-live-totals .total span{color:var(--text);font-weight:800}
+.supplier-bill-live-totals .total strong{font-size:18px;color:var(--primary)}
+.supplier-bill-posting-preview{
+  margin:0 12px 12px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--panel-2)
+}
+.supplier-bill-posting-preview>span{
+  display:block;
+  margin-bottom:7px;
+  color:var(--muted);
+  font-size:8.5px;
+  font-weight:850;
+  letter-spacing:.08em
+}
+.supplier-bill-posting-preview>div{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:6px 0;
+  border-bottom:1px dashed var(--border)
+}
+.supplier-bill-posting-preview>div:last-of-type{border-bottom:0}
+.supplier-bill-posting-preview small{font-size:8.8px;color:var(--muted)}
+.supplier-bill-posting-preview b{font-size:9.5px}
+.supplier-bill-posting-preview p{margin:8px 0 0;color:var(--muted);font-size:8.5px;line-height:1.45}
+.supplier-bill-live-meta{
+  display:grid;
+  gap:6px;
+  padding:0 16px 15px
+}
+.supplier-bill-live-meta span{
+  display:block;
+  padding:7px 8px;
+  border-radius:8px;
+  background:var(--panel-2);
+  color:var(--muted);
+  font-size:8.8px;
+  line-height:1.35
+}
+.supplier-bill-create-footer{
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:12px 22px;
+  border-top:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel-2) 55%,var(--panel))
+}
+.supplier-bill-create-footer .modal-actions{padding:0;border:0;flex:none}
+@media(max-width:980px){
+  .supplier-bill-create-form{
+    grid-template-columns:1fr;
+    grid-template-rows:auto minmax(0,1fr) auto auto
+  }
+  .supplier-bill-live-summary{
+    position:static;
+    margin:0 22px 16px
+  }
+  .supplier-bill-live-totals{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 18px
+  }
+  .supplier-bill-live-totals .total{grid-column:1/-1}
+}
+@media(max-width:720px){
+  .supplier-bill-create-modal{padding:0}
+  .supplier-bill-create-form{
+    width:100%;
+    max-width:none;
+    max-height:100vh;
+    min-height:100vh;
+    margin:0;
+    border-radius:0
+  }
+  .supplier-bill-create-head{padding:18px}
+  .supplier-bill-create-body{padding:14px 18px}
+  .supplier-bill-create-section .form-grid{grid-template-columns:1fr}
+  .supplier-bill-live-summary{margin:0 18px 14px}
+  .supplier-bill-create-footer{
+    align-items:stretch;
+    flex-direction:column;
+    padding:12px 18px 16px
+  }
+  .supplier-bill-create-footer .modal-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    width:100%
+  }
+  .supplier-bill-create-footer .modal-actions>*{width:100%}
+}
+@media(max-width:480px){
+  .supplier-bill-live-totals{grid-template-columns:1fr}
+  .supplier-bill-live-totals .total{grid-column:auto}
+  .supplier-bill-create-footer .modal-actions{grid-template-columns:1fr}
+}
