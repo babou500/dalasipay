@@ -10,7 +10,7 @@
     const ar=window.DalasiBusinessPayments.receivableSummary(state);
     const recurring=window.DalasiBusinessPayments.recurringSummary(state);
     const cash=window.DalasiBusinessPayments.cashFlowSummary(state,{payrollCalc:h.payrollCalc,periodLabel:h.periodLabel},90),cashForecast=window.DalasiCashFlow?.forecast?.(state,{payrollCalc:h.payrollCalc},90)||{start:0,inflows:0,outflows:0,closing:0,minBalance:0,firstDeficit:''};
-    const today=todayIso(),bills=(state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft'),billBal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0);
+    const today=todayIso(),bills=(state.businessBills||[]).filter(x=>['Approved','Part paid','Paid'].includes(x.status||'Draft')),billBal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0);
     const payable=bills.reduce((a,x)=>a+billBal(x),0),overduePayable=bills.filter(x=>billBal(x)>0&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+billBal(x),0);
     const grossCollections=(state.incomingPayments||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),customerRefunds=(state.customerRefunds||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),collections=Math.max(0,grossCollections-customerRefunds),outPaid=(state.businessPayments||[]).filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
     const grossInvoiced=(state.customerInvoices||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),invoiceCredits=(state.customerCreditNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),invoiceDebits=(state.customerDebitNotes||[]).filter(x=>x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),invoiced=Math.max(0,grossInvoiced+invoiceDebits-invoiceCredits),collectionRate=invoiced?Math.round(collections/invoiced*100):0;
@@ -135,12 +135,32 @@
       const rows=[['Standard-rated sales · net',money2(s.stdSalesNet)],['Standard-rated sales · gross',money2(s.stdSalesGross)],['Zero-rated sales',money2(s.zeroSales)],['Exempt sales',money2(s.exemptSales)],['Output VAT',money2(s.totalOutput)],['Recoverable input VAT',money2(s.totalInput)],['Net VAT',money2(s.netVat)],['Payments recorded',money2(s.payments)],['Outstanding',money2(s.outstanding)]];
       return '<div class="report-preview-kpis"><div><span>Output VAT</span><b>'+money2(s.totalOutput)+'</b></div><div><span>Input VAT</span><b>'+money2(s.totalInput)+'</b></div><div><span>Net VAT</span><b>'+money2(s.netVat)+'</b></div><div><span>Due date</span><b>'+esc(s.dueDate||'—')+'</b></div></div>'+previewTable(['VAT working paper','Amount'],rows,esc);
     }
+    if(kind==='receivables-aging'&&window.DalasiCreditControl){
+      const lines=window.DalasiCreditControl.receivableLines(state),tot=window.DalasiCreditControl.bucketTotals(lines);
+      const kpis='<div class="report-preview-kpis">'+['Current','1-30','31-60','61-90','90+'].map(k=>'<div><span>'+esc(k==='Current'?'Current / not due':k+' days')+'</span><b>'+money2(tot[k])+'</b></div>').join('')+'<div><span>Total outstanding</span><b>'+money2(tot.total)+'</b></div></div>';
+      const rows=lines.slice().sort((a,b)=>b.daysPastDue-a.daysPastDue||b.balance-a.balance).map(x=>[
+        '<button class="secondary tiny" data-action="source-open:customer-account:'+esc(x.customerId)+'">'+esc(x.customer)+'</button>',
+        '<button class="secondary tiny" data-action="source-open:customer-invoice:'+esc(x.id)+'">'+esc(x.invoiceNo)+'</button>',
+        esc(x.dueDate||'—'),money2(x.balance),String(x.daysPastDue),esc(x.bucket),esc(x.status)
+      ]);
+      return kpis+previewTable(['Customer','Invoice','Due date','Balance','Days past due','Age bucket','Status'],rows,esc);
+    }
+    if(kind==='payables-aging'&&window.DalasiCreditControl){
+      const lines=window.DalasiCreditControl.payableLines(state),tot=window.DalasiCreditControl.bucketTotals(lines);
+      const kpis='<div class="report-preview-kpis">'+['Current','1-30','31-60','61-90','90+'].map(k=>'<div><span>'+esc(k==='Current'?'Current / not due':k+' days')+'</span><b>'+money2(tot[k])+'</b></div>').join('')+'<div><span>Total outstanding</span><b>'+money2(tot.total)+'</b></div></div>';
+      const rows=lines.slice().sort((a,b)=>b.daysPastDue-a.daysPastDue||b.balance-a.balance).map(x=>[
+        x.supplierId?'<button class="secondary tiny" data-action="source-open:supplier-account:'+esc(x.supplierId)+'">'+esc(x.supplier)+'</button>':esc(x.supplier),
+        '<button class="secondary tiny" data-action="source-open:supplier-bill:'+esc(x.id)+'">'+esc(x.invoiceNo)+'</button>',
+        esc(x.dueDate||'—'),money2(x.balance),String(x.daysPastDue),esc(x.bucket),esc(x.status)
+      ]);
+      return kpis+previewTable(['Supplier','Bill','Due date','Balance','Days past due','Age bucket','Status'],rows,esc);
+    }
     if(kind==='accounts-receivable'){
       const rows=(state.customerInvoices||[]).filter(x=>(window.DalasiSalesInvoices?.status?.(state,x)||x.status)!=='Draft').map(x=>[esc(x.invoiceNo||x.id),esc(x.customerName||''),esc(x.dueDate||''),money2(window.DalasiReturns?.invoiceBalance?.(state,x)??x.amount),esc(window.DalasiSalesInvoices?.status?.(state,x)||x.status||'')]);
       return previewTable(['Invoice','Customer','Due','Balance','Status'],rows,esc);
     }
     if(kind==='accounts-payable'){
-      const rows=(state.businessBills||[]).filter(x=>(x.status||'Draft')!=='Draft').map(x=>[esc(x.invoiceNo||x.id),esc(x.supplier||''),esc(x.dueDate||''),money2(window.DalasiReturns?.billBalance?.(state,x)??x.amount),esc(x.status||'')]);
+      const rows=(state.businessBills||[]).filter(x=>['Approved','Part paid','Paid'].includes(x.status||'Draft')).map(x=>[esc(x.invoiceNo||x.id),esc(x.supplier||''),esc(x.dueDate||''),money2(window.DalasiReturns?.billBalance?.(state,x)??x.amount),esc(x.status||'')]);
       return previewTable(['Bill','Supplier','Due','Balance','Status'],rows,esc);
     }
     if(kind==='customer-balances'){
@@ -159,7 +179,7 @@
       const rows=(state.salesCatalog||[]).filter(x=>x.type==='Product').map(x=>{const v=window.DalasiInventory?.valuation?.(state,x)||{quantity:x.stockOnHand||0,unitCost:x.costPrice||0,value:(Number(x.stockOnHand)||0)*(Number(x.costPrice)||0)};return [esc(x.code||x.id),esc(x.name),String(v.quantity||0),money2(v.unitCost||0),money2(v.value||0),String(x.reorderLevel||0)];});
       return previewTable(['Code','Product','On hand','Unit cost','Stock value','Reorder level'],rows,esc);
     }
-    const routeMap={'trial-balance':'accounting','general-ledger':'accounting','cash-bank-register':'cashbank','bank-reconciliations':'cashbank','fixed-assets':'assets','budget-vs-actual':'budgets','project-profitability':'projects','cost-centre-performance':'projects','loan-register':'loans','month-end-close':'accounting','year-end-close':'accounting','customer-debit-notes':'debits','customer-credit-notes':'returns','supplier-debit-notes':'debits','supplier-credit-notes':'returns','receivables-aging':'credit','credit-control':'credit','payables-aging':'credit','revenue-register':'invoices','incoming-payments':'invoices','outgoing-payments':'payments','recurring-commitments':'payments','product-margin':'inventory','inventory-movements':'inventory','cash-forecast':'cashflow'};
+    const routeMap={'trial-balance':'accounting','general-ledger':'accounting','cash-bank-register':'cashbank','bank-reconciliations':'cashbank','fixed-assets':'assets','budget-vs-actual':'budgets','project-profitability':'projects','cost-centre-performance':'projects','loan-register':'loans','month-end-close':'accounting','year-end-close':'accounting','customer-debit-notes':'debits','customer-credit-notes':'returns','supplier-debit-notes':'debits','supplier-credit-notes':'returns','credit-control':'credit','revenue-register':'invoices','incoming-payments':'invoices','outgoing-payments':'payments','recurring-commitments':'payments','product-margin':'inventory','inventory-movements':'inventory','cash-forecast':'cashflow'};
     return '<div class="report-preview-empty"><span>'+icon('reports',22)+'</span><h3>'+esc(title)+'</h3><p>This report is available as an interactive working view in its source module. Open it there to review the live underlying records before exporting.</p>'+(routeMap[kind]?'<button class="primary" data-action="report-open-module:'+routeMap[kind]+'">Open detailed view</button>':'')+'</div>';
   }
   function reportModal(state,h){
