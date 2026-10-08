@@ -62,7 +62,7 @@
       const discountGross=round(inv.discountTotal||0);
       const subtotalGross=round(inv.subtotal||((Number(inv.amount)||0)+discountGross));
       const tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:amt,vatAmount:0};
-      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,inv.taxCode||'OUT','sale')||{taxNet:subtotalGross,vatAmount:0};
+      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,inv.taxCode||'OUT','sale',inv.taxPricingMode||'inclusive')||{taxNet:subtotalGross,vatAmount:0};
       const salesDiscount=round(Math.max(0,(Number(preDiscountTax.taxNet)||subtotalGross)-(Number(tax.taxNet)||amt)));
       pushJournal(out,'INV-'+inv.id,inv.issueDate||inv.createdAt,inv.invoiceNo||inv.id,'Customer invoice',[
         {account:'Accounts Receivable',debit:amt,memo:inv.customerName||''},
@@ -182,7 +182,7 @@
       const amt=round(b.amount);if(!amt)return;
       const discountGross=round(b.discountTotal||0),subtotalGross=round(b.subtotal||((Number(b.amount)||0)+discountGross));
       const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false};
-      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,b.taxCode||'OUT','purchase')||{taxNet:subtotalGross,vatAmount:0,vatRecoverable:false};
+      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,b.taxCode||'OUT','purchase',b.taxPricingMode||'inclusive')||{taxNet:subtotalGross,vatAmount:0,vatRecoverable:false};
       const net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
       const grossExpenseBase=round(preDiscountTax.vatRecoverable?preDiscountTax.taxNet:subtotalGross);
       const discountReceived=round(Math.max(0,grossExpenseBase-net));
