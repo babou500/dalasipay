@@ -41,6 +41,7 @@ jobs:
           node --check licensing-observer-core.mjs
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
+          node --check supabase-licensing-provider.mjs
       - name: Run licensing unit and security tests
         run: |
           node --test \
@@ -50,4 +51,5 @@ jobs:
             subscription-usage.test.js \
             cloudflare-licensing-observer.test.mjs \
             licensing-http-adapter.test.mjs \
-            licensing-startup-guard.test.js
+            licensing-startup-guard.test.js \
+            supabase-licensing-provider.test.mjs
