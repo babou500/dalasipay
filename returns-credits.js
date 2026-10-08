@@ -25,7 +25,7 @@
   function supplierCreditsFor(state,billId){return (state.supplierCreditNotes||[]).filter(x=>x.billId===billId&&x.status!=='Void');}
   function customerCredited(state,invoiceId){return round(customerCreditsFor(state,invoiceId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function supplierCredited(state,billId){return round(supplierCreditsFor(state,billId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
-  function invoicePayments(state,invoiceId){return round((state.incomingPayments||[]).filter(x=>x.invoiceId===invoiceId).reduce((a,x)=>a+(Number(x.amount)||0),0));}
+  function invoicePayments(state,invoiceId){return round((state.incomingPayments||[]).filter(x=>x.invoiceId===invoiceId&&!x.reversedAt&&x.status!=='Reversed').reduce((a,x)=>a+(Number(x.amount)||0),0));}
   function invoiceBalance(state,invoice){const debits=window.DalasiDebits?.customerDebited?.(state,invoice?.id)||0;return round(Math.max(0,(Number(invoice?.amount)||0)+debits-invoicePayments(state,invoice?.id)-customerCredited(state,invoice?.id)));}
   function billPayment(state,bill){return bill?.paymentId?(state.businessPayments||[]).find(x=>x.id===bill.paymentId):null;}
   function billPaid(state,bill){return round((state.businessPayments||[]).filter(x=>x.billId===bill?.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));}
