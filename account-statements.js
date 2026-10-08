@@ -8,10 +8,12 @@ const inRange=(d,a,b)=>String(d||'')>=a&&String(d||'')<=b;
 function customerName(s,id){return customer(s,id)?.name||(s.customerInvoices||[]).find(x=>x.customerId===id)?.customerName||'Customer'}
 function supplierName(s,id){return supplier(s,id)?.name||(s.businessBills||[]).find(x=>x.beneficiaryId===id)?.supplier||'Supplier'}
 function customerInvoicesForParty(s,id){
+  const linked=window.DalasiBusinessPayments?.customerInvoicesFor?.(s,id);
+  if(linked)return linked;
   const c=customer(s,id);if(!c)return [];
   return (s.customerInvoices||[]).filter(x=>{
     if(x.customerId===id)return true;
-    if(x.customerId)return false;
+    const existing=x.customerId?customer(s,x.customerId):null;if(existing)return false;
     const m=window.DalasiBusinessPayments?.resolveCustomerForInvoice?.(s,{customerName:x.customerName,customerEmail:x.customerEmail});
     return m?.id===id;
   });
