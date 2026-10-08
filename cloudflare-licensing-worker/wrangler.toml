@@ -1,0 +1,8 @@
+# Isolated staging Worker. This file does NOT deploy anything.
+# Run wrangler from this directory only after Cloudflare account access is verified.
+name = "dalasipay-licensing-staging"
+main = "index.mjs"
+compatibility_date = "2026-10-08"
+workers_dev = true
+# Intentionally no routes, custom domains, environment secrets, or production triggers.
+# Configure the three bindings documented in README.md using Cloudflare secrets.
