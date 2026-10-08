@@ -3286,7 +3286,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return sections.join('')||'<div class="command-empty">'+icon('search',18)+'<b>No results for “'+esc(q)+'”</b><span>Try a customer, invoice number, supplier, employee or product name.</span></div>';
   }
   function searchModal(){return `<div class="center-modal search-modal"><div class="modal-scrim" data-action="close-search"></div><div class="command-box command-box-v68"><div class="command-input">${icon('search',18)}<input id="global-search" autofocus autocomplete="off" placeholder="Search DalasiPay"><kbd>ESC</kbd></div><div id="search-results" class="command-results">${searchResultsHtml('')}</div><div class="command-footer"><span><kbd>Ctrl</kbd> <kbd>K</kbd> open search</span><span><kbd>Esc</kbd> close</span></div></div></div>`}
-  function notificationSummary(){
+  function notificationSummaryUnsafe(){
     const p=payrollCalc(),m=missingSshfc(),leaves=pendingLeaveRequests(),flow=approvalForPeriod(),expiring=expiryItems(60),onboarding=onboardingQueue();
     const ar=window.DalasiBusinessPayments?.receivableSummary?.(state)||{overdue:0};
     const today=new Date().toISOString().slice(0,10),openBills=(state.businessBills||[]).filter(x=>x.status!=='Paid'),overdueBills=openBills.filter(x=>x.dueDate&&x.dueDate<today),lowStock=window.DalasiInventory?.reorderRows?.(state)||[],pendingPO=(state.purchaseOrders||[]).filter(x=>x.status==='Pending approval');
@@ -3303,6 +3303,13 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const keyed=items.map(x=>{const raw=[x.title,x.copy,x.page||'',x.action||''].join('|');let h=2166136261;for(let i=0;i<raw.length;i++){h^=raw.charCodeAt(i);h=Math.imul(h,16777619)}return {...x,id:'n'+(h>>>0).toString(36)}});
     const unread=keyed.filter(x=>!(state.notificationRead||{})[x.id]);
     return {items:keyed,unread,urgent:unread.filter(x=>x.level==='warn').length};
+  }
+  function notificationSummary(){
+    try{return notificationSummaryUnsafe()}
+    catch(err){
+      console.error('DalasiPay notification summary failed',err);
+      return {items:[],unread:[],urgent:0};
+    }
   }
   function markNotificationRead(id){if(!id)return;state.notificationRead=state.notificationRead||{};state.notificationRead[id]=new Date().toISOString();save();}
   function notifications(){
