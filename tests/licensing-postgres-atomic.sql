@@ -68,7 +68,7 @@ SELECT 'PASS: atomic success and audit-failure rollback' AS result;
 ALTER TABLE public.subscription_admin_events ADD COLUMN target_user_id uuid REFERENCES auth.users(id);
 ALTER TABLE public.subscription_admin_events ADD CONSTRAINT admin_event_target_check
 CHECK (event_type NOT IN ('platform_admin_appointed','platform_admin_revoked') OR target_user_id IS NOT NULL);
-DO $
+DO $audit_check$
 BEGIN
  BEGIN
   INSERT INTO public.subscription_admin_events(organization_id,request_id,event_type)
@@ -79,7 +79,7 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.subscription_admin_events) THEN
    RAISE EXCEPTION 'Invalid admin event was inserted';
  END IF;
-END $;
+END $audit_check$;
 SELECT 'PASS: administrative audit event requires target identity' AS admin_audit_result;
 
 
