@@ -8,6 +8,8 @@ export function createPlatformAdminSessionHandler({verifyToken,lookupPlatformAdm
   if(request?.method!=='GET')return reply(405);
   const path=new URL(request.url).pathname;
   if(path!=='/internal/admin/session')return reply(404);
+  const target=new URL(request.url);
+  if(target.searchParams.has('userId')||target.searchParams.has('actorId')||target.searchParams.has('adminId'))return reply(400);
   const authorization=request.headers.get('authorization')||'';
   const match=/^Bearer ([A-Za-z0-9._~-]+)$/.exec(authorization);
   if(!match)return reply(401);
