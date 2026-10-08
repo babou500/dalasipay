@@ -107,10 +107,11 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse journals.');return;}
     const j=(state.manualJournals||[]).find(x=>x.id===id);if(!j||j.status!=='Posted'||j.reversalJournalId)return;
     const date=todayIso();if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
-    const now=new Date().toISOString(),rid='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),lines=(j.lines||[]).map(x=>({...x,debit:Number(x.credit)||0,credit:Number(x.debit)||0,memo:'Reversal: '+(x.memo||j.memo||j.journalNo)}));
-    const rev={id:rid,journalNo,date,reference:'REV-'+j.journalNo,memo:'Reversal of '+j.journalNo+(j.memo?' · '+j.memo:''),lines,debit:j.credit,credit:j.debit,status:'Posted',reversalOf:j.id,createdAt:now,createdBy:state.session?.name||'User',postedAt:now,postedBy:state.session?.name||'User',updatedAt:now};
-    state.manualJournals.unshift(rev);j.reversalJournalId=rid;j.reversalJournalNo=journalNo;j.reversedAt=now;j.reversedBy=state.session?.name||'User';
-    ctx.audit('accounting.journal_reversed',{journalId:j.id,journalNo:j.journalNo,reversalJournalId:rid,reversalJournalNo:journalNo});ctx.save();ctx.toast(j.journalNo+' reversed by '+journalNo);ctx.render();
+    const reason=String(window.prompt('Reason for reversing '+(j.journalNo||j.id)+'? The original journal will remain unchanged.')||'').trim();if(!reason)return;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return;}
+    const now=new Date().toISOString(),actor=state.session?.name||'User',rid='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),lines=(j.lines||[]).map(x=>({...x,debit:Number(x.credit)||0,credit:Number(x.debit)||0,memo:'Reversal: '+(x.memo||j.memo||j.journalNo)}));
+    const rev={id:rid,journalNo,date,reference:'REV-'+j.journalNo,memo:'Reversal of '+j.journalNo+' · '+reason,lines,debit:j.credit,credit:j.debit,status:'Posted',reversalOf:j.id,reversalReason:reason,createdAt:now,createdBy:actor,postedAt:now,postedBy:actor,updatedAt:now};
+    state.manualJournals.unshift(rev);j.reversalJournalId=rid;j.reversalJournalNo=journalNo;j.reversedAt=now;j.reversedBy=actor;j.reversalReason=reason;
+    ctx.audit('accounting.journal_reversed',{journalId:j.id,journalNo:j.journalNo,reversalJournalId:rid,reversalJournalNo:journalNo,reason});ctx.save();ctx.toast(j.journalNo+' reversed by '+journalNo);ctx.render();
   }
   function createAccount(ev,state,ctx){
     ev.preventDefault();if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can add ledger accounts.');return;}
@@ -165,7 +166,7 @@
     const rows=journals.length?journals.map(j=>{
       const stateLabel=j.reversalOf?'Reversal':j.reversalJournalId?'Reversed':j.status,cls=j.status==='Posted'?'ready':'neutral';
       const action=j.status==='Draft'?'<button class="primary" data-action="journal-post:'+j.id+'">Post</button>':(!j.reversalOf&&!j.reversalJournalId?'<button class="secondary" data-action="journal-reverse:'+j.id+'">Reverse</button>':'');
-      return '<tr><td><div class="payment-payee"><b>'+esc(j.journalNo||j.id)+'</b><small>'+esc(j.reference||'Manual journal')+'</small></div></td><td>'+esc(j.date||'')+'</td><td>'+esc(j.memo||'—')+'</td><td>'+money2(j.debit||0)+'</td><td>'+money2(j.credit||0)+'</td><td>'+pill(stateLabel,cls)+'</td><td>'+action+'</td></tr>';
+      return '<tr><td><div class="payment-payee"><b>'+esc(j.journalNo||j.id)+'</b><small>'+esc(j.reference||'Manual journal')+(j.reversalReason?' · Reversal: '+esc(j.reversalReason):'')+'</small></div></td><td>'+esc(j.date||'')+'</td><td>'+esc(j.memo||'—')+'</td><td>'+money2(j.debit||0)+'</td><td>'+money2(j.credit||0)+'</td><td>'+pill(stateLabel,cls)+'</td><td>'+action+'</td></tr>';
     }).join(''):'<tr><td colspan="7"><div class="empty-inline">No manual journal entries yet.</div></td></tr>';
     const guide=!journals.length?'<div class="first-use-card"><span>'+icon('reports',16)+'</span><div><b>Use journals only for accounting adjustments</b><p>Sales, purchases, payments and payroll should come from their source modules. Create a manual journal for accruals, corrections, depreciation and other controlled adjustments.</p></div><button class="primary" data-action="open-journal">New journal</button></div>':'';
     return pageTitle('ACCOUNTING','Accounting','Post balanced accounting adjustments without altering source documents.','<button class="primary" data-action="open-journal">'+icon('plus',14)+' New journal</button>')+tabs+guide+
