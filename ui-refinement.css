@@ -2501,3 +2501,287 @@ body{background:
     padding:10px 14px;
   }
 }
+
+
+/* DalasiPay v1.06 — professional employee record */
+.employee-record-drawer{
+  width:min(760px,96vw);
+  max-width:96vw;
+  padding:0;
+  background:var(--panel);
+}
+.employee-record-drawer>.close{
+  right:18px;
+  top:18px;
+  z-index:4;
+}
+.employee-record-header{
+  padding:28px 28px 22px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(145deg,var(--panel),color-mix(in srgb,var(--soft-2) 58%,var(--panel)));
+}
+.employee-record-identity{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding-right:48px;
+}
+.employee-record-avatar{
+  width:64px;
+  height:64px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  flex:none;
+  background:linear-gradient(145deg,var(--soft),color-mix(in srgb,var(--primary) 12%,var(--panel)));
+  color:var(--primary);
+  font-size:18px;
+  font-weight:850;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 12%,var(--border));
+}
+.employee-record-identity h2{
+  margin:4px 0 4px;
+  font-size:23px;
+  letter-spacing:-.035em;
+}
+.employee-record-identity p{
+  margin:0;
+  color:var(--muted);
+  font-size:11.5px;
+}
+.employee-record-badges{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.employee-record-primary-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:18px;
+}
+.employee-record-kpis{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  padding:18px 28px;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel-2) 48%,var(--panel));
+}
+.employee-record-kpis>div{
+  min-width:0;
+  padding:13px 14px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel);
+}
+.employee-record-kpis span,
+.employee-record-kpis small{
+  display:block;
+  color:var(--muted);
+  font-size:9.5px;
+}
+.employee-record-kpis strong{
+  display:block;
+  margin:5px 0 3px;
+  font-size:16px;
+  letter-spacing:-.02em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.employee-record-action-groups{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding:18px 28px 4px;
+}
+.employee-record-action-groups>div{
+  padding:13px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel-2);
+}
+.employee-record-action-groups>div>span{
+  display:block;
+  margin-bottom:8px;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.employee-record-action-groups .drawer-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.employee-record-action-groups .drawer-actions .secondary{
+  min-height:31px;
+  padding-inline:9px;
+  font-size:9.5px;
+}
+
+.record-section-card{
+  margin:14px 28px 0;
+  border:1px solid var(--border);
+  border-radius:13px;
+  background:var(--panel);
+  overflow:hidden;
+}
+.record-section-card:last-child{
+  margin-bottom:28px;
+}
+.record-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel-2) 62%,var(--panel));
+}
+.record-section-head>div:first-child{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+.record-section-icon{
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  flex:none;
+  background:var(--soft);
+  color:var(--primary);
+}
+.record-section-head h4{
+  margin:0 0 2px;
+  font-size:12.5px;
+}
+.record-section-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:9.5px;
+  line-height:1.4;
+}
+.record-section-status{
+  color:var(--muted);
+  font-size:9.5px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.record-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:20px;
+  padding:4px 16px 10px;
+}
+.record-info-grid .info{
+  margin:0;
+  min-height:39px;
+}
+.employee-record-salary{
+  margin:16px;
+}
+.employee-record-controls{
+  margin:0 16px 16px;
+}
+.employee-record-controls.people-control-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.employee-record-leave{
+  margin:16px;
+}
+.record-subsection{
+  padding:0 16px 16px;
+}
+.record-subsection+h5,
+.record-subsection h5{
+  margin:2px 0 8px;
+  font-size:10px;
+  color:var(--muted);
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.record-subsection .comp-history:first-of-type,
+.record-subsection .obligation-row:first-of-type{
+  border-top:1px solid var(--border);
+}
+.employee-record-documents{
+  padding:0 16px 12px;
+}
+.employee-record-documents .document-inline:first-child{
+  border-top:0;
+}
+.employee-contact-card .record-info-grid{
+  padding-bottom:14px;
+}
+
+@media(max-width:760px){
+  .employee-record-drawer{
+    width:100%;
+    max-width:100%;
+  }
+  .employee-record-header{
+    padding:22px 18px 18px;
+  }
+  .employee-record-identity{
+    align-items:flex-start;
+    padding-right:40px;
+  }
+  .employee-record-avatar{
+    width:54px;
+    height:54px;
+    border-radius:15px;
+    font-size:16px;
+  }
+  .employee-record-identity h2{font-size:20px}
+  .employee-record-primary-actions{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .employee-record-primary-actions>*{width:100%}
+  .employee-record-kpis{
+    grid-template-columns:1fr 1fr;
+    padding:14px 18px;
+  }
+  .employee-record-action-groups{
+    grid-template-columns:1fr;
+    padding:14px 18px 2px;
+  }
+  .record-section-card{
+    margin-left:18px;
+    margin-right:18px;
+  }
+  .record-section-head{
+    align-items:flex-start;
+  }
+  .record-section-status{
+    white-space:normal;
+    text-align:right;
+  }
+  .record-info-grid{
+    grid-template-columns:1fr;
+  }
+  .employee-record-controls.people-control-grid{
+    grid-template-columns:1fr;
+  }
+}
+@media(max-width:460px){
+  .employee-record-kpis{
+    grid-template-columns:1fr;
+  }
+  .employee-record-identity{
+    gap:11px;
+  }
+  .record-section-head{
+    flex-direction:column;
+  }
+  .record-section-status{
+    text-align:left;
+  }
+}
