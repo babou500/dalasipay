@@ -214,21 +214,22 @@
     '</aside></div>';
   }
   function invoicePanel(state,h){
-    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=metrics(state),filter=state.salesFilter||'all';
+    const esc=h.esc,money2=h.money2,pill=h.pill,icon=h.icon,m=metrics(state),filter=state.salesFilter||'all',today=todayIso();
     let rows=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.issueDate||b.createdAt||'').localeCompare(String(a.issueDate||a.createdAt||'')));
     if(filter!=='all')rows=rows.filter(inv=>status(state,inv).toLowerCase().replace(' ','-')===filter);
+    const daysUntil=d=>{if(!d)return null;return Math.ceil((new Date(String(d).slice(0,10)+'T00:00:00')-new Date(today+'T00:00:00'))/86400000);};
     const table=rows.length?rows.map(inv=>{
-      const s=status(state,inv),p=paid(state,inv),b=balance(state,inv);
+      const s=status(state,inv),p=paid(state,inv),b=balance(state,inv),tax=window.DalasiTax?.meta?.(state,inv,'sale')||{taxNet:Number(inv.amount)||0,vatAmount:0,taxCode:inv.taxCode||'OUT',taxPricingMode:inv.taxPricingMode||'inclusive'},vatLabel=window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'No VAT',disc=Number(inv.discountTotal)||0,days=daysUntil(inv.dueDate),pct=(Number(inv.amount)||0)>0?Math.min(100,Math.round((p/(Number(inv.amount)||1))*100)):0;
+      const dueCue=s==='Paid'?'<span class="invoice-due-cue paid">Settled</span>':days===null?'<span class="invoice-due-cue">No due date</span>':days<0?'<span class="invoice-due-cue overdue">'+Math.abs(days)+'d overdue</span>':days===0?'<span class="invoice-due-cue due">Due today</span>':days<=7?'<span class="invoice-due-cue due">Due in '+days+'d</span>':'<span class="invoice-due-cue">Due '+dateLabel(inv.dueDate)+'</span>';
       return '<tr class="'+(s==='Overdue'?'receivable-overdue':'')+'">'+
-        '<td><div class="payment-payee"><b>'+esc(inv.customerName||'Customer')+'</b><small>'+esc(inv.invoiceNo||inv.id)+'</small></div></td>'+
-        '<td>'+dateLabel(inv.issueDate)+'</td>'+
-        '<td>'+dateLabel(inv.dueDate)+'</td>'+
-        '<td class="payment-amount">'+money2(inv.amount)+'</td>'+
-        '<td><div class="receivable-balance"><b>'+money2(b)+'</b><small>'+money2(p)+' collected</small></div></td>'+
+        '<td><div class="payment-payee invoice-register-identity"><b>'+esc(inv.customerName||'Customer')+'</b><small>'+esc(inv.invoiceNo||inv.id)+(inv.reference?' · '+esc(inv.reference):'')+'</small></div></td>'+
+        '<td><div class="invoice-date-cell"><b>'+dateLabel(inv.issueDate)+'</b>'+dueCue+'</div></td>'+
+        '<td><div class="invoice-tax-cell"><b>'+money2(inv.amount)+'</b><small>'+esc(vatLabel)+' · '+(tax.taxPricingMode==='exclusive'?'exclusive':'inclusive')+'</small>'+(disc>0?'<em>'+money2(disc)+' discount</em>':'')+'</div></td>'+
+        '<td><div class="receivable-balance invoice-collection-cell"><b>'+money2(b)+'</b><small>'+money2(p)+' collected · '+pct+'%</small><span class="invoice-mini-progress"><i style="width:'+pct+'%"></i></span></div></td>'+
         '<td>'+pill(s,statusClass(s))+'</td>'+
         '<td><div class="payment-status-actions">'+invoiceAction(state,inv,icon)+'</div></td>'+
       '</tr>';
-    }).join(''):'<tr><td colspan="7"><div class="empty-inline">No invoices match this view.</div></td></tr>';
+    }).join(''):'<tr><td colspan="6"><div class="empty-inline">No invoices match this view.</div></td></tr>';
     return '<div class="sales-summary">'+
       '<div class="surface"><span>Net invoiced</span><b>'+money2(m.netInvoiced)+'</b><small>'+money2(m.debited||0)+' debit · '+money2(m.credited||0)+' credit</small></div>'+
       '<div class="surface"><span>Collected</span><b>'+money2(m.collected)+'</b><small>'+m.collectionRate+'% collection rate</small></div>'+
@@ -238,8 +239,8 @@
     '<div class="sales-toolbar"><div><b>Customer invoices</b><span>Create, send, collect and close sales invoices</span></div><div class="sales-filters">'+
       [['all','All'],['draft','Draft'],['sent','Sent'],['part-paid','Part paid'],['overdue','Overdue'],['paid','Paid']].map(x=>'<button class="'+(filter===x[0]?'active':'')+'" data-action="sales-filter:'+x[0]+'">'+x[1]+'</button>').join('')+
     '</div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Invoice register</h3><p>Sales invoices, due dates, collections and customer balances</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="invoice-register" placeholder="Search invoices"></label><div class="inline-buttons"><button class="secondary" data-action="sales-export:invoices">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button></div></div></div>'+
-      '<div class="table-scroll"><table data-register-table="invoice-register"><thead><tr><th>CUSTOMER / INVOICE</th><th>ISSUED</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="surface employee-card invoice-register-card"><div class="table-tools"><div><h3>Invoice register</h3><p>Customer, VAT, discount, due-date and collection status in one view</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="invoice-register" placeholder="Search customer, invoice or reference"></label><div class="inline-buttons"><button class="secondary" data-action="sales-export:invoices">'+icon('download',14)+' CSV</button><button class="primary" data-action="open-receivable">'+icon('plus',14)+' New invoice</button></div></div></div>'+
+      '<div class="table-scroll"><table data-register-table="invoice-register"><thead><tr><th>CUSTOMER / INVOICE</th><th>ISSUED / DUE</th><th>TOTAL / VAT</th><th>COLLECTION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+table+'</tbody></table></div><div class="table-footer"><span>Showing <strong>'+rows.length+'</strong> invoice'+(rows.length===1?'':'s')+'</span><span>'+m.open+' open · '+m.draft+' draft · '+money2(m.overdue)+' overdue</span></div></div>';
   }
   function collectionsPanel(state,h){
     const esc=h.esc,money2=h.money2,icon=h.icon,m=metrics(state),rows=(state.incomingPayments||[]).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||'')));
