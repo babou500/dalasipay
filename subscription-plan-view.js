@@ -31,9 +31,13 @@
  }
  function renderPlanComparison(){
   const ids=['free','standard','professional'];
-  const limits=policy.LIMIT_KEYS.map(key=>'<tr><th scope="row">'+escapeHtml(LABELS[key])+'</th>'+ids.map(id=>{const value=policy.PLANS[id].limits[key];return '<td>'+escapeHtml(value===null?'Unlimited':value)+'</td>';}).join('')+'</tr>').join('');
-  const features=policy.FEATURE_KEYS.map(key=>'<tr><th scope="row">'+escapeHtml(FEATURES[key])+'</th>'+ids.map(id=>'<td>'+ (policy.PLANS[id].features.includes(key)?'Included':'—')+'</td>').join('')+'</tr>').join('');
-  return '<div class="subscription-comparison" style="margin-top:24px"><h3>Compare plans</h3><p style="color:var(--muted)">Plan comparison for information only. Upgrades, billing and restrictions are not active.</p><div style="overflow-x:auto;max-width:100%"><table style="width:100%;border-collapse:collapse;text-align:left;min-width:530px"><thead><tr><th scope="col">Allowance / feature</th>'+ids.map(id=>'<th scope="col">'+escapeHtml(policy.PLANS[id].label)+'</th>').join('')+'</tr></thead><tbody>'+limits+features+'</tbody></table></div></div>';
+  const descriptions={free:'For very small businesses getting started.',standard:'For growing teams managing more operations.',professional:'For businesses needing the complete toolkit.'};
+  const cards=ids.map(id=>{
+   const p=policy.PLANS[id];
+   const limits=policy.LIMIT_KEYS.map(key=>'<li><span>'+escapeHtml(LABELS[key])+'</span><strong>'+escapeHtml(p.limits[key]===null?'Unlimited':p.limits[key])+'</strong></li>').join('');
+   return '<article class="subscription-plan-card"><div class="subscription-plan-card-head"><h4>'+escapeHtml(p.label)+'</h4><p>'+escapeHtml(descriptions[id])+'</p></div><ul>'+limits+'</ul><p class="subscription-plan-feature-count">'+p.features.length+' included feature categories</p><span class="subscription-plan-soon">Upgrade requests coming soon</span></article>';
+  }).join('');
+  return '<section class="subscription-comparison" aria-label="Compare subscription plans"><h3>Explore plans</h3><p class="subscription-usage-note">Plan information only. Prices and activation dates have not been announced. No payments or upgrades are available yet.</p><div class="subscription-plan-grid">'+cards+'</div><details class="subscription-plan-details"><summary>Compare all features</summary><div class="subscription-plan-table-scroll"><table><thead><tr><th scope="col">Feature</th>'+ids.map(id=>'<th scope="col">'+escapeHtml(policy.PLANS[id].label)+'</th>').join('')+'</tr></thead><tbody>'+policy.FEATURE_KEYS.map(key=>'<tr><th scope="row">'+escapeHtml(FEATURES[key])+'</th>'+ids.map(id=>'<td>'+ (policy.PLANS[id].features.includes(key)?'Included':'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></details><p class="subscription-plan-disclaimer">Existing Professional Preview workspaces retain their current unrestricted access. Selecting a plan or requesting a change is not yet enabled.</p></section>';
  }
  return Object.freeze({VERSION,LABELS,FEATURES,getDisplayModel,escapeHtml,renderReadOnly,renderPlanComparison});
 });
