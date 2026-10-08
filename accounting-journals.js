@@ -104,14 +104,17 @@
     ctx.audit('accounting.journal_posted',{journalId:id,journalNo:j.journalNo,date:j.date,debit:t.debit,credit:t.credit});ctx.save();ctx.toast(j.journalNo+' posted');ctx.render();
   }
   function reverseJournal(id,state,ctx){
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse journals.');return;}
-    const j=(state.manualJournals||[]).find(x=>x.id===id);if(!j||j.status!=='Posted'||j.reversalJournalId)return;
-    const date=todayIso();if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
-    const reason=String(window.prompt('Reason for reversing '+(j.journalNo||j.id)+'? The original journal will remain unchanged.')||'').trim();if(!reason)return;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return;}
-    const now=new Date().toISOString(),actor=state.session?.name||'User',rid='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),lines=(j.lines||[]).map(x=>({...x,debit:Number(x.credit)||0,credit:Number(x.debit)||0,memo:'Reversal: '+(x.memo||j.memo||j.journalNo)}));
-    const rev={id:rid,journalNo,date,reference:'REV-'+j.journalNo,memo:'Reversal of '+j.journalNo+' · '+reason,lines,debit:j.credit,credit:j.debit,status:'Posted',reversalOf:j.id,reversalReason:reason,createdAt:now,createdBy:actor,postedAt:now,postedBy:actor,updatedAt:now};
-    state.manualJournals.unshift(rev);j.reversalJournalId=rid;j.reversalJournalNo=journalNo;j.reversedAt=now;j.reversedBy=actor;j.reversalReason=reason;
-    ctx.audit('accounting.journal_reversed',{journalId:j.id,journalNo:j.journalNo,reversalJournalId:rid,reversalJournalNo:journalNo,reason});ctx.save();ctx.toast(j.journalNo+' reversed by '+journalNo);ctx.render();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse journals.');return false;}
+    const j=(state.manualJournals||[]).find(x=>x.id===id);if(!j||j.status!=='Posted'||j.reversalJournalId)return false;
+    const date=todayIso();if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return false;}
+    if(!ctx.approvedRequest){
+      const reason=String(window.prompt('Reason for reversing '+(j.journalNo||j.id)+'? The original journal will remain unchanged.')||'').trim();if(!reason)return false;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return false;}
+      return !!window.DalasiReversalApprovals?.request?.(state,{sourceType:'manual-journal',sourceId:j.id,sourceRef:j.journalNo||j.id,transactionType:'Manual journal',amount:j.debit||0,reason},ctx);
+    }
+    const reason=String(ctx.approvedRequest.reason||''),now=new Date().toISOString(),actor=ctx.approvedRequest.approvedBy||state.session?.name||'User',rid='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),lines=(j.lines||[]).map(x=>({...x,debit:Number(x.credit)||0,credit:Number(x.debit)||0,memo:'Reversal: '+(x.memo||j.memo||j.journalNo)}));
+    const rev={id:rid,journalNo,date,reference:'REV-'+j.journalNo,memo:'Reversal of '+j.journalNo+' · '+reason,lines,debit:j.credit,credit:j.debit,status:'Posted',reversalOf:j.id,reversalReason:reason,reversalRequestId:ctx.approvedRequest.id,createdAt:now,createdBy:actor,postedAt:now,postedBy:actor,updatedAt:now};
+    state.manualJournals.unshift(rev);j.reversalJournalId=rid;j.reversalJournalNo=journalNo;j.reversedAt=now;j.reversedBy=actor;j.reversalReason=reason;j.reversalRequestId=ctx.approvedRequest.id;
+    ctx.audit('accounting.journal_reversed',{journalId:j.id,requestId:j.reversalRequestId,journalNo:j.journalNo,reversalJournalId:rid,reversalJournalNo:journalNo,reason});ctx.save();return true;
   }
   function createAccount(ev,state,ctx){
     ev.preventDefault();if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can add ledger accounts.');return;}
