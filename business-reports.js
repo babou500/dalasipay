@@ -30,7 +30,7 @@
   }
   function reportCategory(kind){
     const groups={
-      financial:['business-summary','profit-loss','balance-sheet','trial-balance','general-ledger'],
+      financial:['business-summary','profit-loss','balance-sheet','equity-statement','trial-balance','general-ledger'],
       treasury:['cash-bank-register','bank-reconciliations','cash-flow-statement','cash-forecast','loan-register'],
       sales:['accounts-receivable','receivables-aging','credit-control','customer-balances','revenue-register','incoming-payments','customer-debit-notes','customer-credit-notes'],
       purchases:['accounts-payable','payables-aging','outgoing-payments','recurring-commitments','expense-register','purchase-orders','supplier-debit-notes','supplier-credit-notes'],
@@ -46,6 +46,7 @@
       ['business-summary','Business summary','High-level inflows, outflows, receivables, payables and cash position','reports'],
       ['profit-loss','Profit & Loss','Revenue, cost of goods sold, operating expenses and net profit','chart'],
       ['balance-sheet','Balance Sheet','Assets, liabilities and equity with automatic operational balances','building'],
+      ['equity-statement','Statement of Changes in Equity','Opening equity, capital movements, profit or loss, drawings and retained earnings','reports'],
       ['trial-balance','Trial Balance','Debit and credit balances across the generated chart of accounts','reports'],
       ['general-ledger','General Ledger','Journal lines by account, source document and reference','file'],
       ['cash-bank-register','Cash & Bank register','Bank, mobile-money and cash-account balances and movements','bank'],
@@ -103,7 +104,7 @@
   }
   function reportTitle(kind){
     const map={
-      'business-summary':'Business summary','profit-loss':'Profit & Loss','balance-sheet':'Balance Sheet','cash-flow-statement':'Cash Flow Statement','vat-return':'VAT return working paper',
+      'business-summary':'Business summary','profit-loss':'Profit & Loss','balance-sheet':'Balance Sheet','equity-statement':'Statement of Changes in Equity','cash-flow-statement':'Cash Flow Statement','vat-return':'VAT return working paper',
       'accounts-receivable':'Accounts receivable','accounts-payable':'Accounts payable','customer-balances':'Customer balances','expense-register':'Expense register','purchase-orders':'Purchase orders','inventory-summary':'Inventory valuation',
       'trial-balance':'Trial Balance','general-ledger':'General Ledger','cash-bank-register':'Cash & Bank register','bank-reconciliations':'Bank reconciliations','fixed-assets':'Fixed asset register',
       'budget-vs-actual':'Budget vs Actual','project-profitability':'Project profitability','cost-centre-performance':'Cost centre performance','loan-register':'Loans & Debt','month-end-close':'Month-End Close','year-end-close':'Year-End Close',
@@ -121,6 +122,7 @@
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
     if(kind==='profit-loss'&&window.DalasiProfitLoss)return window.DalasiProfitLoss.panel(state,h);
     if(kind==='balance-sheet'&&window.DalasiBalanceSheet)return window.DalasiBalanceSheet.panel(state,h);
+    if(kind==='equity-statement'&&window.DalasiEquityStatement)return window.DalasiEquityStatement.render(state,h);
     if(kind==='business-summary'){
       return '<div class="report-preview-kpis"><div><span>Revenue</span><b>'+money2(m.pnl?.revenue||0)+'</b></div><div><span>Net profit</span><b>'+money2(m.pnl?.netProfit||0)+'</b></div><div><span>Receivables</span><b>'+money2(m.ar.outstanding||0)+'</b></div><div><span>Payables</span><b>'+money2(m.payable||0)+'</b></div><div><span>Cash</span><b>'+money2(m.cashBank?.total||0)+'</b></div><div><span>Inventory</span><b>'+money2(m.inventory?.value||0)+'</b></div></div>';
     }
@@ -192,6 +194,7 @@
     const m=metrics(state,ctx),today=todayIso();let csv='',name=kind;
     if(kind==='profit-loss'){window.DalasiProfitLoss?.exportCsv(state,ctx);return;
     }else if(kind==='balance-sheet'){window.DalasiBalanceSheet?.exportCsv(state,ctx);return;
+    }else if(kind==='equity-statement'){window.DalasiEquityStatement?.exportCsv(state,ctx);return;
     }else if(kind==='trial-balance'){window.DalasiGeneralLedger?.exportTrialBalance(state,ctx);return;
     }else if(kind==='general-ledger'){window.DalasiGeneralLedger?.exportLedger(state,ctx);return;
     }else if(kind==='business-summary'){
