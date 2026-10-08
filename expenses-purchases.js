@@ -8,6 +8,10 @@
   function todayIso(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
   function dateLabel(v){if(!v)return '—';try{return new Date(v+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return v}}
   function supplierById(state,id){return window.DalasiBusinessPayments?.beneficiaryById(state,id)||null;}
+  function normRef(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');}
+  function normParty(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function sameMoney(a,b){return Math.abs((Number(a)||0)-(Number(b)||0))<=.004;}
+
   function statusClass(s){return s==='Paid'||s==='Closed'||s==='Received'?'paid':s==='Approved'||s==='Ordered'?'approved':s==='Pending approval'?'neutral':'ready';}
   function nextNumber(prefix,rows,key){
     const year=new Date().getFullYear(),n=(rows||[]).filter(x=>String(x[key]||'').startsWith(prefix+'-'+year+'-')).length+1;
@@ -186,11 +190,13 @@
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add expenses.');return;}
     const fd=new FormData(ev.target),selectedSupplierId=String(fd.get('supplierId')||''),typedMerchant=String(fd.get('merchant')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedMerchant})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,merchant=s?.name||typedMerchant||'',amount=Number(fd.get('amount')||0),expenseDate=String(fd.get('expenseDate')||'');
     if(!merchant||amount<=0||!expenseDate){ctx.toast('Merchant, amount and expense date are required.');return;}
+    const expenseReference=String(fd.get('reference')||'').trim(),expenseReferenceKey=normRef(expenseReference);
+    if(expenseReferenceKey&&(state.businessExpenses||[]).some(x=>normRef(x.reference)===expenseReferenceKey&&sameMoney(x.amount,amount)&&((supplierId&&x.supplierId===supplierId)||normParty(x.merchant)===normParty(merchant)))){ctx.toast('A matching expense with this reference is already recorded.');return;}
     if(window.DalasiMonthClose?.isClosed(state,expenseDate)){ctx.toast('That accounting period is closed. Reopen it before recording this expense.');return;}
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
     state.businessExpenses=state.businessExpenses||[];
     const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo'),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
-    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:String(fd.get('reference')||'').trim(),description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:expenseReference,description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.expenseOpen=false;ctx.audit('expense.created',{expenseId:id,expenseNo,merchant,amount,category:String(fd.get('category')||'Other expense')});ctx.save();ctx.toast('Expense saved as draft');ctx.render();
   }
   function updateExpense(id,status,state,ctx){
@@ -307,7 +313,7 @@
     const invoiceNo=String(fd.get('invoiceNo')||'').trim(),invoiceDate=String(fd.get('invoiceDate')||''),dueDate=String(fd.get('dueDate')||'');if(!invoiceNo||!invoiceDate||!dueDate){ctx.toast('Invoice number, invoice date and due date are required.');return}
     if(window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed.');return}
     const s=supplierById(state,x.supplierId),supplierName=s?.name||x.supplierName||'Supplier';
-    if((state.businessBills||[]).some(b=>String(b.invoiceNo||'').toLowerCase()===invoiceNo.toLowerCase()&&String(b.supplier||'').toLowerCase()===supplierName.toLowerCase())){ctx.toast('That supplier invoice is already recorded.');return}
+    if((state.businessBills||[]).some(b=>normRef(b.invoiceNo)===normRef(invoiceNo)&&((x.supplierId&&b.beneficiaryId===x.supplierId)||normParty(b.supplier)===normParty(supplierName)))){ctx.toast('That supplier invoice is already recorded.');return}
     const taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,x.amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:x.amount,taxNet:x.amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false},id='BILL-'+Date.now().toString(36).toUpperCase();
     state.businessBills=state.businessBills||[];state.businessBills.unshift({id,purchaseOrderId:x.id,beneficiaryId:x.supplierId||null,supplier:supplierName,invoiceNo,subtotal:Number(x.subtotal)||((Number(x.amount)||0)+(Number(x.discountTotal)||0)),discountTotal:Number(x.discountTotal)||0,amount:Number(tax.taxGross)||Number(x.amount)||0,...tax,postingAccount:String(fd.get('postingAccount')||x.postingAccount||'Operating Expenses'),project:x.project||'',costCentre:x.costCentre||'',invoiceDate,dueDate,category:x.category||'Other expense',description:String(fd.get('description')||'').trim(),attachmentName:'',attachmentData:'',status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     x.linkedBillId=id;x.linkedInvoiceNo=invoiceNo;x.updatedAt=new Date().toISOString();state.purchaseBillId=null;ctx.audit('purchase.converted_to_bill',{purchaseId:x.id,poNumber:x.poNumber,billId:id,invoiceNo,amount:x.amount});ctx.save();ctx.toast('Supplier bill '+invoiceNo+' created from '+(x.poNumber||x.id));ctx.render();
