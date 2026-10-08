@@ -22,12 +22,18 @@ BEGIN
  END IF;
 END $checks$;
 SET ROLE admin_lookup_executor;
-SELECT CASE WHEN public.is_platform_admin_internal('22222222-2222-4222-8222-222222222222') THEN 'PASS' ELSE 'FAIL' END AS active_operator_check \gset
-\if :{?active_operator_check}
+SELECT CASE WHEN public.is_platform_admin_internal('22222222-2222-4222-8222-222222222222') THEN 'true' ELSE 'false' END AS active_operator_check \gset
+\if :active_operator_check
 \else
+\echo 'FAIL: appointed administrator not recognized'
 \quit 1
 \endif
-SELECT CASE WHEN NOT public.is_platform_admin_internal('11111111-1111-4111-8111-111111111111') THEN 'PASS' ELSE 'FAIL' END AS non_operator_check \gset
+SELECT CASE WHEN NOT public.is_platform_admin_internal('11111111-1111-4111-8111-111111111111') THEN 'true' ELSE 'false' END AS non_operator_check \gset
+\if :non_operator_check
+\else
+\echo 'FAIL: ordinary user recognized as platform administrator'
+\quit 1
+\endif
 RESET ROLE;
 DO $checks$
 BEGIN
