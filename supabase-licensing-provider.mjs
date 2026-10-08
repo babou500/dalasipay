@@ -1,3 +1,4 @@
+import { observedAppUsage } from './licensing-app-state-usage.mjs';
 import { buildObservedUsage } from './licensing-usage-observer.mjs';
 /* Trusted DalasiPay Supabase licensing data provider.
  * Server runtime only. Never bundle this module or service credentials into index.html.
@@ -5,7 +6,7 @@ import { buildObservedUsage } from './licensing-usage-observer.mjs';
  * the bearer token using Supabase Auth, not decode unverified JWT claims.
  * Read-only, observation-only, no enforcement.
  */
-export function createSupabaseLicensingProvider({adminClient,countWorkspaceRecords}={}){
+export function createSupabaseLicensingProvider({adminClient,countWorkspaceRecords,loadAppState}={}){
  if(!adminClient || typeof adminClient.from!=='function')throw new TypeError('Server-side Supabase client required');
  function identity(principal){
   return principal && typeof principal.userId==='string' && /^[a-f0-9-]{36}$/i.test(principal.userId) ? principal.userId : null;
@@ -31,6 +32,13 @@ export function createSupabaseLicensingProvider({adminClient,countWorkspaceRecor
     ]);
     usage=buildObservedUsage({memberCount,employeeCount});
    }catch{/* Count outage must not break subscription verification. */}
+  }
+  if(typeof loadAppState==='function'){
+   try{
+    const saved=await loadAppState(workspaceId);
+    const observed=observedAppUsage(saved);
+    if(observed.employees!==null)usage=Object.freeze({...usage,employees:observed.employees});
+   }catch{/* Unknown rather than treating SQL employee count as authoritative. */}
   }
   return {workspaceId:data.organization_id,planId:data.plan_id,professionalPreview:data.status==='professional_preview' && data.professional_preview===true,usage};
  }
