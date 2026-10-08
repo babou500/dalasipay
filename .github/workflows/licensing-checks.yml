@@ -53,6 +53,7 @@ jobs:
           node --check licensing-admin-contract.mjs
           node --check licensing-admin-authorization.mjs
           node --check licensing-admin-review-plan.mjs
+          node --check licensing-atomic-review-simulation.mjs
           node --check subscription-admin-preview.js
           node --check cloudflare-licensing-observer.mjs
           node --check licensing-http-adapter.mjs
@@ -75,6 +76,7 @@ jobs:
             licensing-admin-contract.test.mjs \
             licensing-admin-authorization.test.mjs \
             licensing-admin-review-plan.test.mjs \
+            licensing-atomic-review-simulation.test.mjs \
             subscription-admin-preview.test.js \
             licensing-http-adapter.test.mjs \
             licensing-startup-guard.test.js \
