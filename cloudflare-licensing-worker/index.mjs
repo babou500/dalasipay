@@ -58,8 +58,18 @@ export default {
    if(!Number.isSafeInteger(value))throw new Error('Usage count out of range');
    return value;
   };
+  const loadAppState=async(workspaceId)=>{
+   const endpoint=new URL(base+'/rest/v1/organization_app_state');
+   endpoint.searchParams.set('select','state');
+   endpoint.searchParams.set('organization_id','eq.'+workspaceId);
+   endpoint.searchParams.set('limit','1');
+   const result=await fetch(endpoint,{headers:{apikey:env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,accept:'application/json','cache-control':'no-store'}});
+   if(!result.ok)throw new Error('Saved workspace state unavailable');
+   const records=await result.json();
+   return Array.isArray(records)?records[0]||null:null;
+  };
   try {
-   const handle=createVerifiedLicensingEndpoint({authClient,adminClient,countWorkspaceRecords});
+   const handle=createVerifiedLicensingEndpoint({authClient,adminClient,countWorkspaceRecords,loadAppState});
    return withCors(await handle(request));
   } catch (_error) {
    return new Response(JSON.stringify({ok:false,reason:'service_unavailable'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
