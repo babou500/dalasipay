@@ -96,6 +96,7 @@ async function exportRows(title,headers,data,state,kind,fileBase){
 }
 function wrapContext(ctx,title,state,kind){
  const wrapped=Object.create(ctx||null);Object.assign(wrapped,ctx||{});
+ wrapped.toast=function(msg){if(/downloaded/i.test(String(msg||'')))return;ctx?.toast?.(msg)};
  wrapped.downloadText=function(filename,text){
   const rows=parseCsv(text);if(!rows.length){ctx?.toast?.('There is no report data to export.');return}
   const headers=rows.shift(),base=String(filename||'').replace(/\.csv$/i,'');
@@ -103,5 +104,12 @@ function wrapContext(ctx,title,state,kind){
  };
  return wrapped;
 }
-window.DalasiExcelReports={parseCsv,exportRows,wrapContext,companyName,reportPeriod,version:'1.0.0'};
+function installBusinessReports(){
+ const base=window.DalasiBusinessReports;if(!base||base.__excelWrapped){if(!base)setTimeout(installBusinessReports,0);return}
+ const original=base.exportReport;
+ base.exportReport=function(kind,state,ctx){const title=base.reportTitle?.(kind)||String(kind||'Report').replace(/-/g,' ');return original(kind,state,wrapContext(ctx,title,state,kind))}
+ base.__excelWrapped=true;
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installBusinessReports);else installBusinessReports();
+window.DalasiExcelReports={parseCsv,exportRows,wrapContext,companyName,reportPeriod,installBusinessReports,version:'1.1.0'};
 })();
