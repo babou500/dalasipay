@@ -607,3 +607,101 @@
   .supplier-bill-live-totals .total{grid-column:auto}
   .supplier-bill-create-footer .modal-actions{grid-template-columns:1fr}
 }
+
+
+/* DalasiPay v1.17 — supplier payment voucher workflow */
+.supplier-payment-form{
+  width:min(930px,calc(100vw - 32px));
+  max-width:930px;
+  overflow:hidden;
+}
+.supplier-payment-overview{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  padding:16px 18px 0;
+}
+.supplier-payment-overview>div{
+  padding:13px 14px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel-2);
+}
+.supplier-payment-overview span{
+  display:block;
+  color:var(--muted);
+  font-size:9.5px;
+}
+.supplier-payment-overview b{
+  display:block;
+  margin-top:4px;
+  font-size:16px;
+}
+.supplier-payment-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 290px;
+  gap:14px;
+  padding:14px 18px 18px;
+}
+.supplier-payment-beneficiary-wrap{padding:14px 14px 0}
+.supplier-payment-beneficiary{
+  margin-top:9px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 11px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--panel-2);
+}
+.supplier-payment-beneficiary>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.supplier-payment-beneficiary b{font-size:10px}
+.supplier-payment-beneficiary span{
+  color:var(--muted);
+  font-size:8.8px;
+}
+.supplier-payment-summary{
+  align-self:start;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  overflow:hidden;
+  box-shadow:var(--shadow-sm);
+}
+.supplier-payment-meta{
+  display:grid;
+  gap:6px;
+  padding:0 12px 12px;
+}
+.supplier-payment-meta span{
+  display:block;
+  padding:7px 8px;
+  border-radius:8px;
+  background:var(--panel-2);
+  color:var(--muted);
+  font-size:8.8px;
+  line-height:1.35;
+}
+@media(max-width:760px){
+  .supplier-payment-form{
+    width:100%;
+    max-width:none;
+    min-height:100vh;
+    max-height:100vh;
+    margin:0;
+    border-radius:0;
+  }
+  .supplier-payment-overview{
+    grid-template-columns:1fr;
+    padding:14px 18px 0;
+  }
+  .supplier-payment-grid{
+    grid-template-columns:1fr;
+    padding:14px 18px;
+  }
+}
