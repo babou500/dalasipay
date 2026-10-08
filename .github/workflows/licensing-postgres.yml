@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tests/licensing-postgres-atomic.sql'
+      - 'tests/licensing-postgres-concurrency.sh'
       - '.github/workflows/licensing-postgres.yml'
 permissions:
   contents: read
@@ -39,3 +40,5 @@ jobs:
         run: |
           test "$PGDATABASE" = licensing_test
           psql -v ON_ERROR_STOP=1 -f tests/licensing-postgres-atomic.sql
+      - name: Test concurrent approvals using independent connections
+        run: bash tests/licensing-postgres-concurrency.sh
