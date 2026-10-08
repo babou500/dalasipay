@@ -15,6 +15,7 @@ on:
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
       - 'platform-admin-session*'
+      - 'cloudflare-admin-worker/**'
   pull_request:
     paths:
       - 'licensing-*.js'
@@ -27,6 +28,7 @@ on:
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
       - 'platform-admin-session*'
+      - 'cloudflare-admin-worker/**'
 
 permissions:
   contents: read
@@ -63,6 +65,7 @@ jobs:
           node --check supabase-licensing-provider.mjs
           node --check verified-licensing-endpoint.mjs
           node --check platform-admin-session.mjs
+          node --check cloudflare-admin-worker/index.mjs
           node --check cloudflare-licensing-worker/index.mjs
       - name: Run licensing unit and security tests
         run: |
@@ -88,4 +91,5 @@ jobs:
             supabase-licensing-provider.test.mjs \
             verified-licensing-endpoint.test.mjs \
             platform-admin-session.test.mjs \
+            cloudflare-admin-worker/index.test.mjs \
             cloudflare-licensing-worker/index.test.mjs
