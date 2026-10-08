@@ -49,3 +49,14 @@ test('no bearer token never queries organization records',async()=>{
   assert.equal(m.calls.length,0);
  }finally{m.restore()}
 });
+
+test('Supabase outage returns 503 with no sensitive details',async()=>{
+ const old=globalThis.fetch;
+ globalThis.fetch=async()=>{throw new Error('internal credential or network detail');};
+ try{
+  const r=await worker.fetch(new Request(url,{headers:{authorization:'Bearer valid-token'}}),env);
+  assert.equal(r.status,503);
+  assert.match(r.headers.get('cache-control'),/no-store/);
+  assert.doesNotMatch(await r.text(),/credential|network detail|server-secret-test/);
+ }finally{globalThis.fetch=old;}
+});
