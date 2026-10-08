@@ -28,6 +28,11 @@ export default {
   const url=new URL(request.url);
   // No cross-origin browser access. Do not configure CORS for this endpoint.
   if(url.pathname!=='/internal/licensing/observe')return new Response('Not found',{status:404});
+  const origin=request.headers.get('origin');
+  const allowedOrigin='https://dalasipay.bebusinesssolutionsgm.com';
+  const cors=origin===allowedOrigin?{'access-control-allow-origin':allowedOrigin,'vary':'Origin','access-control-allow-methods':'GET, OPTIONS','access-control-allow-headers':'Authorization','access-control-max-age':'300'}:{};
+  if(request.method==='OPTIONS')return new Response(null,{status:origin===allowedOrigin?204:403,headers:{...cors,'cache-control':'no-store'}});
+  const withCors=(res)=>{const headers=new Headers(res.headers);for(const [k,v] of Object.entries(cors))headers.set(k,v);return new Response(res.body,{status:res.status,statusText:res.statusText,headers});};
   if(!env.DALASIPAY_SUPABASE_URL||!env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY||!env.DALASIPAY_SUPABASE_PUBLISHABLE_KEY){
    return new Response('Service unavailable',{status:503,headers:{'cache-control':'no-store'}});
   }
@@ -41,7 +46,7 @@ export default {
   const adminClient=supabaseClient(base,env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY);
   try {
    const handle=createVerifiedLicensingEndpoint({authClient,adminClient});
-   return await handle(request);
+   return withCors(await handle(request));
   } catch (_error) {
    return new Response(JSON.stringify({ok:false,reason:'service_unavailable'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
   }
