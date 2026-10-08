@@ -27,22 +27,32 @@
     if(!rate)return {gross,net:gross,vat:0};
     const vat=round(gross*rate/(100+rate));return {gross,net:round(gross-vat),vat};
   }
-  function snapshot(state,gross,taxCode,side='sale'){
-    const c=code(taxCode),cfg=settings(state),rate=c.code==='STD'?(Number(cfg.standardRate)||0):0,sp=splitGross(gross,rate);
-    const registered=!!cfg.vatRegistered,chargeVat=c.code==='STD'&&registered,zero=c.code==='ZERO',taxable=c.taxable;
+  function pricingMode(v){return String(v||'inclusive').toLowerCase()==='exclusive'?'exclusive':'inclusive';}
+  function pricingOptions(selected='inclusive'){
+    const mode=pricingMode(selected);
+    return '<select name="taxPricingMode"><option value="inclusive" '+(mode==='inclusive'?'selected':'')+'>VAT inclusive</option><option value="exclusive" '+(mode==='exclusive'?'selected':'')+'>VAT exclusive</option></select>';
+  }
+  function snapshot(state,amount,taxCode,side='sale',pricing='inclusive'){
+    const c=code(taxCode),cfg=settings(state),rate=c.code==='STD'?(Number(cfg.standardRate)||0):0,mode=pricingMode(pricing),registered=!!cfg.vatRegistered,chargeVat=c.code==='STD'&&registered,zero=c.code==='ZERO',taxable=c.taxable;
+    amount=round(amount);
+    let gross=amount,net=amount,vat=0;
+    if(chargeVat){
+      if(mode==='exclusive'){net=amount;vat=round(net*rate/100);gross=round(net+vat);}
+      else {const sp=splitGross(amount,rate);gross=sp.gross;net=sp.net;vat=sp.vat;}
+    }
     if(side==='purchase'){
       const recoverable=chargeVat;
-      return {taxCode:c.code,vatRate:chargeVat?rate:0,taxGross:round(gross),taxNet:recoverable?sp.net:round(gross),vatAmount:recoverable?sp.vat:0,vatRecoverable:recoverable,taxableTurnover:false};
+      return {taxCode:c.code,taxPricingMode:mode,vatRate:chargeVat?rate:0,taxGross:gross,taxNet:recoverable?net:gross,vatAmount:recoverable?vat:0,vatRecoverable:recoverable,taxableTurnover:false};
     }
-    if(c.code==='STD'&&registered)return {taxCode:c.code,vatRate:rate,taxGross:round(gross),taxNet:sp.net,vatAmount:sp.vat,vatRecoverable:false,taxableTurnover:true};
-    return {taxCode:c.code,vatRate:0,taxGross:round(gross),taxNet:round(gross),vatAmount:0,vatRecoverable:false,taxableTurnover:taxable||zero};
+    if(chargeVat)return {taxCode:c.code,taxPricingMode:mode,vatRate:rate,taxGross:gross,taxNet:net,vatAmount:vat,vatRecoverable:false,taxableTurnover:true};
+    return {taxCode:c.code,taxPricingMode:mode,vatRate:0,taxGross:gross,taxNet:gross,vatAmount:0,vatRecoverable:false,taxableTurnover:taxable||zero};
   }
   function meta(state,doc,side='sale'){
-    const gross=round(doc?.amount||doc?.taxGross||0),taxCode=doc?.taxCode||'OUT';
+    const gross=round(doc?.amount||doc?.taxGross||0),taxCode=doc?.taxCode||'OUT',mode=pricingMode(doc?.taxPricingMode||'inclusive');
     if(doc&&Number.isFinite(Number(doc.taxNet))&&Number.isFinite(Number(doc.vatAmount))){
-      return {taxCode,vatRate:Number(doc.vatRate)||0,taxGross:gross,taxNet:round(doc.taxNet),vatAmount:round(doc.vatAmount),vatRecoverable:!!doc.vatRecoverable,taxableTurnover:doc.taxableTurnover!==false&&code(taxCode).taxable};
+      return {taxCode,taxPricingMode:mode,vatRate:Number(doc.vatRate)||0,taxGross:gross,taxNet:round(doc.taxNet),vatAmount:round(doc.vatAmount),vatRecoverable:!!doc.vatRecoverable,taxableTurnover:doc.taxableTurnover!==false&&code(taxCode).taxable};
     }
-    return snapshot(state,gross,taxCode,side);
+    return snapshot(state,gross,taxCode,side,mode);
   }
   function salesOptions(state,selected=''){
     const cfg=settings(state),def=selected||defaultSalesCode(state);
@@ -198,5 +208,5 @@
       '<section class="surface tax-history"><div class="table-tools"><div><h3>VAT filing history</h3><p>Frozen snapshots created when a monthly return is marked filed</p></div></div><div class="table-scroll"><table><thead><tr><th>PERIOD</th><th>DUE DATE</th><th>OUTPUT VAT</th><th>INPUT VAT</th><th>NET VAT</th><th>STATUS</th><th>FILED BY</th></tr></thead><tbody>'+historyRows+'</tbody></table></div></section>';
   }
 
-  window.DalasiTax={DEFAULTS,CODES,settings,code,defaultSalesCode,defaultPurchaseCode,rateFor,splitGross,snapshot,meta,salesOptions,purchaseOptions,dueDate,periodList,returnRecord,returnSummary,yearTurnover,render,modalSettings,saveSettings,adjustmentModal,saveAdjustment,fileReturn,reopenReturn,paymentModal,savePayment,exportReturn};
+  window.DalasiTax={DEFAULTS,CODES,settings,code,defaultSalesCode,defaultPurchaseCode,rateFor,splitGross,pricingMode,pricingOptions,snapshot,meta,salesOptions,purchaseOptions,dueDate,periodList,returnRecord,returnSummary,yearTurnover,render,modalSettings,saveSettings,adjustmentModal,saveAdjustment,fileReturn,reopenReturn,paymentModal,savePayment,exportReturn};
 })();
