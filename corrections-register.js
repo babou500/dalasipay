@@ -82,7 +82,7 @@
       src.correctedById=id;src.correctedAt=now;ctx.audit('expense.corrected_copy_created',{sourceExpenseId:src.id,newExpenseId:id});state.page='expenses';state.expenseTab='expenses';
     }else if(x.type==='Manual journal'){
       const src=(state.manualJournals||[]).find(y=>y.id===x.sourceId);if(!src)return;
-      const id='JRN-'+Date.now().toString(36).toUpperCase(),copy={...src,id,journalNo:null,date:today,status:'Draft',reference:'CORR-'+(src.journalNo||src.id),memo:'Correction of '+(src.journalNo||src.id)+' · '+(src.memo||''),createdAt:now,createdBy:actor,updatedAt:now,correctedFromId:src.id,reversalJournalId:null,reversalJournalNo:null,reversedAt:null,reversedBy:null,reversalReason:null,reversalOf:null};
+      const year=new Date().getFullYear(),prefix='JRN-'+year+'-',nums=(state.manualJournals||[]).map(j=>String(j.journalNo||'')).filter(n=>n.startsWith(prefix)).map(n=>Number(n.slice(prefix.length))||0),journalNo=prefix+String(Math.max(0,...nums)+1).padStart(5,'0'),id='JRN-'+Date.now().toString(36).toUpperCase(),copy={...src,id,journalNo,date:today,status:'Draft',reference:'CORR-'+(src.journalNo||src.id),memo:'Correction of '+(src.journalNo||src.id)+' · '+(src.memo||''),createdAt:now,createdBy:actor,updatedAt:now,correctedFromId:src.id,reversalJournalId:null,reversalJournalNo:null,reversedAt:null,reversedBy:null,reversalReason:null,reversalOf:null};
       state.manualJournals.unshift(copy);src.correctedById=id;src.correctedAt=now;ctx.audit('accounting.journal_corrected_copy_created',{sourceJournalId:src.id,newJournalId:id});state.page='accounting';state.accountingTab='journals';
     }
     ctx.save();ctx.toast(x.type+' corrected copy created as draft');ctx.render();
