@@ -28,7 +28,9 @@
     valid.forEach(x=>out.push(line(id,date,reference,source,x.account,x.debit,x.credit,x.memo)));
   }
   function cashAccountName(state,id){
-    const a=window.DalasiCashBank?.accountById?.(state,id);return a?(a.name||'Cash & Bank'):'Undeposited Funds';
+    const a=window.DalasiCashBank?.accountById?.(state,id);if(!a)return 'Undeposited Funds';
+    const ledger=(window.DalasiAccounting?.cashLedgerAccounts?.(state)||[]).find(x=>x.cashAccountId===a.id);
+    return ledger?{code:ledger.code,name:ledger.name,type:'Asset'}:{code:String(a.ledgerCode||'1000'),name:a.name||'Cash & Bank',type:'Asset'};
   }
   function invoiceStatus(state,inv){return window.DalasiSalesInvoices?.status?.(state,inv)||(inv.status||'Draft');}
   function journals(state){
@@ -58,7 +60,7 @@
     (state.cashAccounts||[]).forEach(a=>{
       const amount=round(a.openingBalance||0);if(!amount)return;
       pushJournal(out,'OPEN-'+a.id,a.openingDate||a.createdAt||today,a.reference||a.name,'Cash account opening',[
-        {account:a.name||'Cash & Bank',debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
+        {account:cashAccountName(state,a.id),debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
         {account:'Opening Balance Equity',debit:amount<0?Math.abs(amount):0,credit:amount>0?amount:0,memo:'Opening balance contra'}
       ]);
     });
