@@ -80,7 +80,7 @@
   }
   function manualAdjustments(state,start,end){
     let revenue=0,cogs=0,payroll=0,operating=0;
-    (state.manualJournals||[]).filter(j=>j.status==='Posted'&&inRange(j.date,start,end)).forEach(j=>(j.lines||[]).forEach(x=>{
+    (state.manualJournals||[]).filter(j=>j.status==='Posted'&&!j.yearEndClosing&&inRange(j.date,start,end)).forEach(j=>(j.lines||[]).forEach(x=>{
       const debit=Number(x.debit)||0,credit=Number(x.credit)||0,type=x.accountType||'',name=x.account||'';
       if(type==='Revenue')revenue+=credit-debit;
       else if(type==='Expense'){
