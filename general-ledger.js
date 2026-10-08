@@ -6,12 +6,15 @@
     ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2070','Customer Refunds Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
     ['4000','Sales Revenue','Revenue'],['4010','Sales Discounts','Revenue'],['4100','Other Business Income','Revenue'],['4110','Discounts Received','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
-    ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
+    ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6010','Office Supplies','Expense'],['6020','Rent & Utilities','Expense'],['6030','Professional Fees','Expense'],['6040','Travel & Logistics','Expense'],['6050','Government & Statutory Fees','Expense'],['6060','Repairs & Maintenance','Expense'],['6070','Marketing & Promotion','Expense'],['6080','Other Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
   ];
   const ACCOUNT=Object.fromEntries(CHART.map(x=>[x[1],{code:x[0],name:x[1],type:x[2]}]));
   const round=n=>Math.round((Number(n)||0)*100)/100;
   const dateOnly=v=>String(v||'').slice(0,10);
-  function acc(name){return ACCOUNT[name]||{code:'9999',name,type:'Other'};}
+  function acc(name){if(name&&typeof name==='object'&&name.name)return {code:String(name.code||'9999'),name:String(name.name),type:String(name.type||'Other')};return ACCOUNT[name]||{code:'9999',name,type:'Other'};}
+  function postingAccount(state,name,fallback='Operating Expenses'){
+    return window.DalasiAccounting?.accountByName?.(state,name)||ACCOUNT[name]||ACCOUNT[fallback]||{code:'9999',name:name||fallback,type:'Expense'};
+  }
   function line(journalId,date,reference,source,account,debit=0,credit=0,memo=''){
     const a=acc(account);return {journalId,date:dateOnly(date),reference:String(reference||''),source:String(source||''),accountCode:a.code,account:a.name,accountType:a.type,debit:round(debit),credit:round(credit),memo:String(memo||'')};
   }
