@@ -12,7 +12,7 @@
   function normParty(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}
   function sameMoney(a,b){return Math.abs((Number(a)||0)-(Number(b)||0))<=.004;}
 
-  function statusClass(s){return s==='Paid'||s==='Closed'||s==='Received'?'paid':s==='Approved'||s==='Ordered'?'approved':s==='Pending approval'?'neutral':'ready';}
+  function statusClass(s){return s==='Paid'||s==='Closed'||s==='Received'?'paid':s==='Approved'||s==='Ordered'?'approved':s==='Pending approval'?'neutral':s==='Reversed'?'neutral':'ready';}
   function nextNumber(prefix,rows,key){
     const year=new Date().getFullYear(),n=(rows||[]).filter(x=>String(x[key]||'').startsWith(prefix+'-'+year+'-')).length+1;
     return prefix+'-'+year+'-'+String(n).padStart(5,'0');
@@ -43,7 +43,9 @@
     if(x.status==='Draft')return '<button class="secondary" data-action="expense-status:'+x.id+':Pending approval">Submit</button>';
     if(x.status==='Pending approval')return '<button class="secondary" data-action="expense-status:'+x.id+':Approved">Approve</button>';
     if(x.status==='Approved')return '<button class="primary" data-action="expense-status:'+x.id+':Paid">Mark paid</button>';
-    return '<span class="payment-complete">Paid</span>';
+    if(x.status==='Paid')return '<button class="secondary" data-action="expense-reverse:'+x.id+'">Reverse</button>';
+    if(x.status==='Reversed')return '<span class="payment-complete">Reversed</span>';
+    return '<span class="payment-complete">'+(x.status||'Closed')+'</span>';
   }
   function actionMenu(primary,items,label='More'){
     return '<div class="row-action-shell">'+(primary||'')+(items&&items.length?'<details class="row-actions-menu"><summary>'+label+'</summary><div class="row-actions-popover">'+items.join('')+'</div></details>':'')+'</div>';
@@ -66,7 +68,7 @@
     const table=rows.length?rows.map(x=>{
       const s=supplierById(state,x.supplierId);
       return '<tr>'+
-        '<td><div class="payment-payee"><b>'+esc(x.merchant||s?.name||'Expense')+'</b><small>'+esc(x.expenseNo||x.id)+'</small></div></td>'+
+        '<td><div class="payment-payee"><b>'+esc(x.merchant||s?.name||'Expense')+'</b><small>'+esc(x.expenseNo||x.id)+(x.reversalReason?' · Reversal: '+esc(x.reversalReason):'')+'</small></div></td>'+
         '<td>'+esc(x.category||'Other expense')+'</td>'+
         '<td>'+dateLabel(x.expenseDate)+'</td>'+
         '<td class="payment-amount">'+money2(x.amount)+'</td>'+
@@ -211,6 +213,15 @@
     if(status==='Paid'){x.paidAt=x.paidAt||x.updatedAt;x.paidBy=x.paidBy||x.updatedBy;if(x.accountId)window.DalasiCashBank?.post(state,{accountId:x.accountId,date:(x.paidAt||x.expenseDate||new Date().toISOString()).slice(0,10),direction:'out',amount:x.amount,type:'Business expense',counterparty:x.merchant,reference:x.reference||x.expenseNo||'',description:x.description||x.category,sourceType:'expense',sourceId:x.id,sourceKey:'expense:'+x.id+':out',createdBy:state.session?.name||'User'});}
     ctx.audit('expense.status_updated',{expenseId:id,status,amount:x.amount,merchant:x.merchant});ctx.save();ctx.toast((x.expenseNo||x.id)+': '+status);ctx.render();
   }
+  function reverseExpense(id,state,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse expenses.');return;}
+    const x=expenseById(state,id);if(!x)return;if(x.status!=='Paid'||x.reversedAt){ctx.toast('Only an unreversed paid expense can be reversed.');return;}
+    const reversalDate=new Date().toISOString().slice(0,10);if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
+    const reason=String(window.prompt('Reason for reversing '+(x.expenseNo||x.id)+'? The original expense will remain in the audit trail.')||'').trim();if(!reason)return;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return;}
+    const now=new Date().toISOString(),actor=state.session?.name||'User',cashReversal=window.DalasiCashBank?.reverseSource?.(state,'expense:'+x.id+':out',actor)||null;
+    x.status='Reversed';x.reversedAt=now;x.reversedBy=actor;x.reversalReason=reason;x.reversalCashTransactionId=cashReversal?.id||null;x.updatedAt=now;x.updatedBy=actor;
+    ctx.audit('expense.reversed',{expenseId:x.id,expenseNo:x.expenseNo||null,amount:x.amount,merchant:x.merchant,reason,reversalCashTransactionId:x.reversalCashTransactionId});ctx.save();ctx.toast((x.expenseNo||x.id)+' reversed');ctx.render();
+  }
   function createPurchase(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create purchase orders.');return;}
@@ -321,5 +332,5 @@
   function expenseRows(state){return state.businessExpenses||[]}
   function purchaseRows(state){return state.purchaseOrders||[]}
 
-  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
+  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,reverseExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
 })();
