@@ -1119,25 +1119,32 @@
     return reason;
   }
   function reversePayment(id,state,ctx){
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse payments.');return;}
-    const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
-    if(p.status!=='Paid'||p.reversedAt){ctx.toast('Only an unreversed paid payment can be reversed.');return;}
-    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
-    const reason=reversalReason(p.receiptNumber||p.voucherNumber||p.id);if(!reason)return;
-    const now=new Date().toISOString(),actor=state.session?.name||'User';
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse payments.');return false;}
+    const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return false;
+    if(p.status!=='Paid'||p.reversedAt){ctx.toast('Only an unreversed paid payment can be reversed.');return false;}
+    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return false;}
+    if(!ctx.approvedRequest){
+      const reason=reversalReason(p.receiptNumber||p.voucherNumber||p.id);if(!reason)return false;
+      return !!window.DalasiReversalApprovals?.request?.(state,{sourceType:'business-payment',sourceId:p.id,sourceRef:p.receiptNumber||p.voucherNumber||p.id,transactionType:'Business payment',amount:p.amount,reason},ctx);
+    }
+    const reason=String(ctx.approvedRequest.reason||''),now=new Date().toISOString(),actor=ctx.approvedRequest.approvedBy||state.session?.name||'User';
     const cashReversal=window.DalasiCashBank?.reverseSource?.(state,'business-payment:'+p.id+':out',actor)||null;
-    p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalCashTransactionId=cashReversal?.id||null;p.updatedAt=now;p.updatedBy=actor;
+    p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalRequestId=ctx.approvedRequest.id;p.reversalCashTransactionId=cashReversal?.id||null;p.updatedAt=now;p.updatedBy=actor;
     if(p.billId){const bill=billById(state,p.billId);if(bill){const paid=(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0),credited=(state.supplierCreditNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),debited=(state.supplierDebitNotes||[]).filter(x=>x.billId===bill.id&&x.status!=='Void').reduce((a,x)=>a+(Number(x.amount)||0),0),remaining=Math.max(0,(Number(bill.amount)||0)+debited-credited-paid);bill.status=remaining<=.004?'Paid':(paid>0?'Part paid':'Approved');if(bill.status!=='Paid')delete bill.paidAt;bill.updatedAt=now;bill.updatedBy=actor;}}
-    ctx.audit('payment.reversed',{paymentId:p.id,receiptNumber:p.receiptNumber||null,voucherNumber:p.voucherNumber||null,amount:p.amount,payee:p.payee,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();ctx.toast((p.receiptNumber||p.voucherNumber||p.id)+' reversed');ctx.render();
+    ctx.audit('payment.reversed',{paymentId:p.id,requestId:p.reversalRequestId,receiptNumber:p.receiptNumber||null,voucherNumber:p.voucherNumber||null,amount:p.amount,payee:p.payee,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();return true;
   }
   function reverseIncomingPayment(id,state,ctx){
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse customer receipts.');return;}
-    const p=incomingPaymentById(state,id);if(!p)return;if(p.reversedAt||p.status==='Reversed'){ctx.toast('This customer receipt is already reversed.');return;}
-    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
-    const reason=reversalReason(p.receiptNumber||p.id);if(!reason)return;const now=new Date().toISOString(),actor=state.session?.name||'User';
-    const cashReversal=window.DalasiCashBank?.reverseSource?.(state,'customer-collection:'+p.id+':in',actor)||null;p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalCashTransactionId=cashReversal?.id||null;
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse customer receipts.');return false;}
+    const p=incomingPaymentById(state,id);if(!p)return false;if(p.reversedAt||p.status==='Reversed'){ctx.toast('This customer receipt is already reversed.');return false;}
+    const reversalDate=todayIso();if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return false;}
+    if(!ctx.approvedRequest){
+      const reason=reversalReason(p.receiptNumber||p.id);if(!reason)return false;
+      return !!window.DalasiReversalApprovals?.request?.(state,{sourceType:'customer-collection',sourceId:p.id,sourceRef:p.receiptNumber||p.id,transactionType:'Customer receipt',amount:p.amount,reason},ctx);
+    }
+    const reason=String(ctx.approvedRequest.reason||''),now=new Date().toISOString(),actor=ctx.approvedRequest.approvedBy||state.session?.name||'User';
+    const cashReversal=window.DalasiCashBank?.reverseSource?.(state,'customer-collection:'+p.id+':in',actor)||null;p.status='Reversed';p.reversedAt=now;p.reversedBy=actor;p.reversalReason=reason;p.reversalRequestId=ctx.approvedRequest.id;p.reversalCashTransactionId=cashReversal?.id||null;
     const inv=receivableById(state,p.invoiceId);if(inv){const balance=receivableBalance(state,inv),paid=receivablePaid(state,inv);inv.status=balance<=.004?'Paid':(paid>0?'Part paid':'Sent');if(inv.status!=='Paid')delete inv.paidAt;inv.updatedAt=now;inv.updatedBy=actor;}
-    ctx.audit('receivable.payment_reversed',{invoiceId:p.invoiceId,incomingPaymentId:p.id,receiptNumber:p.receiptNumber||null,amount:p.amount,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();ctx.toast((p.receiptNumber||p.id)+' reversed');ctx.render();
+    ctx.audit('receivable.payment_reversed',{invoiceId:p.invoiceId,requestId:p.reversalRequestId,incomingPaymentId:p.id,receiptNumber:p.receiptNumber||null,amount:p.amount,reason,reversalCashTransactionId:p.reversalCashTransactionId});ctx.save();return true;
   }
   function updateBeneficiary(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update beneficiaries.');return;}
