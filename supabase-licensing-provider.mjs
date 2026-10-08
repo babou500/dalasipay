@@ -1,4 +1,4 @@
-import { observedAppUsage } from './licensing-app-state-usage.mjs';
+import { observedAppUsage, observeMonthlyWorkspaceDocuments } from './licensing-app-state-usage.mjs';
 import { buildObservedUsage } from './licensing-usage-observer.mjs';
 /* Trusted DalasiPay Supabase licensing data provider.
  * Server runtime only. Never bundle this module or service credentials into index.html.
@@ -33,14 +33,16 @@ export function createSupabaseLicensingProvider({adminClient,countWorkspaceRecor
     usage=buildObservedUsage({memberCount,employeeCount});
    }catch{/* Count outage must not break subscription verification. */}
   }
+  let monthlyDiagnostics=null;
   if(typeof loadAppState==='function'){
    try{
     const saved=await loadAppState(workspaceId);
     const observed=observedAppUsage(saved);
     usage=Object.freeze({...usage,employees:observed.employees});
+    monthlyDiagnostics=observeMonthlyWorkspaceDocuments(saved,new Date().toISOString().slice(0,7));
    }catch{usage=Object.freeze({...usage,employees:null});}
   }
-  return {workspaceId:data.organization_id,planId:data.plan_id,professionalPreview:data.status==='professional_preview' && data.professional_preview===true,usage};
+  return {workspaceId:data.organization_id,planId:data.plan_id,professionalPreview:data.status==='professional_preview' && data.professional_preview===true,usage,monthlyDiagnostics};
  }
  return Object.freeze({authorizeWorkspace,loadWorkspaceSnapshot});
 }
