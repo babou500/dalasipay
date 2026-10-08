@@ -298,14 +298,14 @@
   function customerAccount(state,id){
     const customer=customerById(state,id),invoices=customerInvoicesFor(state,id),today=todayIso();
     let invoiced=0,collected=0,outstanding=0,overdue=0;
-    invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=receivableBalance(state,inv);invoiced+=Number(inv.amount)||0;collected+=paid;outstanding+=bal;if(bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
+    invoices.forEach(inv=>{const paid=receivablePaid(state,inv.id),bal=receivableBalance(state,inv),posted=receivableStatus(state,inv)!=='Draft';if(posted)invoiced+=Number(inv.amount)||0;collected+=paid;if(posted)outstanding+=bal;if(posted&&bal>0&&inv.dueDate&&inv.dueDate<today)overdue+=bal;});
     return {customer,invoices,invoiced,collected,outstanding,overdue};
   }
   function supplierAccount(state,id){
-    const supplier=beneficiaryById(state,id),bills=supplierBillsFor(state,id),payments=beneficiaryPayments(state,id),today=todayIso();
-    const totalBilled=bills.reduce((a,x)=>a+(Number(x.amount)||0),0);
-    const outstanding=bills.filter(x=>(x.status||'Draft')!=='Draft').reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
-    const overdue=bills.filter(x=>(x.status||'Draft')!=='Draft'&&(window.DalasiReturns?.billBalance?.(state,x)??0)>.004&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
+    const supplier=beneficiaryById(state,id),bills=supplierBillsFor(state,id),payments=beneficiaryPayments(state,id),today=todayIso(),posted=bills.filter(x=>['Approved','Part paid','Paid'].includes(x.status||'Draft'));
+    const totalBilled=posted.reduce((a,x)=>a+(Number(x.amount)||0),0);
+    const outstanding=posted.reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
+    const overdue=posted.filter(x=>(window.DalasiReturns?.billBalance?.(state,x)??0)>.004&&x.dueDate&&x.dueDate<today).reduce((a,x)=>a+(window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0)),0);
     const paid=payments.filter(x=>x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0);
     return {supplier,bills,payments,totalBilled,outstanding,overdue,paid};
   }
