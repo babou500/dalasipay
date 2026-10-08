@@ -6,10 +6,20 @@
   const todayIso=()=>new Date().toISOString().slice(0,10);
   const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
+  function cashLedgerCode(state,a,index=0){
+    const saved=String(a.ledgerCode||'').trim();if(/^1000-\d{2,4}$/.test(saved))return saved;
+    const used=new Set((state.cashAccounts||[]).map(x=>String(x.ledgerCode||'')).filter(Boolean)),base=101;
+    let n=base+index;while(used.has('1000-'+n))n++;return '1000-'+n;
+  }
+  function cashLedgerAccounts(state){
+    return (state.cashAccounts||[]).map((a,i)=>({id:'CASHLEDGER-'+a.id,code:cashLedgerCode(state,a,i),name:a.name,type:'Asset',system:true,operational:true,cashAccountId:a.id,status:a.status||'Active',parentCode:'1000',parentName:'Cash & Bank'}));
+  }
   function allAccounts(state,includeInactive=false){
     const system=(window.DalasiGeneralLedger?.CHART||[]).map(x=>({id:'SYS-'+String(x[0]),code:String(x[0]),name:x[1],type:x[2],system:true,status:'Active',parentCode:null,parentName:null}));
+    const cash=cashLedgerAccounts(state);
     const custom=(state.customAccounts||[]).map(x=>({...x,system:false,parentCode:x.parentCode||null,parentName:x.parentName||null}));
-    return [...system,...custom].filter(x=>includeInactive||(x.status||'Active')==='Active').sort((a,b)=>String(a.code).localeCompare(String(b.code)));
+    const seen=new Set(),rows=[...system,...cash,...custom].filter(a=>{const k=String(a.name||'').trim().toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
+    return rows.filter(x=>includeInactive||(x.status||'Active')==='Active').sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   }
   function parentAccount(state,code){return allAccounts(state,true).find(x=>String(x.code)===String(code||''))||null;}
   function accountDepth(state,a){
@@ -187,5 +197,5 @@
       '<div class="surface employee-card"><div class="table-tools"><div><h3>Manual journal register</h3><p>Adjustments, accruals, depreciation, suspense clearing and accounting corrections</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="journal-register" placeholder="Search journals"></label></div></div><div class="table-scroll"><table data-register-table="journal-register"><thead><tr><th>JOURNAL</th><th>DATE</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
 
-  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,journalDetailModal,accountModal,render};
+  window.DalasiAccounting={TYPES,cashLedgerAccounts,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,journalDetailModal,accountModal,render};
 })();
