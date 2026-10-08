@@ -49,3 +49,13 @@ test('caller cannot spoof identity or invoke writes',async()=>{
   assert.equal(calls,0);
  }finally{globalThis.fetch=old;}
 });
+
+test('missing private membership binding fails closed before authentication',async()=>{
+ const old=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('should not run')};
+ try{
+  const {ADMIN_MEMBERSHIP_SERVICE,...withoutBinding}=env;
+  const result=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer sample-token'}}),withoutBinding);
+  assert.equal(result.status,503);assert.equal(calls,0);
+ }finally{globalThis.fetch=old;}
+});
