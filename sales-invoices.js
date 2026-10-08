@@ -244,27 +244,27 @@
   }
   function collectionsPanel(state,h){
     const esc=h.esc,money2=h.money2,icon=h.icon,m=metrics(state),rows=(state.incomingPayments||[]).slice().sort((a,b)=>String(b.receivedDate||b.createdAt||'').localeCompare(String(a.receivedDate||a.createdAt||'')));
+    const accountName=id=>window.DalasiCashBank?.accountById?.(state,id)?.name||'Unassigned account';
     const table=rows.length?rows.map(p=>{
-      const inv=invoiceById(state,p.invoiceId);
+      const inv=invoiceById(state,p.invoiceId),invoiceStatus=inv?status(state,inv):'—',remaining=inv?balance(state,inv):0;
       return '<tr>'+
-        '<td><div class="payment-payee"><b>'+esc(inv?.customerName||p.customerName||'Customer')+'</b><small>'+esc(p.receiptNumber||p.id)+'</small></div></td>'+
-        '<td>'+esc(inv?.invoiceNo||'—')+'</td>'+
-        '<td>'+dateLabel(p.receivedDate)+'</td>'+
-        '<td class="payment-amount">'+money2(p.amount)+'</td>'+
-        '<td>'+esc(p.method||'Other')+'</td>'+
-        '<td>'+esc(p.reference||'—')+'</td>'+
-        '<td><div class="payment-status-actions"><button class="secondary" data-action="receivable-doc:receipt:'+p.id+'">'+icon('download',13)+' Receipt PDF</button>'+(inv&&status(state,inv)==='Paid'?'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>':'')+'</div></td>'+
+        '<td><div class="payment-payee collection-receipt-id"><b>'+esc(inv?.customerName||p.customerName||'Customer')+'</b><small>'+esc(p.receiptNumber||p.id)+'</small></div></td>'+
+        '<td><div class="collection-invoice-link">'+(inv?'<button data-action="invoice-view:'+inv.id+'">'+esc(inv.invoiceNo||inv.id)+'</button>':'<span>—</span>')+'<small>'+esc(invoiceStatus)+(inv?' · '+money2(remaining)+' remaining':'')+'</small></div></td>'+
+        '<td><div class="collection-date"><b>'+dateLabel(p.receivedDate)+'</b><small>'+esc(p.method||'Other')+'</small></div></td>'+
+        '<td class="payment-amount"><div class="collection-amount"><b>'+money2(p.amount)+'</b><small>'+esc(accountName(p.accountId))+'</small></div></td>'+
+        '<td><div class="collection-reference"><b>'+esc(p.reference||'No external reference')+'</b><small>'+esc(p.note||'Customer collection')+'</small></div></td>'+
+        '<td><div class="payment-status-actions collection-actions"><button class="secondary" data-action="receivable-doc:receipt:'+p.id+'">'+icon('download',13)+' Receipt PDF</button>'+(inv?'<button class="secondary" data-action="invoice-view:'+inv.id+'">View invoice</button>':'')+(inv&&status(state,inv)==='Paid'?'<button class="secondary" data-action="sales-doc:delivery:'+inv.id+'">'+icon('file',13)+' Delivery note</button>':'')+'</div></td>'+
       '</tr>';
-    }).join(''):'<tr><td colspan="7"><div class="empty-inline">No customer collections recorded yet.</div></td></tr>';
+    }).join(''):'<tr><td colspan="6"><div class="empty-inline">No customer collections recorded yet.</div></td></tr>';
     return '<div class="sales-summary">'+
       '<div class="surface"><span>Collections recorded</span><b>'+money2(m.collected)+'</b><small>'+m.payments+' payment record'+(m.payments===1?'':'s')+'</small></div>'+
       '<div class="surface"><span>Invoices raised</span><b>'+money2(m.invoiced)+'</b><small>'+m.count+' invoices</small></div>'+
       '<div class="surface"><span>Still outstanding</span><b>'+money2(m.outstanding)+'</b><small>customer balances due</small></div>'+
       '<div class="surface"><span>Collection rate</span><b>'+m.collectionRate+'%</b><small>collected vs invoiced value</small></div>'+
     '</div>'+
-    '<div class="payment-notice"><span>'+icon('bank',17)+'</span><div><b>Receipts tied directly to invoices</b><p>Each recorded customer payment creates a receipt number. Fully paid invoices can also produce a delivery note from the same record.</p></div></div>'+
-    '<div class="surface employee-card"><div class="table-tools"><div><h3>Collections & receipts</h3><p>Incoming customer payments and their supporting documents</p></div><button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export CSV</button></div>'+
-      '<div class="table-scroll"><table><thead><tr><th>CUSTOMER / RECEIPT</th><th>INVOICE</th><th>DATE</th><th>AMOUNT</th><th>METHOD</th><th>REFERENCE</th><th>DOCUMENT</th></tr></thead><tbody>'+table+'</tbody></table></div></div>';
+    '<div class="payment-notice"><span>'+icon('bank',17)+'</span><div><b>Receipts tied directly to invoices and deposit accounts</b><p>Each customer payment creates a receipt, reduces the linked receivable and posts into the selected Cash, Bank or Mobile Money account.</p></div></div>'+
+    '<div class="surface employee-card collections-register-card"><div class="table-tools"><div><h3>Collections & receipts</h3><p>Trace customer payments from receipt to invoice and receiving account</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="collections-register" placeholder="Search customer, receipt, invoice or reference"></label><button class="secondary" data-action="sales-export:collections">'+icon('download',14)+' Export CSV</button></div></div>'+
+      '<div class="table-scroll"><table data-register-table="collections-register"><thead><tr><th>CUSTOMER / RECEIPT</th><th>INVOICE / BALANCE</th><th>DATE / METHOD</th><th>AMOUNT / DEPOSIT TO</th><th>REFERENCE / NOTE</th><th>DOCUMENTS</th></tr></thead><tbody>'+table+'</tbody></table></div><div class="table-footer"><span>Showing <strong>'+rows.length+'</strong> receipt'+(rows.length===1?'':'s')+'</span><span>'+money2(m.collected)+' collected · '+money2(m.outstanding)+' still outstanding</span></div></div>';
   }
   function salesPipeline(state,h){
     const {money2,icon,esc}=h;
