@@ -31,7 +31,8 @@ export default {
   if(!env.DALASIPAY_SUPABASE_URL||!env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY||!env.DALASIPAY_SUPABASE_PUBLISHABLE_KEY){
    return new Response('Service unavailable',{status:503,headers:{'cache-control':'no-store'}});
   }
-  const base=String(env.DALASIPAY_SUPABASE_URL).replace(/\\/$/,'');
+  const rawBase=String(env.DALASIPAY_SUPABASE_URL);
+  const base=rawBase.endsWith('/')?rawBase.slice(0,-1):rawBase;
   const authClient={auth:{async getUser(token){
     const res=await fetch(base+'/auth/v1/user',{headers:{apikey:env.DALASIPAY_SUPABASE_PUBLISHABLE_KEY,authorization:'Bearer '+token,'cache-control':'no-store'}});
     if(!res.ok)return {data:null,error:{status:res.status}};
