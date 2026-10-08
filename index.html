@@ -3355,7 +3355,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const epl=document.getElementById('employee-portal-leave-form');if(epl)epl.addEventListener('submit',submitPortalLeave);
     const bpf=document.getElementById('business-payment-form');if(bpf)bpf.addEventListener('submit',saveBusinessPayment);
     const bnf=document.getElementById('beneficiary-form');if(bnf)bnf.addEventListener('submit',savePaymentBeneficiary);
-    const blf2=document.getElementById('business-bill-form');if(blf2)blf2.addEventListener('submit',saveBusinessBill);
+    const blf2=document.getElementById('business-bill-form');if(blf2)blf2.addEventListener('submit',saveBusinessBill);if(blf2)window.DalasiBusinessPayments?.bindBillPreview?.(blf2,state);
     const rpf=document.getElementById('recurring-payment-form');if(rpf)rpf.addEventListener('submit',saveRecurringBusinessPayment);
     const arvf=document.getElementById('receivable-form');if(arvf)arvf.addEventListener('submit',saveCustomerInvoice);
     const rcif=document.getElementById('recurring-invoice-form');if(rcif)rcif.addEventListener('submit',e=>window.DalasiRecurringInvoices.create(e,state,{can,audit,save,toast,render}));
