@@ -5,4 +5,8 @@ main = "index.mjs"
 compatibility_date = "2026-10-08"
 workers_dev = true
 # Intentionally no routes, custom domains, environment secrets, or production triggers.
-# Configure the three bindings documented in README.md using Cloudflare secrets.
+# Non-secret values are tracked here. Keep the service-role key ONLY in Cloudflare Secrets.
+[vars]
+DALASIPAY_SUPABASE_URL = "https://zdpmlzmljozcmqndyfog.supabase.co"
+DALASIPAY_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_h2LiLL6oMPS_4KpTVNDNiA_TWA0jDdH"
+# DALASIPAY_SUPABASE_SERVICE_ROLE_KEY is intentionally absent.
