@@ -1,0 +1,41 @@
+name: Disposable PostgreSQL licensing tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/licensing-postgres-atomic.sql'
+      - '.github/workflows/licensing-postgres.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-atomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: licensing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: test_only_password
+      PGDATABASE: licensing_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Verify isolated database and run atomic rollback tests
+        run: |
+          test "$PGDATABASE" = licensing_test
+          psql -v ON_ERROR_STOP=1 -f tests/licensing-postgres-atomic.sql
