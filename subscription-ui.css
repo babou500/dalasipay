@@ -19,3 +19,7 @@
 #settings-subscription-section .subscription-comparison table th,#settings-subscription-section .subscription-comparison table td{padding:12px 11px;border-bottom:1px solid var(--border,#dfe8e4);font-size:12px}
 #settings-subscription-section .subscription-comparison table thead th{font-weight:800;background:var(--panel-2,#f5f9f7)}
 @media(max-width:600px){#settings-subscription-section .subscription-hero{padding:16px}#settings-subscription-section .subscription-allowances{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Settings actions belong after the content, not over the plan cards. */
+.settings-content > .save-bar{position:static!important;inset:auto!important;transform:none!important;z-index:auto!important;background:transparent;box-shadow:none;min-height:0;padding:16px 0 28px;align-self:stretch}
+#settings-subscription-section{scroll-margin-top:95px}
