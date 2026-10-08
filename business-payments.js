@@ -521,6 +521,41 @@
     '</div></div>';
   }
 
+  function billDetailModal(state,h){
+    const esc=h.esc,money2=h.money2,icon=h.icon,pill=h.pill,b=billById(state,state.billDetailId);if(!b)return '';
+    const balance=window.DalasiReturns?.billBalance?.(state,b)??(Number(b.amount)||0),tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:Number(b.amount)||0,vatAmount:0,vatRate:0,taxCode:b.taxCode||'OUT',taxPricingMode:b.taxPricingMode||'inclusive'};
+    const payments=(state.businessPayments||[]).filter(x=>x.billId===b.id).slice().sort((a,z)=>String(z.paidAt||z.updatedAt||z.createdAt||'').localeCompare(String(a.paidAt||a.updatedAt||a.createdAt||'')));
+    const credits=(state.supplierCreditNotes||[]).filter(x=>x.billId===b.id&&x.status!=='Void'),debits=(state.supplierDebitNotes||[]).filter(x=>x.billId===b.id&&x.status!=='Void');
+    const timeline=billLifecycle(state,b);
+    const eventRows=timeline.length?timeline.map(e=>'<div><i></i><span><b>'+esc(e.label)+(e.detail!=null?' · '+money2(e.detail):'')+'</b><small>'+esc(e.at?String(e.at).slice(0,16).replace('T',' '):'')+(e.by?' · '+esc(e.by):'')+'</small></span>'+(e.sourceType&&e.sourceId?'<button class="secondary tiny" data-action="source-open:'+esc(e.sourceType)+':'+esc(e.sourceId)+'">View</button>':'')+'</div>').join(''):'<div class="empty-inline">No activity recorded yet.</div>';
+    const paymentRows=payments.length?payments.map(p=>'<div class="invoice-payment-row"><div><strong>'+esc(p.receiptNumber||p.voucherNumber||p.id)+'</strong><small>'+esc(String(p.paidAt||p.updatedAt||p.createdAt||'').slice(0,10))+' · '+esc(p.method||'Payment')+' · '+esc(p.status||'Draft')+'</small></div><b>'+money2(p.amount)+'</b></div>').join(''):'<div class="empty-inline">No payments linked to this bill.</div>';
+    const adjustmentRows=[...credits.map(x=>({type:'Credit',ref:x.creditNo||x.id,amount:-Math.abs(Number(x.amount)||0),date:x.date||x.createdAt})),...debits.map(x=>({type:'Debit',ref:x.debitNo||x.id,amount:Number(x.amount)||0,date:x.date||x.createdAt}))].sort((a,z)=>String(z.date||'').localeCompare(String(a.date||'')));
+    const adjustments=adjustmentRows.length?adjustmentRows.map(x=>'<div class="invoice-payment-row"><div><strong>'+esc(x.type+' · '+x.ref)+'</strong><small>'+esc(String(x.date||'').slice(0,10))+'</small></div><b>'+money2(x.amount)+'</b></div>').join(''):'<div class="empty-inline">No supplier credits or debits linked to this bill.</div>';
+    const status=b.status||'Draft',taxLabel=(window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'Out of scope')+' · '+(tax.taxPricingMode==='exclusive'?'VAT exclusive':'VAT inclusive');
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-bill-detail"></div><aside class="record-drawer">'+
+      '<div class="record-drawer-head"><div><div class="eyebrow">SUPPLIER BILL</div><h2>'+esc(b.invoiceNo||b.id)+'</h2><p>'+esc(b.supplier||'Supplier')+'</p></div><button class="close" data-action="close-bill-detail">×</button></div>'+
+      '<div class="record-hero"><div><span>Outstanding</span><b>'+money2(balance)+'</b><small>'+money2(b.amount)+' original bill</small></div>'+pill(status,billStatusClass(status))+'</div>'+
+      '<div class="record-facts">'+
+        '<div><span>Invoice date</span><b>'+dueDate(b.invoiceDate)+'</b></div><div><span>Due date</span><b>'+dueDate(b.dueDate)+'</b></div>'+
+        '<div><span>Gross before discount</span><b>'+money2(b.subtotal??((Number(b.amount)||0)+(Number(b.discountTotal)||0)))+'</b></div><div><span>Discount received</span><b>'+money2(b.discountTotal||0)+'</b></div>'+
+        '<div><span>Net before VAT / tax base</span><b>'+money2(tax.taxNet||0)+'</b></div><div><span>VAT</span><b>'+money2(tax.vatAmount||0)+'</b></div>'+
+        '<div><span>VAT treatment</span><b>'+esc(taxLabel)+'</b></div><div><span>Posting account</span><b>'+esc(b.postingAccount||'Operating Expenses')+'</b></div>'+
+        '<div><span>Category</span><b>'+esc(b.category||'Other expense')+'</b></div><div><span>Project</span><b>'+esc(b.project||'Unassigned')+'</b></div>'+
+        '<div><span>Cost centre</span><b>'+esc(b.costCentre||'Unassigned')+'</b></div><div><span>Purchase order</span><b>'+esc(b.purchaseOrderId||'Direct bill')+'</b></div>'+
+      '</div>'+
+      (b.description?'<section class="record-section"><div class="record-section-head"><b>Description</b></div><p>'+esc(b.description)+'</p></section>':'')+
+      '<section class="record-section"><div class="record-section-head"><b>Payments</b><span>'+payments.length+' record'+(payments.length===1?'':'s')+'</span></div><div class="invoice-payment-list">'+paymentRows+'</div></section>'+
+      '<section class="record-section"><div class="record-section-head"><b>Credits & debits</b><span>'+adjustmentRows.length+' adjustment'+(adjustmentRows.length===1?'':'s')+'</span></div><div class="invoice-payment-list">'+adjustments+'</div></section>'+
+      '<section class="record-section"><div class="record-section-head"><b>Document history & audit trail</b><span>'+timeline.length+' event'+(timeline.length===1?'':'s')+'</span></div><div class="record-timeline">'+eventRows+'</div></section>'+
+      '<div class="record-drawer-actions">'+
+        (b.attachmentData?'<a class="secondary" href="'+esc(b.attachmentData)+'" download="'+esc(b.attachmentName||'supplier-invoice')+'">'+icon('download',13)+' Attachment</a>':'')+
+        (balance>.004&&['Approved','Part paid'].includes(status)?'<button class="primary" data-action="pay-bill:'+esc(b.id)+'">Create payment</button>':'')+
+        (status!=='Draft'&&balance>.004?'<button class="secondary" data-action="credit-bill:'+esc(b.id)+'">Credit</button><button class="secondary" data-action="debit-bill:'+esc(b.id)+'">Debit</button>':'')+
+        '<button class="secondary" data-action="close-bill-detail">Close</button>'+
+      '</div>'+
+    '</aside></div>';
+  }
+
   function createCustomer(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add customers.');return;}
@@ -1064,5 +1099,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
