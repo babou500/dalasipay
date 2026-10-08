@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/licensing-postgres-atomic.sql'
       - 'tests/licensing-postgres-concurrency.sh'
+      - 'tests/licensing-postgres-admin-lookup.sql'
       - '.github/workflows/licensing-postgres.yml'
 permissions:
   contents: read
@@ -42,3 +43,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/licensing-postgres-atomic.sql
       - name: Test concurrent approvals using independent connections
         run: bash tests/licensing-postgres-concurrency.sh
+      - name: Test restricted administrator membership lookup
+        run: psql -v ON_ERROR_STOP=1 -f tests/licensing-postgres-admin-lookup.sql
