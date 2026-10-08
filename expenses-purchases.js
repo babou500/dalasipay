@@ -43,7 +43,7 @@
     if(x.status==='Draft')return '<button class="secondary" data-action="expense-status:'+x.id+':Pending approval">Submit</button>';
     if(x.status==='Pending approval')return '<button class="secondary" data-action="expense-status:'+x.id+':Approved">Approve</button>';
     if(x.status==='Approved')return '<button class="primary" data-action="expense-status:'+x.id+':Paid">Mark paid</button>';
-    if(x.status==='Paid')return '<button class="secondary" data-action="expense-reverse:'+x.id+'">Reverse</button>';
+    if(x.status==='Paid')return '<button class="secondary" data-action="expense-reverse:'+x.id+'">Request reversal</button>';
     if(x.status==='Reversed')return '<span class="payment-complete">Reversed</span>';
     return '<span class="payment-complete">'+(x.status||'Closed')+'</span>';
   }
