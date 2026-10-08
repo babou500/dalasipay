@@ -57,7 +57,7 @@
     // Cash account opening balances
     (state.cashAccounts||[]).forEach(a=>{
       const amount=round(a.openingBalance||0);if(!amount)return;
-      pushJournal(out,'OPEN-'+a.id,a.createdAt||today,a.reference||a.name,'Cash account opening',[
+      pushJournal(out,'OPEN-'+a.id,a.openingDate||a.createdAt||today,a.reference||a.name,'Cash account opening',[
         {account:'Cash & Bank',debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
         {account:'Opening Balance Equity',debit:amount<0?Math.abs(amount):0,credit:amount>0?amount:0,memo:'Opening balance contra'}
       ]);
@@ -380,7 +380,7 @@
     (state.manualJournals||[]).filter(j=>j.status==='Posted').forEach(j=>{
       (j.lines||[]).forEach(x=>{
         if(!(Number(x.debit)||0)&&!(Number(x.credit)||0))return;
-        out.push({journalId:j.journalNo||j.id,date:dateOnly(j.date||j.postedAt||today),reference:String(j.reference||j.journalNo||j.id),source:j.reversalOf?'Journal reversal':'Manual journal',accountCode:String(x.accountCode||'9999'),account:String(x.account||'Unmapped account'),accountType:String(x.accountType||'Other'),debit:round(x.debit),credit:round(x.credit),memo:String(x.memo||j.memo||'')});
+        out.push({journalId:j.journalNo||j.id,date:dateOnly(j.date||j.postedAt||today),reference:String(j.reference||j.journalNo||j.id),source:j.reversalOf?'Journal reversal':'Manual journal',sourceType:'manual-journal',sourceId:j.id,accountCode:String(x.accountCode||'9999'),account:String(x.account||'Unmapped account'),accountType:String(x.accountType||'Other'),debit:round(x.debit),credit:round(x.credit),memo:String(x.memo||j.memo||'')});
       });
     });
 
