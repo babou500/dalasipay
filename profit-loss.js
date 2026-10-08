@@ -44,10 +44,16 @@
     return run?Math.max(0,Number(run.totals?.employerCost)||0):0;
   }
   function expenseBreakdown(state,start,end){
-    const map=new Map(),rows=(state.businessExpenses||[]).filter(x=>['Approved','Paid'].includes(x.status)&&inRange(x.expenseDate||x.createdAt,start,end));
-    rows.forEach(x=>{const k=x.category||'Other expense',tax=window.DalasiTax?.meta?.(state,x,'purchase')||{taxNet:Number(x.amount)||0,vatRecoverable:false};const amount=tax.vatRecoverable?tax.taxNet:(Number(x.amount)||0);map.set(k,(map.get(k)||0)+amount);});
-    const items=[...map.entries()].map(([category,amount])=>({category,amount:Math.round(amount*100)/100})).sort((a,b)=>b.amount-a.amount);
-    return {total:Math.round(items.reduce((a,x)=>a+x.amount,0)*100)/100,items,count:rows.length};
+    const map=new Map();let count=0;
+    (state.businessExpenses||[]).forEach(x=>{
+      if(!['Approved','Paid','Reversed'].includes(x.status))return;
+      const k=x.category||'Other expense',tax=window.DalasiTax?.meta?.(state,x,'purchase')||{taxNet:Number(x.amount)||0,vatRecoverable:false},amount=tax.vatRecoverable?tax.taxNet:(Number(x.amount)||0);
+      const originalDate=x.expenseDate||x.createdAt;
+      if(inRange(originalDate,start,end)){map.set(k,(map.get(k)||0)+amount);count++;}
+      if(x.reversedAt&&inRange(x.reversedAt,start,end)){map.set(k,(map.get(k)||0)-amount);count++;}
+    });
+    const items=[...map.entries()].map(([category,amount])=>({category,amount:Math.round(amount*100)/100})).filter(x=>Math.abs(x.amount)>.004).sort((a,b)=>Math.abs(b.amount)-Math.abs(a.amount));
+    return {total:Math.round(items.reduce((a,x)=>a+x.amount,0)*100)/100,items,count};
   }
   function supplierBillExpenseActivity(state,start,end){
     let total=0,count=0;
