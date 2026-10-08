@@ -35,7 +35,7 @@ test('valid user and membership see read-only Professional Preview',async()=>{
   assert.equal(body.planId,'professional-preview');
   assert.equal(body.enforcementActive,false);
   assert.equal(body.usage.invoicesPerMonth.count,null);
-  assert.equal(m.calls.length,3);
+  assert.equal(m.calls.length,5);
   assert.ok(m.calls[1].url.includes('organization_members'));
   assert.ok(m.calls[2].url.includes('workspace_subscriptions'));
   assert.doesNotMatch(JSON.stringify(body),/server-secret-test/);
