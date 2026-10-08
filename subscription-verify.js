@@ -26,8 +26,13 @@
     return Number.isSafeInteger(n)&&n>=0?n:null;
    };
    const users=integerCount('users'),employees=integerCount('employees');
+   const diag=data.monthlyDiagnostics;
+   const diagnosticCount=n=>Number.isSafeInteger(n)&&n>=0?String(n):'Unavailable';
+   const monthly=diag?.authoritative===false&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(diag.month||'')?
+    ' Provisional '+diag.month+' document counts (not billing usage): issued invoices: '+diagnosticCount(diag.invoices)+', supplier bills: '+diagnosticCount(diag.supplierBills)+'.':
+    ' Monthly document diagnostics unavailable.';
    const status=(label,n)=>label+': '+(n===null?'Unavailable':n);
-   return {ok:true,message:'Connected securely. Plan: '+(data.planId==='professional-preview'?'Professional Preview':data.planId)+'. Licensing restrictions remain disabled. Server counts: '+status('users',users)+', '+status('employees',employees)+'. Monthly invoice and supplier bill counts are not yet verified.'};
+   return {ok:true,message:'Connected securely. Plan: '+(data.planId==='professional-preview'?'Professional Preview':data.planId)+'. Licensing restrictions remain disabled. Server counts: '+status('users',users)+', '+status('employees',employees)+'.'+monthly+' Monthly invoice and supplier bill licensing usage remains unverified.'};
   }catch{return {ok:false,message:'Could not connect to the subscription service. No data was changed.'};}
  }
  return Object.freeze({verify});
