@@ -446,29 +446,75 @@
     const field=h.field,icon=h.icon,esc=h.esc,customers=(state.customers||[]).filter(x=>(x.status||'Active')==='Active'),selected=customerById(state,state.receivableCustomerId),draft=state.receivableDraft||{};
     const issue=String(draft.issueDate||todayIso()),due=selected?customerDueDate(issue,selected.termDays):String(draft.dueDate||'');
     const options=['<option value="">Manual / one-off customer</option>'].concat(customers.map(c=>'<option value="'+esc(c.id)+'" '+(selected&&selected.id===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(paymentTermsLabel(c.termDays))+'</option>')).concat(['<option value="__add_customer__">＋ Add new customer…</option>']).join('');
-    const selectedInfo=selected?'<div class="selected-customer"><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div>':'';
+    const selectedInfo=selected?'<div class="selected-customer invoice-selected-customer"><div><b>'+esc(selected.name)+'</b><span>'+esc(paymentTermsLabel(selected.termDays))+(selected.email?' · '+esc(selected.email):'')+'</span></div><span class="invoice-customer-status">'+esc(selected.creditStatus||'Open')+'</span></div>':'';
     const v=(key,fallback='')=>esc(selected&&['customerName','customerEmail','customerPhone','reference'].includes(key)?({customerName:selected.name,customerEmail:selected.email,customerPhone:selected.phone,reference:selected.reference}[key]||fallback):(draft[key]??fallback));
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box sales-document-modal">'+
-      '<div class="modal-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>New invoice</h2><p>'+(selected?('Create a new invoice for '+esc(selected.name)+'. Existing invoices are not changed.'):('Build an itemized customer invoice and track the amount due.'))+'</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
-      field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+
-      '<div class="form-grid">'+
-        field('Customer / client name','<input name="customerName" value="'+v('customerName')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
-        field('Invoice number','<input name="invoiceNo" value="'+v('invoiceNo')+'" placeholder="Leave blank for automatic number">')+
-        field('Customer email','<input name="customerEmail" type="email" value="'+v('customerEmail')+'" placeholder="accounts@example.com">')+
-        field('Customer phone','<input name="customerPhone" value="'+v('customerPhone')+'" placeholder="+220 ...">')+
-        field('Issue date','<input name="issueDate" type="date" value="'+esc(issue)+'" required>')+
-        field('Due date','<input name="dueDate" type="date" value="'+esc(due)+'" required>')+
-        field('Customer reference','<input name="reference" value="'+v('reference')+'" placeholder="PO, contract or customer reference">')+
-        field('VAT treatment',window.DalasiTax?.salesOptions?.(state,draft.taxCode)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
-        field('VAT pricing',window.DalasiTax?.pricingOptions?.(draft.taxPricingMode||'inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
-        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project',draft.project||'')||'<select name="project"><option value="">Unassigned</option></select>')+
-        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre',draft.costCentre||'')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
+    return '<div class="center-modal payment-modal invoice-create-modal"><div class="modal-scrim" data-action="close-receivable"></div><form id="receivable-form" class="modal-box xwide sales-document-modal invoice-create-form">'+
+      '<div class="modal-head invoice-create-head"><div><div class="eyebrow">CUSTOMER INVOICE</div><h2>New invoice</h2><p>'+(selected?('Create a new invoice for '+esc(selected.name)+'. Existing invoices are not changed.'):('Build an itemized customer invoice and review VAT, discounts and totals before saving.'))+'</p></div><button type="button" class="close" data-action="close-receivable">×</button></div>'+
+      '<div class="invoice-create-body">'+
+        '<section class="invoice-create-section"><div class="invoice-create-section-head"><span>'+icon('employees',16)+'</span><div><h3>Customer & document</h3><p>Choose an existing customer or enter one-off billing details.</p></div></div>'+
+          '<div class="invoice-customer-picker">'+field('Saved customer','<select id="invoice-customer-select" name="customerId">'+options+'</select>')+selectedInfo+'</div>'+
+          '<div class="form-grid">'+
+            field('Customer / client name','<input name="customerName" value="'+v('customerName')+'" placeholder="e.g. Kaira Trading Ltd" required>')+
+            field('Invoice number','<input name="invoiceNo" value="'+v('invoiceNo')+'" placeholder="Automatic if left blank">')+
+            field('Customer email','<input name="customerEmail" type="email" value="'+v('customerEmail')+'" placeholder="accounts@example.com">')+
+            field('Customer phone','<input name="customerPhone" value="'+v('customerPhone')+'" placeholder="+220 ...">')+
+            field('Customer reference','<input name="reference" value="'+v('reference')+'" placeholder="PO, contract or customer reference">')+
+          '</div>'+
+        '</section>'+
+        '<section class="invoice-create-section"><div class="invoice-create-section-head"><span>'+icon('calendar',16)+'</span><div><h3>Dates & accounting dimensions</h3><p>Control the accounting date, payment deadline and reporting tags.</p></div></div><div class="form-grid">'+
+          field('Issue date','<input name="issueDate" type="date" value="'+esc(issue)+'" required>')+
+          field('Due date','<input name="dueDate" type="date" value="'+esc(due)+'" required>')+
+          field('Project',window.DalasiDimensions?.projectSelect?.(state,'project',draft.project||'')||'<select name="project"><option value="">Unassigned</option></select>')+
+          field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre',draft.costCentre||'')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
+        '</div></section>'+
+        '<section class="invoice-create-section invoice-tax-section"><div class="invoice-create-section-head"><span>'+icon('shield',16)+'</span><div><h3>VAT treatment</h3><p>Choose whether VAT applies and whether entered prices include or exclude VAT.</p></div></div><div class="form-grid">'+
+          field('VAT treatment',window.DalasiTax?.salesOptions?.(state,draft.taxCode)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
+          field('VAT pricing',window.DalasiTax?.pricingOptions?.(draft.taxPricingMode||'inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
+        '</div><div class="invoice-tax-help"><b>Inclusive</b> means the entered selling price already contains VAT. <b>Exclusive</b> adds VAT on top of the discounted line total.</div></section>'+
+        '<section class="invoice-create-section invoice-lines-section"><div class="invoice-create-section-head"><span>'+icon('file',16)+'</span><div><h3>Products, services & discounts</h3><p>Add catalog or custom lines. Discounts are applied per line before the invoice total is finalized.</p></div></div>'+
+          '<div class="sales-line-note invoice-line-note">Each line supports quantity, unit price and discount %. DalasiPay keeps the gross value, discount and final line amount visible separately.</div>'+
+          window.DalasiCatalog.lineItemsForm(state,draft.lineItems||[])+
+        '</section>'+
+        '<section class="invoice-create-section"><div class="invoice-create-section-head"><span>'+icon('file',16)+'</span><div><h3>Invoice note</h3><p>Optional description shown with the transaction record.</p></div></div><div class="invoice-description-field">'+field('Overall description / note','<input name="description" value="'+v('description')+'" placeholder="Optional invoice summary">')+'</div></section>'+
       '</div>'+
-      '<div class="sales-line-note">Choose saved Products & Services or enter custom lines. The invoice total is calculated automatically.</div>'+
-      window.DalasiCatalog.lineItemsForm(state,draft.lineItems||[])+
-      field('Overall description / note','<input name="description" value="'+v('description')+'" placeholder="Optional invoice summary">')+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div>'+
+      '<aside class="invoice-live-summary" aria-live="polite">'+
+        '<div class="invoice-live-summary-head"><div><span class="eyebrow">LIVE REVIEW</span><h3>Invoice summary</h3></div><span class="invoice-draft-chip">Draft</span></div>'+
+        '<div class="invoice-live-totals"><div><span>Gross before discount</span><b data-invoice-preview-subtotal>D0.00</b></div><div><span>Sales discount</span><b data-invoice-preview-discount>D0.00</b></div><div><span>Revenue / tax base</span><b data-invoice-preview-net>D0.00</b></div><div><span>Output VAT</span><b data-invoice-preview-vat>D0.00</b></div><div class="total"><span>Customer total</span><strong data-invoice-preview-gross>D0.00</strong></div></div>'+
+        '<div class="invoice-posting-preview"><span>EXPECTED POSTING COMPONENTS</span><div><small>Customer receivable</small><b data-invoice-post-ar>D0.00</b></div><div><small>Sales / revenue before discount</small><b data-invoice-post-revenue>D0.00</b></div><div><small>Sales discount</small><b data-invoice-post-discount>D0.00</b></div><div><small>Output VAT</small><b data-invoice-post-vat>D0.00</b></div><p>Final ledger entries use DalasiPay’s posting rules when the invoice is approved and posted.</p></div>'+
+        '<div class="invoice-live-meta"><span data-invoice-preview-vat-label>VAT treatment will appear here</span><span data-invoice-preview-due>Choose a due date</span></div>'+
+      '</aside>'+
+      '<div class="invoice-create-footer"><div class="invoice-create-assurance">'+icon('check',15)+' <span>Saving creates a draft only. Review it before approving and sending to the customer.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-receivable">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft invoice</button></div></div>'+
     '</form></div>';
+  }
+
+  function bindReceivablePreview(form,state){
+    if(!form||form.dataset.invoicePreviewBound==='1')return;
+    form.dataset.invoicePreviewBound='1';
+    const money=n=>'D'+(Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const update=()=>{
+      const lines=window.DalasiCatalog?.readLines?.(form)||[],totals=window.DalasiCatalog?.lineTotals?.(lines)||{subtotal:0,discount:0,total:0};
+      const fd=new FormData(form),taxCode=String(fd.get('taxCode')||window.DalasiTax?.defaultSalesCode?.(state)||'OUT'),mode=String(fd.get('taxPricingMode')||'inclusive');
+      const tax=window.DalasiTax?.snapshot?.(state,totals.total,taxCode,'sale',mode)||{taxGross:totals.total,taxNet:totals.total,vatAmount:0,taxCode,taxPricingMode:mode};
+      const put=(sel,val)=>{const el=form.querySelector(sel);if(el)el.textContent=val;};
+      put('[data-invoice-preview-subtotal]',money(totals.subtotal));
+      put('[data-invoice-preview-discount]',money(totals.discount));
+      put('[data-invoice-preview-net]',money(tax.taxNet));
+      put('[data-invoice-preview-vat]',money(tax.vatAmount));
+      put('[data-invoice-preview-gross]',money(tax.taxGross));
+      put('[data-invoice-post-ar]',money(tax.taxGross));
+      put('[data-invoice-post-revenue]',money(totals.subtotal));
+      put('[data-invoice-post-discount]',money(totals.discount));
+      put('[data-invoice-post-vat]',money(tax.vatAmount));
+      const taxLabel=window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'Out of scope';
+      put('[data-invoice-preview-vat-label]',taxLabel+' · '+(mode==='exclusive'?'VAT exclusive':'VAT inclusive'));
+      const issue=String(fd.get('issueDate')||''),due=String(fd.get('dueDate')||'');
+      let dueText='Choose a due date';
+      if(issue&&due){const days=Math.round((new Date(due+'T12:00:00')-new Date(issue+'T12:00:00'))/86400000);dueText=days===0?'Due on receipt':days>0?'Payment terms · '+days+' day'+(days===1?'':'s'):'Due date is before issue date';}
+      put('[data-invoice-preview-due]',dueText);
+    };
+    form.addEventListener('input',update);
+    form.addEventListener('change',update);
+    setTimeout(update,0);
   }
   function customerModal(state,h){
     const field=h.field,icon=h.icon;
@@ -1156,5 +1202,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
