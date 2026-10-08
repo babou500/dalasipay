@@ -20,3 +20,30 @@ test('verified platform operator receives status without exposing credentials',a
  try{const r=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer sample-token'}}),env);assert.equal(r.status,200);assert.deepEqual(await r.json(),{authorized:true});assert.match(r.headers.get('cache-control'),/no-store/);}
  finally{globalThis.fetch=old;}
 });
+
+test('missing bearer token never contacts Supabase',async()=>{
+ const old=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('unexpected upstream call')};
+ try{const res=await worker.fetch(new Request(url),env);assert.equal(res.status,401);assert.equal(calls,0);}
+ finally{globalThis.fetch=old;}
+});
+test('expired or forged bearer token is denied before administrator lookup',async()=>{
+ const old=globalThis.fetch;let calls=0;
+ globalThis.fetch=async target=>{calls++;assert.match(String(target),/\/auth\/v1\/user/);return Response.json({message:'JWT invalid'},{status:401})};
+ try{const res=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer forged-token'}}),env);assert.equal(res.status,401);assert.equal(calls,1);}
+ finally{globalThis.fetch=old;}
+});
+test('identity lookup failure returns unavailable rather than authorization',async()=>{
+ const old=globalThis.fetch;
+ globalThis.fetch=async target=>String(target).includes('/auth/v1/user')?Response.json({id:uid}):Response.json({message:'restricted'},{status:403});
+ try{const res=await worker.fetch(new Request(url,{headers:{Authorization:'Bearer valid-token'}}),env);assert.equal(res.status,503);assert.deepEqual(await res.json(),{authorized:false});}
+ finally{globalThis.fetch=old;}
+});
+test('caller cannot spoof identity or invoke writes',async()=>{
+ const old=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('unexpected call')};
+ try{
+  assert.equal((await worker.fetch(new Request(url+'?userId='+uid,{headers:{Authorization:'Bearer valid-token'}}),env)).status,400);
+  assert.equal((await worker.fetch(new Request(url,{method:'POST',headers:{Authorization:'Bearer valid-token'}}),env)).status,405);
+  assert.equal(calls,0);
+ }finally{globalThis.fetch=old;}
+});
