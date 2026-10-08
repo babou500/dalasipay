@@ -95,7 +95,9 @@ async function exportRows(title,headers,data,state,kind,fileBase){
  a.href=url;a.download=(fileBase||'dalasipay-'+String(kind||'report').replace(/[^a-z0-9-]+/gi,'-').toLowerCase())+'-'+today()+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function wrapContext(ctx,title,state,kind){
+ if(ctx?.__dalasiExcelContext)return ctx;
  const wrapped=Object.create(ctx||null);Object.assign(wrapped,ctx||{});
+ wrapped.__dalasiExcelContext=true;
  wrapped.toast=function(msg){if(/downloaded/i.test(String(msg||'')))return;ctx?.toast?.(msg)};
  wrapped.downloadText=function(filename,text){
   const rows=parseCsv(text);if(!rows.length){ctx?.toast?.('There is no report data to export.');return}
@@ -104,12 +106,40 @@ function wrapContext(ctx,title,state,kind){
  };
  return wrapped;
 }
+function wrapMethod(obj,name,ctxIndex,title,kind,stateIndex=0){
+ if(!obj||typeof obj[name]!=='function'||obj[name].__excelWrapped)return;
+ const original=obj[name];
+ const fn=function(...args){const state=args[stateIndex],ctx=args[ctxIndex];args[ctxIndex]=wrapContext(ctx,title,state,kind);return original.apply(this,args)};
+ fn.__excelWrapped=true;obj[name]=fn;
+}
+function installModuleExports(){
+ wrapMethod(window.DalasiProfitLoss,'exportCsv',1,'Profit & Loss','profit-loss');
+ wrapMethod(window.DalasiBalanceSheet,'exportCsv',1,'Balance Sheet','balance-sheet');
+ wrapMethod(window.DalasiEquityStatement,'exportCsv',1,'Statement of Changes in Equity','equity-statement');
+ wrapMethod(window.DalasiGeneralLedger,'exportTrialBalance',1,'Trial Balance','trial-balance');
+ wrapMethod(window.DalasiGeneralLedger,'exportLedger',1,'General Ledger','general-ledger');
+ wrapMethod(window.DalasiCashBank,'exportCsv',1,'Cash & Bank register','cash-bank-register');
+ wrapMethod(window.DalasiBankReconciliation,'exportRegister',1,'Bank reconciliations','bank-reconciliations');
+ wrapMethod(window.DalasiFixedAssets,'exportCsv',1,'Fixed asset register','fixed-assets');
+ wrapMethod(window.DalasiTax,'exportReturn',2,'VAT return working paper','vat-return');
+ wrapMethod(window.DalasiBudgets,'exportCsv',2,'Budget vs Actual','budget-vs-actual');
+ wrapMethod(window.DalasiDimensions,'exportCsv',3,'Management dimension report','management-report');
+ wrapMethod(window.DalasiLoans,'exportCsv',1,'Loans & Debt','loan-register');
+ wrapMethod(window.DalasiMonthClose,'exportRecord',2,'Month-End Close','month-end-close',1);
+ wrapMethod(window.DalasiYearClose,'exportRecord',2,'Year-End Close','year-end-close',1);
+ wrapMethod(window.DalasiDebits,'exportCsv',2,'Debit notes','debit-notes');
+ wrapMethod(window.DalasiReturns,'exportCsv',2,'Credit notes','credit-notes');
+ wrapMethod(window.DalasiCreditControl,'exportAging',2,'Ageing report','ageing');
+ wrapMethod(window.DalasiCashFlow,'exportStatement',2,'Cash Flow Statement','cash-flow-statement');
+ wrapMethod(window.DalasiCashFlow,'exportForecast',1,'Cash Forecast','cash-forecast');
+}
 function installBusinessReports(){
  const base=window.DalasiBusinessReports;if(!base||base.__excelWrapped){if(!base)setTimeout(installBusinessReports,0);return}
  const original=base.exportReport;
  base.exportReport=function(kind,state,ctx){const title=base.reportTitle?.(kind)||String(kind||'Report').replace(/-/g,' ');return original(kind,state,wrapContext(ctx,title,state,kind))}
  base.__excelWrapped=true;
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installBusinessReports);else installBusinessReports();
-window.DalasiExcelReports={parseCsv,exportRows,wrapContext,companyName,reportPeriod,installBusinessReports,version:'1.1.0'};
+function installAll(){installModuleExports();installBusinessReports()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installAll);else installAll();
+window.DalasiExcelReports={parseCsv,exportRows,wrapContext,companyName,reportPeriod,installBusinessReports,installModuleExports,version:'1.2.0'};
 })();
