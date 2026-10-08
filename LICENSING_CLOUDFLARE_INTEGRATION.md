@@ -25,3 +25,12 @@ No automatic subscription activation, no billing, no enforcement, no new network
 `node --test licensing-policy.test.js workspace-subscription.test.js subscription-plan-view.test.js subscription-usage.test.js cloudflare-licensing-observer.test.mjs`
 
 Note: these tests cover isolated modules; they do not prove Cloudflare deployment behavior or server authentication.
+
+## Verified database foundation (2026-10-08)
+- Connected Supabase project **DalasiPay** (`zdpmlzmljozcmqndyfog`), which is already referenced by the current frontend.
+- Created `public.workspace_subscriptions` by additive migration. Its `organization_id` references `public.organizations` and is unique.
+- Existing 13 organizations received `professional_preview`, `professional`, `professional_preview=true` records. No existing accounting data was modified.
+- RLS is enabled; direct `anon` and `authenticated` privileges have been revoked. Only trusted server-side connectivity should access licensing records after authenticated workspace-membership checks.
+- `organization_app_state.state` stores app business state; invoice and bill usage is not yet backed by dedicated authoritative database tables. Do not enforce usage caps using client-supplied counts.
+- Live site loads and the `.mjs` adapter is delivered as a static asset; this is **not** a mounted authenticated API.
+- Cloudflare project configuration, deployed runtime entrypoint and secrets still require direct verification before mounting the observer.
