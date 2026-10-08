@@ -160,6 +160,42 @@ function balanceAsOf(state,endDate){
  const totalAssets=Math.round(assets.reduce((n,a)=>n+a.amount,0)*100)/100,totalLiabilities=Math.round(liabilities.reduce((n,a)=>n+a.amount,0)*100)/100,directEquity=Math.round(equityAccounts.reduce((n,a)=>n+a.amount,0)*100)/100,equity=Math.round((directEquity+currentEarnings)*100)/100;
  return {assets,liabilities,equityAccounts,currentEarnings,totalAssets,totalLiabilities,equity,liabilitiesEquity:Math.round((totalLiabilities+equity)*100)/100};
 }
+async function exportProfessionalTrialBalance(state,ctx){
+ if(!window.ExcelJS)throw new Error('Excel export engine is still loading. Refresh and try again.');
+ const t=window.DalasiGeneralLedger?.trialBalance?.(state);if(!t)return;
+ const {wb,ws}=statementWorkbook('Trial Balance',state,'trial-balance',6);statementHeader(ws,6,['Code','Account','Type','Debit','Credit','Balance']);
+ let row=7;
+ const groups=['Asset','Liability','Equity','Revenue','Expense'];
+ groups.forEach(type=>{
+  const items=(t.accounts||[]).filter(a=>a.type===type);if(!items.length)return;
+  statementRow(ws,row++,type.toUpperCase(),['','','','',''],'section');
+  items.forEach(a=>{const r=statementRow(ws,row++,String(a.code||''),[String(a.name||''),type,Number(a.debit)||0,Number(a.credit)||0,Number(a.balance)||0]);r.getCell(2).alignment={horizontal:'left'};r.getCell(3).alignment={horizontal:'left'};for(let c=4;c<=6;c++)r.getCell(c).numFmt=MONEY_FMT;});
+ });
+ statementRow(ws,row++,'TOTAL',['','',t.debit,t.credit,t.difference],'total');
+ const check=statementRow(ws,row++,'TRIAL BALANCE CHECK',['','',t.debit,t.credit,t.difference],Math.abs(t.difference||0)<.01?'key':'total');if(Math.abs(t.difference||0)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
+ ws.getColumn(1).width=13;ws.getColumn(2).width=40;ws.getColumn(3).width=15;[4,5,6].forEach(i=>ws.getColumn(i).width=18);ws.pageSetup.printTitlesRow='1:6';
+ const note=row+1;ws.mergeCells(note,1,note,6);ws.getCell(note,1).value='Generated from posted double-entry transactions. Difference should be zero before period close.';ws.getCell(note,1).font={name:'Aptos',size:9,italic:true,color:{argb:MUTED}};
+ await saveWorkbook(wb,'dalasipay-trial-balance',ctx);
+}
+async function exportProfessionalLedger(state,ctx){
+ if(!window.ExcelJS)throw new Error('Excel export engine is still loading. Refresh and try again.');
+ const rows=window.DalasiGeneralLedger?.ledgerRows?.(state)||[];if(!rows.length){ctx?.toast?.('There is no General Ledger activity to export.');return}
+ const wb=new ExcelJS.Workbook();wb.creator='DalasiPay';wb.company='BE Business Solutions';wb.title='General Ledger';wb.subject='General Ledger';
+ const grouped=new Map();rows.forEach(x=>{const key=String(x.accountCode||'')+' · '+String(x.account||'');if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(x)});
+ const summary=wb.addWorksheet('Ledger Summary',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
+ addTitle(summary,'General Ledger',state,'general-ledger',5);statementHeader(summary,6,['Account','Debits','Credits','Closing balance','Side']);
+ let sr=7;
+ [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,list])=>{const debit=list.reduce((n,x)=>n+(Number(x.debit)||0),0),credit=list.reduce((n,x)=>n+(Number(x.credit)||0),0),balance=Math.round((debit-credit)*100)/100;statementRow(summary,sr++,name,[debit,credit,Math.abs(balance),balance>=0?'Dr':'Cr']);});
+ summary.getColumn(1).width=42;[2,3,4].forEach(i=>summary.getColumn(i).width=18);summary.getColumn(5).width=10;
+ const detail=wb.addWorksheet('Ledger Detail',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
+ addTitle(detail,'General Ledger Detail',state,'general-ledger',11);statementHeader(detail,6,['Date','Journal','Reference','Source','Account Code','Account','Memo','Debit','Credit','Running Balance','Side']);
+ let dr=7,accountRunning=new Map();
+ rows.forEach(x=>{const key=String(x.accountCode||'')+'|'+String(x.account||''),run=Math.round(((accountRunning.get(key)||0)+(Number(x.debit)||0)-(Number(x.credit)||0))*100)/100;accountRunning.set(key,run);const r=detail.getRow(dr++);r.values=[x.date||'',x.journalId||'',x.reference||'',x.source||'',x.accountCode||'',x.account||'',x.memo||'',Number(x.debit)||0,Number(x.credit)||0,Math.abs(run),run>=0?'Dr':'Cr'];r.height=19;r.eachCell((c,i)=>{c.font={name:'Aptos',size:9,color:{argb:TEXT}};c.border={bottom:{style:'hair',color:{argb:BORDER}}};c.alignment={vertical:'middle',horizontal:i>=8&&i<=10?'right':'left'});[8,9,10].forEach(i=>r.getCell(i).numFmt=MONEY_FMT);});
+ detail.autoFilter={from:{row:6,column:1},to:{row:6,column:11}};detail.views=[{state:'frozen',ySplit:6,activeCell:'A7',showGridLines:false}];
+ [14,18,18,24,13,32,38,16,16,18,9].forEach((w,i)=>detail.getColumn(i+1).width=w);
+ summary.headerFooter.oddFooter='&L'+companyName(state)+'&CGeneral Ledger Summary&RPage &P of &N';detail.headerFooter.oddFooter='&L'+companyName(state)+'&CGeneral Ledger Detail&RPage &P of &N';
+ await saveWorkbook(wb,'dalasipay-general-ledger',ctx);
+}
 async function exportProfessionalBalanceSheet(state,ctx){
  if(!window.ExcelJS)throw new Error('Excel export engine is still loading. Refresh and try again.');
  const period=String(state.currentPeriod||''),prev=previousMonth(period),current=window.DalasiBalanceSheet?.statement?.(state);if(!current)return;
@@ -225,10 +261,10 @@ function installModuleExports(){
 function installBusinessReports(){
  const base=window.DalasiBusinessReports;if(!base||base.__excelWrapped){if(!base)setTimeout(installBusinessReports,0);return}
  const original=base.exportReport;
- base.exportReport=function(kind,state,ctx){if(kind==='profit-loss')return exportProfessionalProfitLoss(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));if(kind==='balance-sheet')return exportProfessionalBalanceSheet(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));const title=base.reportTitle?.(kind)||String(kind||'Report').replace(/-/g,' ');return original(kind,state,wrapContext(ctx,title,state,kind))}
+ base.exportReport=function(kind,state,ctx){if(kind==='profit-loss')return exportProfessionalProfitLoss(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));if(kind==='balance-sheet')return exportProfessionalBalanceSheet(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));if(kind==='trial-balance')return exportProfessionalTrialBalance(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));if(kind==='general-ledger')return exportProfessionalLedger(state,ctx).catch(e=>ctx?.toast?.(e.message||'Excel export failed'));const title=base.reportTitle?.(kind)||String(kind||'Report').replace(/-/g,' ');return original(kind,state,wrapContext(ctx,title,state,kind))}
  base.__excelWrapped=true;
 }
 function installAll(){installModuleExports();installBusinessReports()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installAll);else installAll();
-window.DalasiExcelReports={parseCsv,exportRows,exportProfessionalProfitLoss,exportProfessionalBalanceSheet,balanceAsOf,wrapContext,companyName,reportPeriod,installBusinessReports,installModuleExports,version:'1.3.0'};
+window.DalasiExcelReports={parseCsv,exportRows,exportProfessionalProfitLoss,exportProfessionalBalanceSheet,exportProfessionalTrialBalance,exportProfessionalLedger,balanceAsOf,wrapContext,companyName,reportPeriod,installBusinessReports,installModuleExports,version:'1.4.0'};
 })();
