@@ -93,6 +93,7 @@
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter an account name.');return;}
     state.cashAccounts=state.cashAccounts||[];const id='CBA-'+Date.now().toString(36).toUpperCase();
     state.cashAccounts.push({id,name,type:String(fd.get('type')||'Bank'),openingBalance:Math.round((Number(fd.get('openingBalance'))||0)*100)/100,openingDate:String(fd.get('openingDate')||todayIso()),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    if(state.cashAccountReturnContext){state.paymentSelectedAccountId=id;state.cashAccountReturnContext=null;}
     state.cashAccountOpen=false;ctx.audit('cash.account_created',{accountId:id,name,type:String(fd.get('type')||'Bank')});ctx.save();ctx.toast(name+' added to Cash & Bank');ctx.render();
   }
   function createTransaction(ev,state,ctx){
