@@ -565,9 +565,9 @@
   function supplierAccountModal(state,h){
     const esc=h.esc,money2=h.money2,icon=h.icon,m=supplierAccount(state,state.supplierAccountId),s=m.supplier;if(!s)return '';
     const bills=m.bills.slice().sort((a,b)=>String(b.invoiceDate||b.createdAt||'').localeCompare(String(a.invoiceDate||a.createdAt||'')));
-    const openBills=bills.filter(b=>(window.DalasiReturns?.billBalance?.(state,b)??Number(b.amount)||0)>.004&&['Approved','Part paid','Paid'].includes(b.status||'Draft'));
+    const openBills=bills.filter(b=>(window.DalasiReturns?.billBalance?.(state,b)??(Number(b.amount)||0))>.004&&['Approved','Part paid','Paid'].includes(b.status||'Draft'));
     const today=new Date(todayIso()+'T00:00:00'),age={current:0,d30:0,d60:0,d90:0,over90:0};
-    openBills.forEach(b=>{const bal=window.DalasiReturns?.billBalance?.(state,b)??Number(b.amount)||0;if(!b.dueDate){age.current+=bal;return;}const days=Math.floor((today-new Date(b.dueDate+'T00:00:00'))/86400000);if(days<=0)age.current+=bal;else if(days<=30)age.d30+=bal;else if(days<=60)age.d60+=bal;else if(days<=90)age.d90+=bal;else age.over90+=bal;});
+    openBills.forEach(b=>{const bal=window.DalasiReturns?.billBalance?.(state,b)??(Number(b.amount)||0);if(!b.dueDate){age.current+=bal;return;}const days=Math.floor((today-new Date(b.dueDate+'T00:00:00'))/86400000);if(days<=0)age.current+=bal;else if(days<=30)age.d30+=bal;else if(days<=60)age.d60+=bal;else if(days<=90)age.d90+=bal;else age.over90+=bal;});
     const maxAge=Math.max(age.current,age.d30,age.d60,age.d90,age.over90,1),ageBars=[['Current',age.current],['1–30 days',age.d30],['31–60 days',age.d60],['61–90 days',age.d90],['90+ days',age.over90]];
     const billRows=bills.length?bills.map(b=>{const bal=window.DalasiReturns?.billBalance?.(state,b)??b.amount,days=b.dueDate?Math.floor((today-new Date(b.dueDate+'T00:00:00'))/86400000):null,ageLabel=bal<=.004?'Settled':days==null?'No due date':days<=0?'Current':days<=30?'1–30 days':days<=60?'31–60 days':days<=90?'61–90 days':'90+ days';return '<tr><td><button class="customer-doc-link" data-action="bill-view:'+esc(b.id)+'">'+esc(b.invoiceNo||b.id)+'</button><small>'+esc(b.category||b.description||'Supplier bill')+'</small></td><td>'+dueDate(b.invoiceDate)+'</td><td>'+dueDate(b.dueDate)+'</td><td><b>'+money2(bal)+'</b><small class="cash-sub">'+esc(ageLabel)+' · original '+money2(b.amount)+'</small></td><td>'+esc(b.status||'Draft')+'</td><td><div class="customer-row-actions"><button class="secondary tiny" data-action="bill-view:'+esc(b.id)+'">View</button>'+(bal>.004&&['Approved','Part paid'].includes(b.status||'Draft')?'<button class="primary tiny" data-action="pay-bill:'+esc(b.id)+'">Pay</button>':'')+'</div></td></tr>'}).join(''):'<tr><td colspan="6"><div class="empty-inline">No supplier bills linked to this account yet.</div></td></tr>';
     const pays=m.payments.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
@@ -1045,7 +1045,7 @@
   function bindSupplierPaymentPreview(form,state){
     if(!form||form.dataset.supplierPaymentPreviewBound==='1')return;
     form.dataset.supplierPaymentPreviewBound='1';
-    const billId=String(new FormData(form).get('billId')||state.paymentBillId||''),bill=billId?billById(state,billId):null,outstanding=bill?(window.DalasiReturns?.billBalance?.(state,bill)??Number(bill.amount)||0):0;
+    const billId=String(new FormData(form).get('billId')||state.paymentBillId||''),bill=billId?billById(state,billId):null,outstanding=bill?(window.DalasiReturns?.billBalance?.(state,bill)??(Number(bill.amount)||0)):0;
     const money=n=>'D'+(Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
     const update=()=>{
       const fd=new FormData(form),amount=Math.max(0,Number(fd.get('amount')||0)),remaining=bill?Math.max(0,outstanding-amount):0,status=!bill?'Draft payment':amount<=0?'Awaiting amount':remaining<=0.004?'Paid':'Part paid';
