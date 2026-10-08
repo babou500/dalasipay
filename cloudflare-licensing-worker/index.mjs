@@ -47,7 +47,7 @@ export default {
   const countWorkspaceRecords=async(table,workspaceId)=>{
    if(!['organization_members','employees'].includes(table))throw new Error('Unsupported usage table');
    const endpoint=new URL(base+'/rest/v1/'+table);
-   endpoint.searchParams.set('select','id');
+   endpoint.searchParams.set('select',table==='organization_members'?'user_id':'id');
    endpoint.searchParams.set('organization_id','eq.'+workspaceId);
    const result=await fetch(endpoint,{method:'HEAD',headers:{apikey:env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,prefer:'count=exact','cache-control':'no-store'}});
    if(!result.ok)throw new Error('Usage count unavailable');
