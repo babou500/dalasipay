@@ -53,7 +53,7 @@ export default {
    if(!result.ok)throw new Error('Usage count unavailable');
    const range=result.headers.get('content-range');
    const count=range?.split('/').pop();
-   if(!/^\\d+$/.test(count||''))throw new Error('Usage count missing');
+   if(!/^[0-9]+$/.test(count||''))throw new Error('Usage count missing');
    return Number(count);
   };
   try {
