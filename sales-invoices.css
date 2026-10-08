@@ -69,3 +69,118 @@
 .invoice-payment-row small{font-size:9.5px;color:var(--muted)}
 .invoice-payment-row>b{font-size:11px;white-space:nowrap;color:var(--good)}
 @media(max-width:560px){.invoice-source-trail{padding:11px 15px}.invoice-collection-progress{padding:14px 15px}.invoice-progress-label,.invoice-progress-amounts{align-items:flex-start}.invoice-progress-label span{text-align:right;max-width:55%}}
+
+
+/* DalasiPay v1.09 — professional invoice register */
+.invoice-register-card .table-scroll table{
+  min-width:980px;
+}
+.invoice-register-identity{
+  min-width:185px;
+}
+.invoice-date-cell,
+.invoice-tax-cell,
+.invoice-collection-cell{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.invoice-date-cell>b,
+.invoice-tax-cell>b,
+.invoice-collection-cell>b{
+  font-size:10.5px;
+}
+.invoice-due-cue{
+  width:max-content;
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:0 7px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--panel-2);
+  color:var(--muted);
+  font-size:8.5px;
+  font-weight:800;
+}
+.invoice-due-cue.due{
+  border-color:color-mix(in srgb,var(--warn) 28%,var(--border));
+  background:var(--warn-bg);
+  color:var(--warn);
+}
+.invoice-due-cue.overdue{
+  border-color:color-mix(in srgb,var(--danger) 30%,var(--border));
+  background:color-mix(in srgb,var(--danger) 8%,var(--panel));
+  color:var(--danger);
+}
+.invoice-due-cue.paid{
+  border-color:color-mix(in srgb,var(--good) 26%,var(--border));
+  background:color-mix(in srgb,var(--good) 9%,var(--panel));
+  color:var(--good);
+}
+.invoice-tax-cell small,
+.invoice-collection-cell small{
+  color:var(--muted);
+  font-size:8.8px;
+}
+.invoice-tax-cell em{
+  width:max-content;
+  display:inline-flex;
+  min-height:19px;
+  align-items:center;
+  padding:0 6px;
+  border-radius:6px;
+  background:color-mix(in srgb,var(--primary) 8%,var(--panel));
+  color:var(--primary);
+  font-size:8.3px;
+  font-style:normal;
+  font-weight:800;
+}
+.invoice-mini-progress{
+  width:112px;
+  max-width:100%;
+  height:5px;
+  overflow:hidden;
+  border-radius:999px;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+}
+.invoice-mini-progress i{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:var(--primary);
+}
+.invoice-register-card .receivable-overdue td{
+  background:color-mix(in srgb,var(--danger) 3.5%,var(--panel));
+}
+.invoice-register-card .receivable-overdue:hover td{
+  background:color-mix(in srgb,var(--danger) 6%,var(--panel))!important;
+}
+.invoice-register-card .payment-status-actions{
+  min-width:145px;
+}
+.invoice-register-card .row-action-shell{
+  justify-content:flex-end;
+}
+@media(max-width:760px){
+  .invoice-register-card .table-tools{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .invoice-register-card .register-tools{
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .invoice-register-card .register-search{
+    width:100%;
+  }
+  .invoice-register-card .inline-buttons{
+    width:100%;
+  }
+  .invoice-register-card .inline-buttons>*{
+    flex:1;
+  }
+}
