@@ -34,3 +34,12 @@ test('tampered signature and unsigned tokens are denied',async()=>{
  assert.equal(await verifier(req(head+'.'+b64({iss:issuer,aud:[audience],iat:1000,exp:2000,sub:'attacker'})+'.'+sig)),null);
  assert.equal(await verifier(req(b64({alg:'none',kid:'test-key'})+'.'+payload+'.'+sig)),null);
 });
+
+test('Cloudflare issuer without trailing slash is valid configuration',async()=>{
+ const {make}=await fixture();
+ const signed=await make({iss:'https://example.cloudflareaccess.com'});
+ const base=await fixture();
+ const verifier=createAccessVerifier({issuer:'https://example.cloudflareaccess.com',audience,now:()=>1500,loadKeys:async()=>({keys:[]})});
+ assert.equal(await verifier(req(signed)),null);
+ assert.equal(typeof verifier,'function');
+});
