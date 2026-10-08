@@ -217,8 +217,10 @@
       const item=line.catalogId?window.DalasiCatalog?.itemById(state,line.catalogId):null;
       if(item?.type!=='Product')return;
       const g=groups.get(item.id)||{item,qty:0,totalCost:0};
-      const qty=Math.max(0,Number(line.quantity)||0),unitCost=Math.max(0,Number(line.unitPrice)||0);
-      g.qty+=qty;g.totalCost+=qty*unitCost;groups.set(item.id,g);
+      const qty=Math.max(0,Number(line.quantity)||0),rawLine=Math.max(0,qty*(Number(line.unitPrice)||0));
+      const tax=window.DalasiTax?.snapshot?.(state,rawLine,x.taxCode||'OUT','purchase',x.taxPricingMode||'inclusive')||{taxNet:rawLine,vatRecoverable:false};
+      const accountingCost=tax.vatRecoverable?Number(tax.taxNet)||0:rawLine;
+      g.qty+=qty;g.totalCost+=accountingCost;groups.set(item.id,g);
     });
     if(!groups.size){x.inventoryReceivedAt=new Date().toISOString();return;}
     state.inventoryMovements=state.inventoryMovements||[];const now=new Date().toISOString();
