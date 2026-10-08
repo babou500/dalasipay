@@ -10,6 +10,7 @@ function mockedFetch(){
  const calls=[];
  globalThis.fetch=async (target,options)=>{
   calls.push({url:String(target),headers:options?.headers});
+  if(options?.method==='HEAD')return new Response(null,{status:200,headers:{'content-range':'*/0'}});
   if(String(target).includes('/auth/v1/user'))return Response.json({id:user});
   if(String(target).includes('organization_members'))return Response.json([{user_id:user}]);
   if(String(target).includes('workspace_subscriptions'))return Response.json([{organization_id:org,plan_id:'professional',status:'professional_preview',professional_preview:true}]);
