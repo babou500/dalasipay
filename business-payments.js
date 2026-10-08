@@ -1105,28 +1105,68 @@
   function billModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,beneficiaries=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
     const beneficiaryOptions=['<option value="">One-off supplier</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'" '+(state.paymentBeneficiaryId===b.id?'selected':'')+'>'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-business-bill"></div><form id="business-bill-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">NEW BILL / INVOICE</div><h2>Record supplier invoice</h2><p>Track an obligation before it becomes a payment.</p></div><button type="button" class="close" data-action="close-business-bill">×</button></div>'+
-      '<div class="payment-modal-note">Attach a small invoice file if useful. Files are stored with this workspace record; maximum 1.5 MB in this version.</div>'+
-      '<div class="form-grid">'+
-        field('Saved beneficiary','<select name="beneficiaryId">'+beneficiaryOptions+'</select>')+
-        field('Supplier name','<input name="supplier" placeholder="e.g. ABC Supplies Ltd">')+
-        field('Invoice number','<input name="invoiceNo" placeholder="e.g. INV-1042" required>')+
-        field('Amount before discount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
-        field('Discount received (GMD)','<input name="discountReceived" type="number" min="0" step="0.01" value="0" placeholder="0.00">')+
-        field('Invoice date','<input name="invoiceDate" type="date">')+
-        field('Due date','<input name="dueDate" type="date" required>')+
-        field('Category','<select name="category"><option>Supplies / inventory</option><option>Professional services</option><option>Rent / utilities</option><option>Government / statutory</option><option>Travel / logistics</option><option>Other expense</option></select>')+
-        field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+
-        field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
-        field('VAT pricing',window.DalasiTax?.pricingOptions?.('inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
-        field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
-        field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
-        field('Invoice document','<input name="attachment" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
+    return '<div class="center-modal payment-modal supplier-bill-create-modal"><div class="modal-scrim" data-action="close-business-bill"></div><form id="business-bill-form" class="modal-box xwide supplier-bill-create-form">'+
+      '<div class="modal-head supplier-bill-create-head"><div><div class="eyebrow">SUPPLIER BILL / PURCHASE INVOICE</div><h2>Record supplier invoice</h2><p>Capture the obligation, VAT, discount received and posting account before approval.</p></div><button type="button" class="close" data-action="close-business-bill">×</button></div>'+
+      '<div class="supplier-bill-create-body">'+
+        '<section class="supplier-bill-create-section"><div class="supplier-bill-create-section-head"><span>'+icon('building',16)+'</span><div><h3>Supplier & invoice</h3><p>Link the bill to a saved supplier or enter a one-off supplier.</p></div></div><div class="form-grid">'+
+          field('Saved beneficiary','<select name="beneficiaryId">'+beneficiaryOptions+'</select>')+
+          field('Supplier name','<input name="supplier" placeholder="e.g. ABC Supplies Ltd">')+
+          field('Invoice number','<input name="invoiceNo" placeholder="e.g. INV-1042" required>')+
+          field('Invoice date','<input name="invoiceDate" type="date">')+
+          field('Due date','<input name="dueDate" type="date" required>')+
+          field('Invoice document','<input name="attachment" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
+        '</div><div class="supplier-bill-create-note">Optional invoice attachments are stored with the workspace record. Maximum file size in this version is 1.5 MB.</div></section>'+
+        '<section class="supplier-bill-create-section"><div class="supplier-bill-create-section-head"><span>'+icon('payroll',16)+'</span><div><h3>Commercial value</h3><p>Enter the supplier amount and any discount received before VAT treatment is applied.</p></div></div><div class="form-grid">'+
+          field('Amount before discount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
+          field('Discount received (GMD)','<input name="discountReceived" type="number" min="0" step="0.01" value="0" placeholder="0.00">')+
+        '</div></section>'+
+        '<section class="supplier-bill-create-section"><div class="supplier-bill-create-section-head"><span>'+icon('shield',16)+'</span><div><h3>VAT & accounting</h3><p>Choose VAT treatment and the expense or asset account that receives the purchase.</p></div></div><div class="form-grid">'+
+          field('Category','<select name="category"><option>Supplies / inventory</option><option>Professional services</option><option>Rent / utilities</option><option>Government / statutory</option><option>Travel / logistics</option><option>Other expense</option></select>')+
+          field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+
+          field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
+          field('VAT pricing',window.DalasiTax?.pricingOptions?.('inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
+          field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
+          field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
+        '</div><div class="supplier-bill-create-note"><b>Inclusive</b> means the entered net-after-discount amount already contains VAT. <b>Exclusive</b> adds VAT on top of it.</div></section>'+
+        '<section class="supplier-bill-create-section"><div class="supplier-bill-create-section-head"><span>'+icon('file',16)+'</span><div><h3>Description</h3><p>Add a short explanation of what was purchased or billed.</p></div></div><div class="supplier-bill-description">'+field('Description / purpose','<input name="description" placeholder="What was purchased or billed?">')+'</div></section>'+
       '</div>'+
-      field('Description / purpose','<input name="description" placeholder="What was purchased or billed?">')+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-business-bill">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save bill</button></div>'+
+      '<aside class="supplier-bill-live-summary" aria-live="polite"><div class="supplier-bill-live-summary-head"><div><span class="eyebrow">LIVE REVIEW</span><h3>Bill summary</h3></div><span class="invoice-draft-chip">Draft</span></div>'+
+        '<div class="supplier-bill-live-totals"><div><span>Before discount</span><b data-bill-preview-subtotal>D0.00</b></div><div><span>Discount received</span><b data-bill-preview-discount>D0.00</b></div><div><span>Net before VAT / tax base</span><b data-bill-preview-net>D0.00</b></div><div><span>Input VAT</span><b data-bill-preview-vat>D0.00</b></div><div class="total"><span>Amount payable</span><strong data-bill-preview-gross>D0.00</strong></div></div>'+
+        '<div class="supplier-bill-posting-preview"><span>EXPECTED POSTING COMPONENTS</span><div><small>Debit expense / asset</small><b data-bill-post-expense>D0.00</b></div><div><small>Debit input VAT</small><b data-bill-post-vat>D0.00</b></div><div><small>Credit discount received</small><b data-bill-post-discount>D0.00</b></div><div><small>Credit supplier payable</small><b data-bill-post-payable>D0.00</b></div><p>Final ledger entries follow DalasiPay’s configured purchase posting rules when the bill is approved.</p></div>'+
+        '<div class="supplier-bill-live-meta"><span data-bill-preview-vat-label>VAT treatment will appear here</span><span data-bill-preview-due>Choose invoice and due dates</span><span data-bill-preview-account>Choose a posting account</span></div>'+
+      '</aside>'+
+      '<div class="supplier-bill-create-footer"><div class="invoice-create-assurance">'+icon('check',15)+' <span>Saving creates a draft supplier bill. It can be reviewed before approval and payment.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-business-bill">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save bill</button></div></div>'+
     '</form></div>';
+  }
+
+  function bindBillPreview(form,state){
+    if(!form||form.dataset.billPreviewBound==='1')return;
+    form.dataset.billPreviewBound='1';
+    const money=n=>'D'+(Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const update=()=>{
+      const fd=new FormData(form),gross=Math.max(0,Number(fd.get('amount')||0)),discount=Math.max(0,Number(fd.get('discountReceived')||0)),afterDiscount=Math.max(0,gross-discount),taxCode=String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),mode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,afterDiscount,taxCode,'purchase',mode)||{taxGross:afterDiscount,taxNet:afterDiscount,vatAmount:0,taxCode,taxPricingMode:mode};
+      const put=(sel,val)=>{const el=form.querySelector(sel);if(el)el.textContent=val;};
+      put('[data-bill-preview-subtotal]',money(gross));
+      put('[data-bill-preview-discount]',money(discount));
+      put('[data-bill-preview-net]',money(tax.taxNet));
+      put('[data-bill-preview-vat]',money(tax.vatAmount));
+      put('[data-bill-preview-gross]',money(tax.taxGross));
+      put('[data-bill-post-expense]',money(tax.taxNet));
+      put('[data-bill-post-vat]',money(tax.vatAmount));
+      put('[data-bill-post-discount]',money(discount));
+      put('[data-bill-post-payable]',money(tax.taxGross));
+      const taxLabel=window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'Out of scope';
+      put('[data-bill-preview-vat-label]',taxLabel+' · '+(mode==='exclusive'?'VAT exclusive':'VAT inclusive'));
+      const invoiceDate=String(fd.get('invoiceDate')||''),due=String(fd.get('dueDate')||'');
+      let dueText='Choose invoice and due dates';
+      if(invoiceDate&&due){const days=Math.round((new Date(due+'T12:00:00')-new Date(invoiceDate+'T12:00:00'))/86400000);dueText=days===0?'Due on invoice date':days>0?'Payment terms · '+days+' day'+(days===1?'':'s'):'Due date is before invoice date';}
+      put('[data-bill-preview-due]',dueText);
+      const account=form.querySelector('[name="postingAccount"]'),label=account?.selectedOptions?.[0]?.textContent||account?.value||'Choose a posting account';
+      put('[data-bill-preview-account]',label);
+    };
+    form.addEventListener('input',update);
+    form.addEventListener('change',update);
+    update();
   }
   async function createBill(ev,state,ctx){
     ev.preventDefault();
@@ -1239,5 +1279,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
