@@ -1,5 +1,5 @@
 /* Dedicated admin Worker source. NOT deployed: no Wrangler configuration or routes.
- * Checks verified Supabase Auth identity, then privileged admin membership.
+ * Checks verified Supabase Auth identity, then a private membership service binding.
  * No mutation endpoints, browser UI, CORS allowance or token logging.
  */
 import {createPlatformAdminSessionHandler} from '../platform-admin-session.mjs';
@@ -7,7 +7,7 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname!=='/internal/admin/session')return new Response('Not found',{status:404});
-  if(!env?.DALASIPAY_SUPABASE_URL||!env?.DALASIPAY_SUPABASE_PUBLISHABLE_KEY||!env?.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY)
+  if(!env?.DALASIPAY_SUPABASE_URL||!env?.DALASIPAY_SUPABASE_PUBLISHABLE_KEY||!env?.ADMIN_MEMBERSHIP_SERVICE?.fetch)
    return new Response(JSON.stringify({authorized:false}),{status:503,headers:{'cache-control':'no-store','content-type':'application/json'}});
   const base=env.DALASIPAY_SUPABASE_URL.replace(/\/$/,'');
   const verifyToken=async token=>{
@@ -18,14 +18,18 @@ export default {
    return {userId:user?.id};
   };
   const lookupPlatformAdmin=async userId=>{
-   const target=new URL(base+'/rest/v1/subscription_platform_admins');
-   target.searchParams.set('select','user_id');
-   target.searchParams.set('user_id','eq.'+userId);
-   target.searchParams.set('limit','1');
-   const response=await fetch(target,{headers:{apikey:env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+env.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY}});
-   if(!response.ok)throw Error('Admin lookup unavailable');
-   const rows=await response.json();
-   return Array.isArray(rows)&&rows.length===1&&rows[0]?.user_id===userId;
+   // Private Cloudflare service binding, NOT a public endpoint or direct table SELECT.
+   // The separate lookup service must authenticate its caller and bind this ID to
+   // the previously verified Supabase identity. It is intentionally not deployed.
+   const response=await env.ADMIN_MEMBERSHIP_SERVICE.fetch(
+    new Request('https://admin-membership.internal/check',{
+     method:'POST',headers:{'content-type':'application/json'},
+     body:JSON.stringify({userId})
+    })
+   );
+   if(!response.ok)throw Error('Membership service unavailable');
+   const body=await response.json();
+   return body?.authorized===true;
   };
   return createPlatformAdminSessionHandler({verifyToken,lookupPlatformAdmin})(request);
  }
