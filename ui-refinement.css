@@ -1451,3 +1451,39 @@ body{background:
   .auth-shell-professional .auth-card{padding:27px 20px 23px;border-radius:16px}
   .auth-card-heading h2{font-size:24px}
 }
+
+
+/* DalasiPay v0.99 — brand consistency */
+.sidebar .brand{
+  min-height:42px;gap:10px
+}
+.sidebar .brand .brand-icon.brand-mark{
+  width:36px;height:36px;border-radius:10px;flex:0 0 36px
+}
+.sidebar .brand b{
+  font-size:18.5px;letter-spacing:-.55px;line-height:1
+}
+.sidebar .brand small{
+  margin-top:5px;font-size:7.8px;letter-spacing:.11em;color:rgba(235,249,244,.56)
+}
+.auth-brand,.auth-logo-mobile{
+  align-items:center
+}
+.auth-brand .brand-icon.brand-mark{
+  width:40px;height:40px;flex:0 0 40px
+}
+.auth-logo-mobile .brand-icon.brand-mark{
+  width:38px;height:38px;flex:0 0 38px
+}
+.auth-brand b,.auth-logo-mobile b{
+  letter-spacing:-.55px
+}
+.auth-brand b span,.auth-logo-mobile b span,.sidebar .brand b span{
+  color:#74dec0
+}
+.brand-icon.brand-mark img{
+  border-radius:inherit
+}
+@media(max-width:560px){
+  .auth-logo-mobile b{font-size:19px}
+}
