@@ -214,13 +214,16 @@
     ctx.audit('expense.status_updated',{expenseId:id,status,amount:x.amount,merchant:x.merchant});ctx.save();ctx.toast((x.expenseNo||x.id)+': '+status);ctx.render();
   }
   function reverseExpense(id,state,ctx){
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse expenses.');return;}
-    const x=expenseById(state,id);if(!x)return;if(x.status!=='Paid'||x.reversedAt){ctx.toast('Only an unreversed paid expense can be reversed.');return;}
-    const reversalDate=new Date().toISOString().slice(0,10);if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return;}
-    const reason=String(window.prompt('Reason for reversing '+(x.expenseNo||x.id)+'? The original expense will remain in the audit trail.')||'').trim();if(!reason)return;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return;}
-    const now=new Date().toISOString(),actor=state.session?.name||'User',cashReversal=window.DalasiCashBank?.reverseSource?.(state,'expense:'+x.id+':out',actor)||null;
-    x.status='Reversed';x.reversedAt=now;x.reversedBy=actor;x.reversalReason=reason;x.reversalCashTransactionId=cashReversal?.id||null;x.updatedAt=now;x.updatedBy=actor;
-    ctx.audit('expense.reversed',{expenseId:x.id,expenseNo:x.expenseNo||null,amount:x.amount,merchant:x.merchant,reason,reversalCashTransactionId:x.reversalCashTransactionId});ctx.save();ctx.toast((x.expenseNo||x.id)+' reversed');ctx.render();
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reverse expenses.');return false;}
+    const x=expenseById(state,id);if(!x)return false;if(x.status!=='Paid'||x.reversedAt){ctx.toast('Only an unreversed paid expense can be reversed.');return false;}
+    const reversalDate=new Date().toISOString().slice(0,10);if(window.DalasiMonthClose?.isClosed(state,reversalDate)){ctx.toast('The current accounting period is closed. Reopen it before posting a reversal.');return false;}
+    if(!ctx.approvedRequest){
+      const reason=String(window.prompt('Reason for reversing '+(x.expenseNo||x.id)+'? The original expense will remain in the audit trail.')||'').trim();if(!reason)return false;if(reason.length<5){window.alert('Please enter a clear reversal reason of at least 5 characters.');return false;}
+      return !!window.DalasiReversalApprovals?.request?.(state,{sourceType:'expense',sourceId:x.id,sourceRef:x.expenseNo||x.id,transactionType:'Expense',amount:x.amount,reason},ctx);
+    }
+    const reason=String(ctx.approvedRequest.reason||''),now=new Date().toISOString(),actor=ctx.approvedRequest.approvedBy||state.session?.name||'User',cashReversal=window.DalasiCashBank?.reverseSource?.(state,'expense:'+x.id+':out',actor)||null;
+    x.status='Reversed';x.reversedAt=now;x.reversedBy=actor;x.reversalReason=reason;x.reversalRequestId=ctx.approvedRequest.id;x.reversalCashTransactionId=cashReversal?.id||null;x.updatedAt=now;x.updatedBy=actor;
+    ctx.audit('expense.reversed',{expenseId:x.id,requestId:x.reversalRequestId,expenseNo:x.expenseNo||null,amount:x.amount,merchant:x.merchant,reason,reversalCashTransactionId:x.reversalCashTransactionId});ctx.save();return true;
   }
   function createPurchase(ev,state,ctx){
     ev.preventDefault();
