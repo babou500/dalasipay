@@ -46,3 +46,7 @@ The unmounted `cloudflare-admin-worker/index.mjs` now uses `ADMIN_MEMBERSHIP_SER
 ## Private membership service implementation (still unmounted)
 
 `cloudflare-admin-worker/private-membership.mjs` now contains an isolated request handler that independently verifies the supplied bearer token, compares its verified user ID against the claimed ID, and asks an injected least-privilege membership adapter for a boolean only. The administrator Worker forwards the bearer proof over its future private Cloudflare service binding; no tokens are logged. Tests cover identity mismatch, invalid/missing authentication, nonmembership, and upstream failure. **Do not deploy as a public HTTP endpoint**. Before rollout, enforce private service-binding ingress, add a real independently verified Supabase Auth adapter and a vetted, minimal privilege database lookup; no such production adapters or grants are included here.
+
+## Two-service integration test (undeployed)
+
+`cloudflare-admin-worker/membership-integration.mjs` builds an independently verified private service adapter with injected membership lookup. `membership-integration.test.mjs` exercises both administrator and membership layers using mock Supabase Auth and database responses. No administrator roster access, production DB function, service-binding deployment, or privilege grants have been added. A real restricted membership lookup and Cloudflare private-ingress controls remain mandatory before activation.
