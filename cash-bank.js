@@ -95,7 +95,8 @@
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add accounts.');return;}
     const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter an account name.');return;}
     state.cashAccounts=state.cashAccounts||[];const id='CBA-'+Date.now().toString(36).toUpperCase();
-    state.cashAccounts.push({id,name,type:String(fd.get('type')||'Bank'),openingBalance:Math.round((Number(fd.get('openingBalance'))||0)*100)/100,openingDate:String(fd.get('openingDate')||todayIso()),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
+    const used=new Set(state.cashAccounts.map(x=>String(x.ledgerCode||'')).filter(Boolean));let n=101+state.cashAccounts.length;while(used.has('1000-'+n))n++;const ledgerCode='1000-'+n;
+    state.cashAccounts.push({id,name,type:String(fd.get('type')||'Bank'),ledgerCode,openingBalance:Math.round((Number(fd.get('openingBalance'))||0)*100)/100,openingDate:String(fd.get('openingDate')||todayIso()),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     if(state.cashAccountReturnContext){state.paymentSelectedAccountId=id;state.cashAccountReturnContext=null;}
     state.cashAccountOpen=false;ctx.audit('cash.account_created',{accountId:id,name,type:String(fd.get('type')||'Bank')});ctx.save();ctx.toast(name+' added to Cash & Bank');ctx.render();
   }
