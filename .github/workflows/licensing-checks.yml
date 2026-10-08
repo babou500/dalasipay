@@ -14,6 +14,7 @@ on:
       - 'cloudflare-licensing-worker/**'
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
+      - 'platform-admin-session*'
   pull_request:
     paths:
       - 'licensing-*.js'
@@ -25,6 +26,7 @@ on:
       - 'cloudflare-licensing-worker/**'
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
+      - 'platform-admin-session*'
 
 permissions:
   contents: read
