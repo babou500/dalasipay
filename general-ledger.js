@@ -5,7 +5,7 @@
     ['1000','Cash & Bank','Asset'],['1010','Undeposited Funds','Asset'],['1100','Accounts Receivable','Asset'],['1150','VAT Input Recoverable','Asset'],['1160','Supplier Refund Receivable','Asset'],['1200','Inventory','Asset'],['1300','Other Current Assets','Asset'],['1500','Property & Equipment, Cost','Asset'],['1510','Accumulated Depreciation','Asset'],['1590','Property & Equipment, Net','Asset'],
     ['2000','Accounts Payable','Liability'],['2050','Accrued Expenses','Liability'],['2060','Accrued Interest Payable','Liability'],['2070','Customer Refunds Payable','Liability'],['2100','Payroll Payable','Liability'],['2150','VAT Output Payable','Liability'],['2110','Payroll / Statutory Payable','Liability'],['2200','Loans & Borrowings','Liability'],['2250','Other Liabilities','Liability'],['2300','Inventory Receipt Clearing','Liability'],
     ['3000','Owner / Share Capital','Equity'],['3100','Opening Retained Earnings','Equity'],['3190','Opening Balance Equity','Equity'],['3990','Opening / Mapping Suspense','Equity'],
-    ['4000','Sales Revenue','Revenue'],['4010','Sales Discounts','Revenue'],['4100','Other Business Income','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
+    ['4000','Sales Revenue','Revenue'],['4010','Sales Discounts','Revenue'],['4100','Other Business Income','Revenue'],['4110','Discounts Received','Revenue'],['4200','Gain on Asset Disposal','Revenue'],
     ['5000','Cost of Goods Sold','Expense'],['6000','Operating Expenses','Expense'],['6100','Payroll & Employer Costs','Expense'],['6200','Depreciation Expense','Expense'],['6210','Loss on Asset Disposal','Expense'],['6300','Finance Costs / Interest Expense','Expense']
   ];
   const ACCOUNT=Object.fromEntries(CHART.map(x=>[x[1],{code:x[0],name:x[1],type:x[2]}]));
@@ -176,14 +176,20 @@
       }
     });
 
-    // Supplier bills that are not draft/paid: treat as payable with mapping suspense pending detailed account allocation.
+    // Supplier bills that are not draft/paid. Supplier discounts are posted separately as discounts received.
     (state.businessBills||[]).forEach(b=>{
       if((b.status||'Draft')==='Draft')return;
       const amt=round(b.amount);if(!amt)return;
-      const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false},net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
+      const discountGross=round(b.discountTotal||0),subtotalGross=round(b.subtotal||((Number(b.amount)||0)+discountGross));
+      const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false};
+      const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,b.taxCode||'OUT','purchase')||{taxNet:subtotalGross,vatAmount:0,vatRecoverable:false};
+      const net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
+      const grossExpenseBase=round(preDiscountTax.vatRecoverable?preDiscountTax.taxNet:subtotalGross);
+      const discountReceived=round(Math.max(0,grossExpenseBase-net));
       pushJournal(out,'BILL-'+b.id,b.invoiceDate||b.createdAt,b.invoiceNo||b.id,'Supplier bill',[
-        {account:'Opening / Mapping Suspense',debit:net,memo:b.description||'Supplier bill account mapping pending'},
-        {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT':''},
+        {account:'Opening / Mapping Suspense',debit:grossExpenseBase,memo:b.description||'Supplier bill account mapping pending'},
+        {account:'VAT Input Recoverable',debit:vat,memo:vat?'Recoverable input VAT on discounted supplier bill':''},
+        {account:'Discounts Received',credit:discountReceived,memo:discountReceived?'Supplier discount received':''},
         {account:'Accounts Payable',credit:amt,memo:b.supplier||''}
       ]);
     });
