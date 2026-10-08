@@ -45,6 +45,7 @@ jobs:
           node --check subscription-plan-view.js
           node --check subscription-usage.js
           node --check subscription-verify.js
+          node --check subscription-usage-panel.js
           node --check licensing-observer-core.mjs
           node --check licensing-usage-observer.mjs
           node --check licensing-app-state-usage.mjs
@@ -62,6 +63,7 @@ jobs:
             subscription-plan-view.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
+            subscription-usage-panel.test.js \
             cloudflare-licensing-observer.test.mjs \
             licensing-usage-observer.test.mjs \
             licensing-app-state-usage.test.mjs \
