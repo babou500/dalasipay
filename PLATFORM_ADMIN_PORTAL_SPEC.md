@@ -34,3 +34,7 @@ Status: DESIGN CONTRACT ONLY. No live route, login page, or administration API i
 ## Trusted identity boundary
 
 The unmounted session handler now rejects userId, actorId and adminId query parameters, and obtains actor identity only from trusted token verification. This is defense in depth, not an authorization substitute. The lookup function must also reject all externally supplied user IDs, and production access remains blocked until a reviewed execution principal exists. No admin endpoint has been deployed.
+
+## Disposable database lookup test
+
+`tests/licensing-postgres-admin-lookup.sql` and the disposable PostgreSQL GitHub workflow now test a dedicated execution role, denied browser role, positive membership, negative membership, and read-only behavior. This test deliberately models a narrow executor, rather than changing the production `subscription_platform_admins` privileges. It does not deploy `platform-admin-lookup-proposal.sql` or activate the Cloudflare administrator Worker. The tests use disposable test identities only; a real trusted token-to-user identity binding and carefully reviewed production grants are required before deployment.
