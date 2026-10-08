@@ -26,3 +26,7 @@ Status: DESIGN CONTRACT ONLY. No live route, login page, or administration API i
 - Security tests: no token, forged token, company owner but not operator, cross-tenant data exposure, token expiry, role revocation, response cache headers.
 - Establish an independently approved first operator before deploying a restricted working portal. Until then, leave the portal unmounted.
 - Keep existing Professional Preview and accounting functionality unchanged.
+
+## Admin Worker source prepared (not deployed)
+
+`cloudflare-admin-worker/index.mjs` implements only `/internal/admin/session` with injected Supabase Auth verification and privileged allowlist lookup. No Wrangler file, domain, deployment or frontend route has been created. **Production blocker:** privileges on `subscription_platform_admins` are revoked even from `service_role`, so the draft Worker will fail closed until a separately reviewed least-privilege lookup mechanism is designed. Do not grant general table privileges merely to activate this draft. No admin has been appointed. CI tests use mocked responses and do not prove production database access.
