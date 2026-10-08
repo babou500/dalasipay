@@ -623,3 +623,76 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* DalasiPay v1.12 — collections & receipts register */
+.collections-register-card .table-scroll table{min-width:1080px}
+.collection-receipt-id,
+.collection-invoice-link,
+.collection-date,
+.collection-amount,
+.collection-reference{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.collection-receipt-id small,
+.collection-invoice-link small,
+.collection-date small,
+.collection-amount small,
+.collection-reference small{
+  color:var(--muted);
+  font-size:8.8px;
+}
+.collection-invoice-link button{
+  width:max-content;
+  border:0;
+  padding:0;
+  background:none;
+  color:var(--primary);
+  font:inherit;
+  font-size:10.5px;
+  font-weight:850;
+  cursor:pointer;
+}
+.collection-amount b{
+  font-size:11px;
+}
+.collection-reference b{
+  max-width:190px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.collection-actions{
+  min-width:220px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+.collections-register-card th:last-child,
+.collections-register-card td:last-child{
+  text-align:right;
+}
+.collections-register-card .table-footer{
+  align-items:center;
+  justify-content:space-between;
+}
+@media(max-width:760px){
+  .collections-register-card .table-tools{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .collections-register-card .register-tools{
+    display:grid;
+    grid-template-columns:1fr;
+    width:100%;
+    gap:8px;
+  }
+  .collections-register-card .register-search{
+    width:100%;
+  }
+  .collections-register-card .table-footer{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
