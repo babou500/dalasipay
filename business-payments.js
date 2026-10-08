@@ -87,7 +87,7 @@
 
   function billMetrics(state){
     const rows=state.businessBills||[],today=todayIso(),week=new Date();week.setDate(week.getDate()+7);const w=week.toISOString().slice(0,10);
-    const bal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0),open=rows.filter(x=>(x.status||'Draft')!=='Draft'&&bal(x)>.004),sum=xs=>xs.reduce((a,x)=>a+bal(x),0);
+    const bal=x=>window.DalasiReturns?.billBalance?.(state,x)??(Number(x.amount)||0),open=rows.filter(x=>['Approved','Part paid','Paid'].includes(x.status||'Draft')&&bal(x)>.004),sum=xs=>xs.reduce((a,x)=>a+bal(x),0);
     return {count:rows.length,outstanding:sum(open),overdue:sum(open.filter(x=>x.dueDate&&x.dueDate<today)),dueSoon:sum(open.filter(x=>x.dueDate&&x.dueDate>=today&&x.dueDate<=w)),paid:(state.businessPayments||[]).filter(x=>x.billId&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0),credited:(state.supplierCreditNotes||[]).reduce((a,x)=>a+(Number(x.amount)||0),0),debited:(state.supplierDebitNotes||[]).reduce((a,x)=>a+(Number(x.amount)||0),0)};
   }
   function billAction(state,b){
