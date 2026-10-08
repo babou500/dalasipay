@@ -1956,3 +1956,257 @@ body{background:
   .record-line>span{display:none}
   .customer-account-summary,.customer-account-details{grid-template-columns:1fr}
 }
+
+
+/* DalasiPay v1.02 — professional company onboarding */
+.professional-onboarding{
+  background:
+    radial-gradient(circle at 50% -10%,rgba(44,157,126,.11),transparent 30%),
+    #f5f8f6;
+}
+.professional-onboarding .onboarding-card{
+  width:min(100%,720px);
+  border-radius:20px;
+  padding:0;
+  overflow:hidden;
+  box-shadow:0 28px 80px rgba(9,43,34,.11);
+}
+.onboarding-top{
+  min-height:82px;
+  padding:20px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(145deg,var(--panel),var(--panel-2));
+}
+.onboarding-top .auth-brand.compact{
+  margin:0;
+}
+.onboarding-step{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  padding:0 9px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--panel);
+  color:var(--muted);
+  font-size:8px;
+  font-weight:860;
+  letter-spacing:.11em;
+}
+.onboarding-heading{
+  padding:26px 28px 10px;
+}
+.onboarding-heading h1{
+  font-size:28px;
+  letter-spacing:-.65px;
+  margin:0 0 7px;
+}
+.onboarding-heading p{
+  margin:0;
+  max-width:610px;
+  color:var(--muted);
+  font-size:11.5px;
+  line-height:1.6;
+}
+.onboarding-progress{
+  position:relative;
+  padding:8px 28px 2px;
+  display:grid;
+  grid-template-columns:40px 40px 40px 1fr;
+  gap:7px;
+  align-items:center;
+}
+.onboarding-progress>span{
+  height:4px;
+  border-radius:999px;
+  background:var(--border);
+}
+.onboarding-progress>span.active{
+  background:var(--primary);
+}
+.onboarding-progress small{
+  justify-self:end;
+  color:var(--muted);
+  font-size:8.5px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:790;
+}
+.professional-onboarding form{
+  display:block;
+  padding:20px 28px 26px;
+}
+.onboarding-section{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:18px;
+  background:var(--panel);
+}
+.onboarding-section-head{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+  padding-bottom:14px;
+  margin-bottom:15px;
+  border-bottom:1px solid var(--border);
+}
+.onboarding-section-head>span{
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  background:var(--soft);
+  color:var(--primary);
+}
+.onboarding-section-head b{
+  display:block;
+  font-size:10.8px;
+}
+.onboarding-section-head small{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:8.8px;
+}
+.onboarding-section .two-fields{
+  margin:12px 0 0;
+}
+.onboarding-section .field{
+  margin:0;
+}
+.onboarding-section .field input,
+.onboarding-section .field select{
+  height:42px;
+  border-radius:9px;
+  background:var(--panel-2);
+}
+.onboarding-sample{
+  margin-top:14px;
+  padding:14px;
+  border-radius:12px;
+  display:grid;
+  grid-template-columns:auto 34px minmax(0,1fr);
+  align-items:start;
+  gap:10px;
+  background:linear-gradient(145deg,var(--soft-2),var(--panel));
+}
+.onboarding-sample>input{
+  margin-top:10px;
+}
+.sample-check-icon{
+  width:34px;
+  height:34px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  color:var(--primary);
+  background:var(--soft);
+}
+.onboarding-sample b{
+  font-size:10.5px;
+}
+.onboarding-sample small{
+  font-size:8.8px;
+  line-height:1.5;
+}
+.onboarding-assurance{
+  margin-top:12px;
+  padding:12px 13px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  display:grid;
+  grid-template-columns:24px minmax(0,1fr);
+  gap:8px;
+  align-items:start;
+  background:var(--panel-2);
+}
+.onboarding-assurance>span{
+  color:var(--primary);
+}
+.onboarding-assurance b{
+  display:block;
+  font-size:9.8px;
+}
+.onboarding-assurance small{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:8.5px;
+}
+.onboarding-actions{
+  margin-top:18px;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+.onboarding-actions .primary,
+.onboarding-actions .secondary{
+  min-height:42px;
+}
+.onboarding-footer{
+  min-height:44px;
+  padding:0 24px;
+  border-top:1px solid var(--border);
+  background:var(--panel-2);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  color:var(--muted);
+  font-size:8.5px;
+}
+.modal-onboarding .onboarding-card{
+  width:min(calc(100vw - 30px),720px);
+}
+
+@media(max-width:620px){
+  .professional-onboarding{
+    padding:14px;
+    align-items:start;
+  }
+  .professional-onboarding .onboarding-card{
+    border-radius:16px;
+  }
+  .onboarding-top{
+    min-height:70px;
+    padding:16px 18px;
+  }
+  .onboarding-heading{
+    padding:21px 19px 9px;
+  }
+  .onboarding-heading h1{
+    font-size:24px;
+  }
+  .onboarding-progress{
+    padding-left:19px;
+    padding-right:19px;
+  }
+  .professional-onboarding form{
+    padding:17px 19px 22px;
+  }
+  .onboarding-section{
+    padding:15px;
+  }
+  .onboarding-section .two-fields{
+    grid-template-columns:1fr;
+  }
+  .onboarding-actions{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .onboarding-actions>*{
+    width:100%;
+  }
+  .onboarding-footer{
+    padding:11px 18px;
+    align-items:flex-start;
+    flex-direction:column;
+    justify-content:center;
+  }
+}
