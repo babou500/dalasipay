@@ -21,3 +21,9 @@ Future work:
 - Design role and cross-tenant authorization checks on a separate server endpoint.
 - Design atomic request/review transactions with enforced actor permissions. Append-only audit trigger is installed; full privilege and mutation testing is still pending.
 - Build tests before granting plan-changing permissions.
+
+## Inactive atomic review foundation (2026-10-08)
+
+Migration `inactive_atomic_subscription_review` created an empty `subscription_platform_admins` allowlist and the `review_subscription_request_internal` SQL function. The function uses a single database transaction for updating a pending request and appending an audit event, checks platform membership, excludes self-review, and never changes `workspace_subscriptions`. Function EXECUTE is revoked from PUBLIC, anon, authenticated and service_role. The platform allowlist has RLS enabled and the same role grants revoked. No public endpoint is mounted. The function is SECURITY INVOKER, so it must not be exposed as an RPC before a separately designed secure deployment.
+
+Before activation: independently test rollback and concurrency; decide who can appoint platform administrators; implement server authentication, real actor identity verification and server-side membership authorization; grant minimal scoped rights to a dedicated role after a security review. Do not grant service_role EXECUTE merely to make an endpoint work.
