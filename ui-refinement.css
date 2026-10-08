@@ -1310,3 +1310,32 @@ body{background:
   .sales-action-item{grid-template-columns:28px minmax(0,1fr)}
   .sales-action-item>button{grid-column:2;justify-self:start}
 }
+
+
+/* DalasiPay v0.97 — profile account menu */
+.profile-wrap{position:relative;flex:0 0 auto}
+.profile-wrap .profile{
+  width:100%;border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left
+}
+.profile-wrap .profile>svg{transition:transform .14s ease}
+.profile-menu{
+  position:absolute;left:0;right:0;bottom:58px;z-index:45;
+  padding:7px;background:#0c332b;border:1px solid rgba(255,255,255,.11);
+  border-radius:12px;box-shadow:0 18px 42px rgba(0,0,0,.24)
+}
+.profile-menu button{
+  width:100%;min-height:48px;border:0;background:transparent;color:#eaf8f3;
+  border-radius:9px;padding:8px 9px;display:grid;grid-template-columns:25px minmax(0,1fr);
+  gap:8px;align-items:center;text-align:left
+}
+.profile-menu button:hover{background:rgba(255,255,255,.07)}
+.profile-menu button>svg{color:#9ed7c5}
+.profile-menu button span{display:flex;flex-direction:column;min-width:0}
+.profile-menu button b{font-size:10.5px;color:#fff}
+.profile-menu button small{font-size:8.7px;color:rgba(235,249,244,.54);margin-top:2px}
+.profile-menu-divider{height:1px;background:rgba(255,255,255,.09);margin:5px 4px}
+.profile-menu .signout>svg{color:#f0a19a}
+.profile-menu .signout b{color:#ffd9d5}
+@media(max-width:820px){
+  .profile-menu{bottom:60px}
+}
