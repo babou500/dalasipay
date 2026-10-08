@@ -32,9 +32,15 @@
     return out.sort((a,b)=>String(b.reversedAt||'').localeCompare(String(a.reversedAt||'')));
   }
   function render(state,h){
-    const r=rows(state),money2=h.money2,icon=h.icon,pill=h.pill,pageTitle=h.pageTitle;
+    const r=rows(state),money2=h.money2,icon=h.icon,pill=h.pill,pageTitle=h.pageTitle,requests=window.DalasiReversalApprovals?.requests?.(state)||[],pending=requests.filter(x=>x.status==='Pending');
     const total=r.reduce((a,x)=>a+Math.abs(Number(x.amount)||0),0),month=new Date().toISOString().slice(0,7),
       thisMonth=r.filter(x=>String(x.reversedAt||'').slice(0,7)===month).length;
+    const pendingRows=pending.length?pending.map(x=>'<tr>'+
+      '<td><div class="payment-payee"><b>'+esc(x.sourceRef||x.sourceId)+'</b><small>'+esc(x.transactionType||x.sourceType)+'</small></div></td>'+
+      '<td>'+dateLabel(x.requestedAt)+'</td><td class="payment-amount">'+money2(x.amount)+'</td>'+
+      '<td><div class="payment-payee"><b>'+esc(x.requestedBy||'User')+'</b><small>'+esc(x.reason||'No reason recorded')+'</small></div></td>'+
+      '<td>'+pill('Pending approval','approved')+'</td>'+
+      '<td><div class="inline-buttons"><button class="primary tiny" data-action="reversal-approve:'+esc(x.id)+'">Approve & post</button><button class="secondary tiny" data-action="reversal-reject:'+esc(x.id)+'">Reject</button></div></td></tr>').join(''):'<tr><td colspan="6"><div class="empty-inline">No reversal requests are waiting for approval.</div></td></tr>';
     const body=r.length?r.map(x=>'<tr>'+
       '<td><div class="payment-payee"><b>'+esc(x.originalRef)+'</b><small>'+esc(x.type)+' · '+esc(x.party)+'</small></div></td>'+
       '<td>'+dateLabel(x.originalDate)+'</td><td class="payment-amount">'+money2(x.amount)+'</td>'+
@@ -45,15 +51,17 @@
       '<button class="secondary tiny" data-action="correction-reversal:'+esc(x.key)+'">View reversal</button>'+
       (x.canCopy?'<button class="primary tiny" data-action="correction-copy:'+esc(x.key)+'">Create corrected copy</button>':'')+
       '</div></td></tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No transaction reversals recorded yet.</div></td></tr>';
-    return pageTitle('ACCOUNTING CONTROL','Reversals & Corrections','Review reversed transactions, reasons, users, accounting dates and replacement records in one audit-safe register.',
+    return pageTitle('ACCOUNTING CONTROL','Reversals & Corrections','Request, independently approve and review transaction reversals without changing original accounting history.',
       '<button class="secondary" data-action="correction-export">'+icon('download',14)+' Export register</button>')+
-      '<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Original records are never deleted</b><p>A reversal preserves the original posting and records the opposite entry separately. Corrected copies begin as new draft records so they can follow the normal approval process.</p></div></div>'+
-      '<div class="payment-overview"><div class="surface"><span>Total reversals</span><b>'+r.length+'</b><small>all supported transaction types</small></div>'+
+      '<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Independent reversal approval is enforced</b><p>The requester cannot approve or reject their own request. No cashbook or ledger reversal is posted until a different authorised user approves it.</p></div></div>'+
+      '<div class="payment-overview"><div class="surface"><span>Pending approval</span><b>'+pending.length+'</b><small>no ledger impact yet</small></div>'+
+      '<div class="surface"><span>Total reversals</span><b>'+r.length+'</b><small>approved and posted</small></div>'+
       '<div class="surface"><span>This month</span><b>'+thisMonth+'</b><small>reversals posted this month</small></div>'+
-      '<div class="surface"><span>Reversed value</span><b>'+money2(total)+'</b><small>gross absolute value</small></div>'+
-      '<div class="surface"><span>Control status</span><b>Audit-safe</b><small>original + reversal retained</small></div></div>'+
-      '<div class="surface employee-card"><div class="table-tools"><div><h3>Reversal & corrections register</h3><p>Original transaction, reversal reference, reason, user and corrected-copy workflow</p></div><label class="register-search">'+icon('search',13)+'<input data-table-search="corrections-register" placeholder="Search reversals"></label></div>'+
-      '<div class="table-scroll"><table data-register-table="corrections-register"><thead><tr><th>ORIGINAL</th><th>ORIGINAL DATE</th><th>AMOUNT</th><th>REVERSAL</th><th>REVERSED BY / REASON</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+      '<div class="surface"><span>Reversed value</span><b>'+money2(total)+'</b><small>gross approved value</small></div></div>'+
+      '<div class="surface employee-card" style="margin-bottom:14px"><div class="table-tools"><div><h3>Reversal approval queue</h3><p>Maker-checker review before any opposite accounting entry is posted</p></div></div>'+
+      '<div class="table-scroll"><table><thead><tr><th>TRANSACTION</th><th>REQUESTED</th><th>AMOUNT</th><th>REQUESTER / REASON</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'+
+      '<div class="surface employee-card"><div class="table-tools"><div><h3>Posted reversals & corrections</h3><p>Original transaction, reversal reference, approver, reason and corrected-copy workflow</p></div><label class="register-search">'+icon('search',13)+'<input data-table-search="corrections-register" placeholder="Search reversals"></label></div>'+
+      '<div class="table-scroll"><table data-register-table="corrections-register"><thead><tr><th>ORIGINAL</th><th>ORIGINAL DATE</th><th>AMOUNT</th><th>REVERSAL</th><th>POSTED BY / REASON</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
   }
   function findRow(state,key){return rows(state).find(x=>x.key===key)||null;}
   function openOriginal(key,state,ctx){const x=findRow(state,key);if(!x)return;ctx.openSourceRecord(x.sourceType,x.sourceId);}
