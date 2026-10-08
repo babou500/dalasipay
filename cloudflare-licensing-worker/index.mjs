@@ -54,7 +54,9 @@ export default {
    const range=result.headers.get('content-range');
    const count=range?.split('/').pop();
    if(!/^[0-9]+$/.test(count||''))throw new Error('Usage count missing');
-   return Number(count);
+   const value=Number(count);
+   if(!Number.isSafeInteger(value))throw new Error('Usage count out of range');
+   return value;
   };
   try {
    const handle=createVerifiedLicensingEndpoint({authClient,adminClient,countWorkspaceRecords});
