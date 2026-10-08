@@ -21,7 +21,13 @@
    if(!response.ok)return {ok:false,message:'Subscription service unavailable (HTTP '+response.status+').'};
    const data=await response.json();
    if(data?.ok!==true||data.workspaceId!==workspaceId||data.enforcementActive!==false)return {ok:false,message:'Subscription response could not be verified.'};
-   return {ok:true,message:'Connected securely. Plan: '+(data.planId==='professional-preview'?'Professional Preview':data.planId)+'. Licensing restrictions remain disabled.'};
+   const integerCount=key=>{
+    const n=data.usage?.[key]?.count;
+    return Number.isSafeInteger(n)&&n>=0?n:null;
+   };
+   const users=integerCount('users'),employees=integerCount('employees');
+   const status=(label,n)=>label+': '+(n===null?'Unavailable':n);
+   return {ok:true,message:'Connected securely. Plan: '+(data.planId==='professional-preview'?'Professional Preview':data.planId)+'. Licensing restrictions remain disabled. Server counts: '+status('users',users)+', '+status('employees',employees)+'. Monthly invoice and supplier bill counts are not yet verified.'};
   }catch{return {ok:false,message:'Could not connect to the subscription service. No data was changed.'};}
  }
  return Object.freeze({verify});
