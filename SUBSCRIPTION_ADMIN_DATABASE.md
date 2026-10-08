@@ -39,3 +39,7 @@ Added isolated JavaScript tests for failed-audit rollback, staged review events,
 ## Platform administrator appointment policy (inert)
 
 Added `licensing-platform-admin-policy.mjs` and tests. Proposed appointments or revocations require existing platform authorization, a different target user, explicit confirmation, reason, independent approval, atomic persistence and an audit entry. The policy always returns `canExecute:false`; it does not insert or revoke administrators, expose a server endpoint, or bootstrap the first administrator. A separately approved offline bootstrap procedure will be needed. Company owner membership alone does not authorize platform billing plan grants. No production plan or permission changes were made in this step.
+
+## First administrator bootstrap
+
+A separate controlled procedure is documented in `PLATFORM_ADMIN_BOOTSTRAP.md`. This is documentation only; no administrator was assigned. Current admin event types do not include appointment/revocation and must be extended safely with tests before adopting database-native audit for those actions.
