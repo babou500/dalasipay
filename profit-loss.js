@@ -77,7 +77,7 @@
     const invoiceRevenue=round(periodInvoices.reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0));
     const invoiceSalesGross=round(periodInvoices.reduce((a,x)=>{
       const subtotal=Number(x.subtotal)||((Number(x.amount)||0)+(Number(x.discountTotal)||0));
-      return a+(Number(window.DalasiTax?.snapshot?.(state,subtotal,x.taxCode||'OUT','sale')?.taxNet??subtotal)||0);
+      return a+(Number(window.DalasiTax?.snapshot?.(state,subtotal,x.taxCode||'OUT','sale',x.taxPricingMode||'inclusive')?.taxNet??subtotal)||0);
     },0));
     const salesDiscounts=round(Math.max(0,invoiceSalesGross-invoiceRevenue));
     const salesCredits=round((state.customerCreditNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0)),salesDebits=round((state.customerDebitNotes||[]).filter(x=>x.status!=='Void'&&inRange(x.date||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(x.taxNet??x.amount)||0),0));
@@ -85,7 +85,7 @@
     const directIncome=(state.revenueEntries||[]).filter(x=>inRange(x.revenueDate||x.createdAt,r.start,r.end)).reduce((a,x)=>a+(Number(window.DalasiTax?.meta?.(state,x,'sale')?.taxNet??x.amount)||0),0);
     const discountsReceived=round((state.businessBills||[]).filter(b=>(b.status||'Draft')!=='Draft'&&inRange(b.invoiceDate||b.createdAt,r.start,r.end)).reduce((a,b)=>{
       const subtotal=Number(b.subtotal)||((Number(b.amount)||0)+(Number(b.discountTotal)||0));
-      const pre=window.DalasiTax?.snapshot?.(state,subtotal,b.taxCode||'OUT','purchase')||{taxNet:subtotal,vatRecoverable:false};
+      const pre=window.DalasiTax?.snapshot?.(state,subtotal,b.taxCode||'OUT','purchase',b.taxPricingMode||'inclusive')||{taxNet:subtotal,vatRecoverable:false};
       const post=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:Number(b.amount)||0,vatRecoverable:false};
       const grossBase=pre.vatRecoverable?Number(pre.taxNet)||0:subtotal;
       const netBase=post.vatRecoverable?Number(post.taxNet)||0:Number(b.amount)||0;
