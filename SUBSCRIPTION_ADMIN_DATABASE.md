@@ -35,3 +35,7 @@ Read-only catalog checks confirmed the review function is SECURITY INVOKER and E
 ## Transaction simulation (2026-10-08)
 
 Added isolated JavaScript tests for failed-audit rollback, staged review events, and unauthorized reviewer denial. These are logic simulations only, not evidence of PostgreSQL transactional rollback or concurrent database access. Live SQL function still uses SELECT FOR UPDATE and same-transaction request UPDATE/audit INSERT; independently validate those semantics against disposable test fixtures in a nonproduction Supabase environment before enabling the function. No platform administrators, requests, events or plan changes were created by these GitHub tests.
+
+## Platform administrator appointment policy (inert)
+
+Added `licensing-platform-admin-policy.mjs` and tests. Proposed appointments or revocations require existing platform authorization, a different target user, explicit confirmation, reason, independent approval, atomic persistence and an audit entry. The policy always returns `canExecute:false`; it does not insert or revoke administrators, expose a server endpoint, or bootstrap the first administrator. A separately approved offline bootstrap procedure will be needed. Company owner membership alone does not authorize platform billing plan grants. No production plan or permission changes were made in this step.
