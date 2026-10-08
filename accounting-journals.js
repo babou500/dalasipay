@@ -93,7 +93,7 @@
     }
     const id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextNo(state),now=new Date().toISOString();
     state.manualJournals=state.manualJournals||[];state.manualJournals.unshift({id,journalNo,date,reference,memo,lines,debit:t.debit,credit:t.credit,status:'Draft',createdAt:now,createdBy:state.session?.name||'User',updatedAt:now});
-    state.journalOpen=false;ctx.audit('accounting.journal_created',{journalId:id,journalNo,date,debit:t.debit,credit:t.credit});ctx.save();ctx.toast(journalNo+' saved as draft');ctx.render();
+    state.journalOpen=false;state.journalDetailId=id;state.accountingTab='journals';state.page='accounting';ctx.audit('accounting.journal_created',{journalId:id,journalNo,date,debit:t.debit,credit:t.credit});ctx.save();ctx.toast(journalNo+' saved as draft · post it to affect the ledger');ctx.render();
   }
   function postJournal(id,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to post journals.');return;}
@@ -130,6 +130,15 @@
     const a=(state.customAccounts||[]).find(x=>x.id===id);if(!a)return;
     a.status=(a.status||'Active')==='Active'?'Inactive':'Active';a.updatedAt=new Date().toISOString();a.updatedBy=state.session?.name||'User';
     ctx.audit('accounting.account_status_updated',{accountId:id,status:a.status});ctx.save();ctx.toast(a.name+': '+a.status);ctx.render();
+  }
+  function journalDetailModal(state,h){
+    const j=(state.manualJournals||[]).find(x=>x.id===state.journalDetailId);if(!j)return '';
+    const {icon,money2}=h,lines=(j.lines||[]).map(x=>'<tr><td><b>'+esc(x.accountCode||'')+'</b> '+esc(x.account||'Unmapped account')+'</td><td>'+esc(x.memo||'—')+'</td><td>'+money2(x.debit||0)+'</td><td>'+money2(x.credit||0)+'</td></tr>').join('');
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-journal-detail"></div><div class="modal-box journal-modal">'+
+      '<div class="modal-head"><div><div class="eyebrow">MANUAL JOURNAL</div><h2>'+esc(j.journalNo||j.id)+'</h2><p>'+esc(j.reference||'No reference')+' · '+esc(j.date||'')+'</p></div><button type="button" class="close" data-action="close-journal-detail">×</button></div>'+
+      '<div class="payment-notice"><span>'+icon(j.status==='Posted'?'check':'alert',17)+'</span><div><b>'+esc(j.status||'Draft')+'</b><p>'+(j.status==='Posted'?'This journal is posted and included in the General Ledger and Balance Sheet.':'This journal is saved as a draft. It will not affect the General Ledger or Balance Sheet until you post it.')+'</p></div></div>'+
+      '<div class="table-scroll"><table class="report-table"><thead><tr><th>ACCOUNT</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th></tr></thead><tbody>'+lines+'<tr><td colspan="2"><b>TOTAL</b></td><td><b>'+money2(j.debit||0)+'</b></td><td><b>'+money2(j.credit||0)+'</b></td></tr></tbody></table></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-journal-detail">Close</button>'+(j.status==='Draft'?'<button type="button" class="primary" data-action="journal-post:'+esc(j.id)+'">'+icon('check',14)+' Post journal</button>':'')+'</div></div></div>';
   }
   function journalModal(state,h){
     const {field,icon}=h;
@@ -168,7 +177,7 @@
     const totalPosted=journals.filter(x=>x.status==='Posted').length,totalDraft=journals.filter(x=>x.status==='Draft').length,reversed=journals.filter(x=>x.reversalJournalId).length;
     const rows=journals.length?journals.map(j=>{
       const stateLabel=j.reversalOf?'Reversal':j.reversalJournalId?'Reversed':j.status,cls=j.status==='Posted'?'ready':'neutral';
-      const action=j.status==='Draft'?'<button class="primary" data-action="journal-post:'+j.id+'">Post</button>':(!j.reversalOf&&!j.reversalJournalId?'<button class="secondary" data-action="journal-reverse:'+j.id+'">Request reversal</button>':'');
+      const action='<div class="inline-buttons"><button class="secondary" data-action="journal-view:'+j.id+'">View</button>'+(j.status==='Draft'?'<button class="primary" data-action="journal-post:'+j.id+'">Post</button>':(!j.reversalOf&&!j.reversalJournalId?'<button class="secondary" data-action="journal-reverse:'+j.id+'">Request reversal</button>':''))+'</div>';
       return '<tr><td><div class="payment-payee"><b>'+esc(j.journalNo||j.id)+'</b><small>'+esc(j.reference||'Manual journal')+(j.reversalReason?' · Reversal: '+esc(j.reversalReason):'')+'</small></div></td><td>'+esc(j.date||'')+'</td><td>'+esc(j.memo||'—')+'</td><td>'+money2(j.debit||0)+'</td><td>'+money2(j.credit||0)+'</td><td>'+pill(stateLabel,cls)+'</td><td>'+action+'</td></tr>';
     }).join(''):'<tr><td colspan="7"><div class="empty-inline">No manual journal entries yet.</div></td></tr>';
     const guide=!journals.length?'<div class="first-use-card"><span>'+icon('reports',16)+'</span><div><b>Use journals only for accounting adjustments</b><p>Sales, purchases, payments and payroll should come from their source modules. Create a manual journal for accruals, corrections, depreciation and other controlled adjustments.</p></div><button class="primary" data-action="open-journal">New journal</button></div>':'';
@@ -178,5 +187,5 @@
       '<div class="surface employee-card"><div class="table-tools"><div><h3>Manual journal register</h3><p>Adjustments, accruals, depreciation, suspense clearing and accounting corrections</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="journal-register" placeholder="Search journals"></label></div></div><div class="table-scroll"><table data-register-table="journal-register"><thead><tr><th>JOURNAL</th><th>DATE</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
 
-  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,accountModal,render};
+  window.DalasiAccounting={TYPES,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,journalDetailModal,accountModal,render};
 })();
