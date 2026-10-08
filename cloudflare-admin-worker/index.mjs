@@ -23,7 +23,7 @@ export default {
    // the previously verified Supabase identity. It is intentionally not deployed.
    const response=await env.ADMIN_MEMBERSHIP_SERVICE.fetch(
     new Request('https://admin-membership.internal/check',{
-     method:'POST',headers:{'content-type':'application/json'},
+     method:'POST',headers:{'content-type':'application/json','authorization':request.headers.get('authorization')||''},
      body:JSON.stringify({userId})
     })
    );
