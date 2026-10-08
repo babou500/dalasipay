@@ -179,7 +179,12 @@
   function render(state,h){
     const {pageTitle,icon,money2,pill}=h,tab=state.accountingTab||'journals',journals=(state.manualJournals||[]),accounts=allAccounts(state,true);
     const tabs='<div class="accounting-tabs"><button class="'+(tab==='journals'?'active':'')+'" data-action="accounting-tab:journals">Journal entries</button><button class="'+(tab==='accounts'?'active':'')+'" data-action="accounting-tab:accounts">Chart of accounts</button><button class="'+(tab==='controls'?'active':'')+'" data-action="accounting-tab:controls">Control reconciliation</button></div>';
-    if(tab==='controls')return pageTitle('ACCOUNTING','Accounting','Reconcile operational subledgers to their General Ledger control accounts.')+tabs+window.DalasiControlReconciliation.render(state,h);
+    if(tab==='controls'){
+      const body=window.DalasiControlReconciliation?.render
+        ? window.DalasiControlReconciliation.render(state,h)
+        : '<div class="surface employee-card"><div class="empty-inline">Control reconciliation is loading. Refresh once if this message remains visible.</div></div>';
+      return pageTitle('ACCOUNTING','Accounting','Reconcile operational subledgers to their General Ledger control accounts.')+tabs+body;
+    }
     if(tab==='accounts'){
       const rows=orderedAccounts(state,true).map(a=>'<tr class="'+(a.depth?'account-sub-row':'account-parent-row')+'"><td><b>'+esc(a.code)+'</b></td><td><div class="payment-payee account-tree-name" style="--account-depth:'+Math.min(a.depth||0,4)+'"><b>'+(a.depth?'<span class="account-tree-branch">↳</span>':'')+esc(a.name)+'</b><small>'+(a.parentName?'Sub-account of '+esc(a.parentName):(a.system?'System account · parent eligible':'Custom top-level account'))+'</small></div></td><td>'+esc(a.type)+'</td><td>'+pill(a.status||'Active',(a.status||'Active')==='Active'?'ready':'neutral')+'</td><td><div class="inline-buttons"><button class="secondary tiny" data-action="open-subaccount:'+esc(a.code)+'">+ Sub-account</button>'+(a.system?'<span class="bill-no-file">Protected</span>':'<button class="secondary tiny" data-action="account-toggle:'+esc(a.id)+'">'+((a.status||'Active')==='Active'?'Deactivate':'Activate')+'</button>')+'</div></td></tr>').join('');
       return pageTitle('ACCOUNTING','Accounting','Manage manual journals and the chart of accounts.','<button class="primary" data-action="open-account">'+icon('plus',14)+' Add account / sub-account</button>')+tabs+
