@@ -29,6 +29,11 @@
     const bankAccounts=(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active'&&['Bank','Mobile Money'].includes(x.type||'Bank'));
     const bankMissing=bankAccounts.filter(a=>{const rec=latestBankRecon(state,a.id);return !rec||String(rec.statementDate||'')<r.end;});
     const drafts=draftsInPeriod(state,r),fixedAssets=window.DalasiFixedAssets?.periodStatus?.(state,period)||{eligible:0,posted:0,missing:0},loanInterest=window.DalasiLoans?.periodStatus?.(state,period)||{eligible:0,posted:0,missing:0},inventory=window.DalasiInventory?.periodStatus?.(state,period)||{exceptions:0,unfulfilled:0,ready:true};
+    const controlChecks=window.DalasiControlReconciliation?.checks?.(state)||[];
+    const controlBy=id=>controlChecks.find(x=>x.key===id)||null;
+    const cashControl=controlBy('cash'),arControl=controlBy('ar'),apControl=controlBy('ap'),faControl=controlBy('fixed-assets'),vatInControl=controlBy('vat-input'),vatOutControl=controlBy('vat-output'),loanControl=controlBy('loans');
+    const pendingReversals=(state.reversalRequests||[]).filter(x=>x.status==='Pending');
+    const vatRegistered=!!window.DalasiTax?.settings?.(state)?.vatRegistered,vatFiled=!!window.DalasiTax?.returnRecord?.(state,period);
     const checks=[
       {id:'bank',label:'Bank & mobile reconciliations',done:bankMissing.length===0,blocking:true,detail:bankAccounts.length?(bankMissing.length?bankMissing.length+' account'+(bankMissing.length===1?'':'s')+' not reconciled through '+r.end:'All active bank/mobile accounts reconciled through period end'):'No active bank/mobile accounts to reconcile'},
       {id:'trial',label:'Trial Balance',done:!!tb.balanced,blocking:true,detail:tb.balanced?'Debits equal credits':'Debit/credit difference '+round(Math.abs(tb.difference))},
@@ -38,9 +43,17 @@
       {id:'balance',label:'Balance Sheet',done:!!bs?.balanced,blocking:true,detail:bs?.balanced?'Assets equal liabilities + equity':'Balance Sheet difference '+round(Math.abs(bs?.difference||0))},
       {id:'fixed-assets',label:'Fixed asset depreciation',done:fixedAssets.missing===0,blocking:true,detail:fixedAssets.missing?(fixedAssets.missing+' asset'+(fixedAssets.missing===1?'':'s')+' still need depreciation for '+period):(fixedAssets.eligible?('Depreciation posted for '+fixedAssets.posted+' eligible asset'+(fixedAssets.posted===1?'':'s')):'No depreciation due for this period')},
       {id:'loan-interest',label:'Loan interest accruals',done:loanInterest.missing===0,blocking:true,detail:loanInterest.missing?(loanInterest.missing+' loan installment'+(loanInterest.missing===1?'':'s')+' still need interest accrual for '+period):(loanInterest.eligible?('Interest accrued for '+loanInterest.posted+' installment'+(loanInterest.posted===1?'':'s')):'No loan interest due for this period')},
-      {id:'drafts',label:'Draft accounting documents',done:drafts.total===0,blocking:true,detail:drafts.total?(drafts.total+' draft document'+(drafts.total===1?'':'s')+' dated in this period'):'No draft invoices, expenses, supplier bills or journals in the period'}
+      {id:'cash-control',label:'Cash & Bank control account',done:!cashControl||cashControl.matched,blocking:true,detail:!cashControl?'Control reconciliation unavailable':cashControl.matched?'Cash & Bank module agrees to General Ledger':'Difference '+round(Math.abs(cashControl.difference))+' between Cash & Bank and General Ledger'},
+      {id:'ar-control',label:'Accounts Receivable control',done:!arControl||arControl.matched,blocking:true,detail:!arControl?'Control reconciliation unavailable':arControl.matched?'Customer balances agree to Accounts Receivable':'Difference '+round(Math.abs(arControl.difference))+' between customer balances and Accounts Receivable'},
+      {id:'ap-control',label:'Accounts Payable control',done:!apControl||apControl.matched,blocking:true,detail:!apControl?'Control reconciliation unavailable':apControl.matched?'Supplier balances agree to Accounts Payable':'Difference '+round(Math.abs(apControl.difference))+' between supplier balances and Accounts Payable'},
+      {id:'fixed-control',label:'Fixed asset control account',done:!faControl||faControl.matched,blocking:true,detail:!faControl?'Control reconciliation unavailable':faControl.matched?'Fixed asset register agrees to General Ledger':'Difference '+round(Math.abs(faControl.difference))+' between fixed asset register and General Ledger'},
+      {id:'vat-control',label:'VAT control accounts',done:(!vatInControl||vatInControl.matched)&&(!vatOutControl||vatOutControl.matched),blocking:true,detail:(!vatInControl&&!vatOutControl)?'VAT control reconciliation unavailable':((!vatInControl||vatInControl.matched)&&(!vatOutControl||vatOutControl.matched)?'VAT input and output controls agree to General Ledger':'VAT control difference requires review')},
+      {id:'loan-control',label:'Loans control account',done:!loanControl||loanControl.matched,blocking:true,detail:!loanControl?'Control reconciliation unavailable':loanControl.matched?'Loan register agrees to General Ledger':'Difference '+round(Math.abs(loanControl.difference))+' between loan register and General Ledger'},
+      {id:'reversals',label:'Pending reversal approvals',done:pendingReversals.length===0,blocking:true,detail:pendingReversals.length?(pendingReversals.length+' reversal request'+(pendingReversals.length===1?'':'s')+' still awaiting independent review'):'No reversal requests awaiting approval'},
+      {id:'drafts',label:'Draft accounting documents',done:drafts.total===0,blocking:true,detail:drafts.total?(drafts.total+' draft document'+(drafts.total===1?'':'s')+' dated in this period'):'No draft invoices, expenses, supplier bills or journals in the period'},
+      {id:'vat-filing',label:'VAT return filing status',done:!vatRegistered||vatFiled,blocking:false,detail:!vatRegistered?'Business is not marked VAT registered':vatFiled?'VAT return marked filed for '+period:'VAT return not yet marked filed; this does not block accounting close'}
     ];
-    return {period,r,checks,ready:checks.filter(x=>x.blocking).every(x=>x.done),tb,suspense,pnl,bs,bankAccounts,bankMissing,drafts,fixedAssets,loanInterest,inventory};
+    return {period,r,checks,ready:checks.filter(x=>x.blocking).every(x=>x.done),tb,suspense,pnl,bs,bankAccounts,bankMissing,drafts,fixedAssets,loanInterest,inventory,controlChecks,pendingReversals,vatRegistered,vatFiled};
   }
   function periods(state){
     const set=new Set((state.periods||[]).map(x=>x.id));
@@ -67,7 +80,7 @@
     const {money2,icon,esc,pill}=h,available=periods(state),period=state.monthClosePeriod||state.currentPeriod||available[0],rd=readiness(state,period),closed=record(state,period),hist=(state.monthEndCloses||[]).slice().sort((a,b)=>String(b.period).localeCompare(String(a.period)));
     if(!rd)return '<section class="surface month-close-card"><div class="empty-inline">No accounting period is available to close.</div></section>';
     const opts=available.map(p=>'<option value="'+esc(p)+'" '+(p===period?'selected':'')+'>'+esc(label(p))+'</option>').join('');
-    const checkRows=rd.checks.map(x=>'<div class="close-check '+(x.done?'done':'open')+'"><span>'+icon(x.done?'check':'alert',15)+'</span><div><b>'+esc(x.label)+'</b><small>'+esc(x.detail)+'</small></div><em>'+esc(x.done?'Ready':'Resolve')+'</em></div>').join('');
+    const checkRows=rd.checks.map(x=>'<div class="close-check '+(x.done?'done':(x.blocking?'open':'advisory'))+'"><span>'+icon(x.done?'check':(x.blocking?'alert':'clock'),15)+'</span><div><b>'+esc(x.label)+'</b><small>'+esc(x.detail)+'</small></div><em>'+esc(x.done?'Ready':(x.blocking?'Resolve':'Advisory'))+'</em></div>').join('');
     const historyRows=hist.length?hist.map(x=>'<tr><td><b>'+esc(label(x.period))+'</b><small>'+esc(x.period)+'</small></td><td>'+esc(x.closedBy||'User')+'</td><td>'+esc(String(x.closedAt||'').replace('T',' ').slice(0,16))+'</td><td>'+money2(x.snapshot?.revenue||0)+'</td><td>'+money2(x.snapshot?.netProfit||0)+'</td><td>'+pill(x.status||'Closed','ready')+'</td><td><button class="secondary" data-action="month-close-export:'+esc(x.period)+'">'+icon('download',13)+' CSV</button></td></tr>').join(''):'<tr><td colspan="7"><div class="empty-inline">No accounting months have been closed yet.</div></td></tr>';
     return '<section class="surface month-close-card">'+
       '<div class="table-tools"><div><h3>Month-End Close</h3><p>Review the accounting controls, lock the period, and preserve a close snapshot.</p></div><div class="inline-buttons"><select id="month-close-period-select">'+opts+'</select>'+(closed?'<button class="secondary" data-action="month-reopen:'+esc(period)+'">Reopen period</button>':'<button class="primary" data-action="month-close:'+esc(period)+'" '+(rd.ready?'':'disabled')+'>'+icon('check',14)+' Close '+esc(label(period))+'</button>')+'</div></div>'+
@@ -87,18 +100,35 @@
     state.monthEndCloses.unshift({id:'MEC-'+Date.now().toString(36).toUpperCase(),period,status:'Closed',periodEnd:rd.r.end,checks:rd.checks.map(x=>({id:x.id,label:x.label,done:x.done,detail:x.detail})),snapshot:snap,closedAt:now,closedBy:user});
     ctx.audit('accounting.period_closed',{period,snapshot:snap});ctx.save();ctx.toast(label(period)+' closed and locked');ctx.render();
   }
-  function reopen(period,state,ctx){
+  function openReopen(period,state,ctx){
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can reopen a closed accounting period.');return;}
     if(window.DalasiYearClose?.record?.(state,String(period||'').slice(0,4))){ctx.toast('Reopen the financial year before reopening one of its months.');return;}
     const rec=record(state,period);if(!rec){ctx.toast('This period is not closed.');return;}
-    rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=state.session?.name||'User';
-    ctx.audit('accounting.period_reopened',{period,closeId:rec.id});ctx.save();ctx.toast(label(period)+' reopened');ctx.render();
+    state.monthReopenPeriod=period;ctx.render();
+  }
+  function reopenModal(state,h){
+    const period=state.monthReopenPeriod,rec=period?record(state,period):null;if(!period||!rec)return '';
+    const {icon,esc}=h;
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-month-reopen"></div><form id="month-reopen-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">PERIOD CONTROL</div><h2>Reopen '+esc(label(period))+'</h2><p>This unlocks a previously closed accounting period. The reason becomes part of the permanent audit trail.</p></div><button type="button" class="close" data-action="close-month-reopen">×</button></div>'+
+      '<div class="payment-notice"><span>'+icon('alert',17)+'</span><div><b>Reopening affects accounting control</b><p>Only reopen when a dated correction must be posted into this period. The original close record remains preserved.</p></div></div>'+
+      '<div class="form-grid"><label class="field" style="grid-column:1/-1"><span>Mandatory reopen reason</span><textarea name="reason" rows="4" minlength="8" placeholder="Explain why this accounting period must be reopened" required></textarea></label></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-month-reopen">Cancel</button><button class="primary" type="submit">'+icon('lock',14)+' Reopen period</button></div></form></div>';
+  }
+  function reopenSubmit(ev,state,ctx){
+    ev.preventDefault();const period=state.monthReopenPeriod;
+    if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can reopen a closed accounting period.');return;}
+    if(window.DalasiYearClose?.record?.(state,String(period||'').slice(0,4))){ctx.toast('Reopen the financial year before reopening one of its months.');return;}
+    const rec=record(state,period);if(!rec){state.monthReopenPeriod=null;ctx.toast('This period is not closed.');ctx.render();return;}
+    const reason=String(new FormData(ev.target).get('reason')||'').trim();if(reason.length<8){ctx.toast('Enter a clear reason for reopening the period.');return;}
+    rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=state.session?.name||'User';rec.reopenReason=reason;
+    state.monthReopenPeriod=null;ctx.audit('accounting.period_reopened',{period,closeId:rec.id,reason});ctx.save();ctx.toast(label(period)+' reopened');ctx.render();
   }
   function exportRecord(period,state,ctx){
     const rec=(state.monthEndCloses||[]).find(x=>x.period===period);if(!rec){ctx.toast('Close record not found');return;}
-    const s=rec.snapshot||{},rows=[['Month-End Close',period],['Status',rec.status],['Closed by',rec.closedBy],['Closed at',rec.closedAt],['Reopened by',rec.reopenedBy||''],['Reopened at',rec.reopenedAt||''],[],['Financial snapshot','Amount'],['Revenue',s.revenue],['COGS',s.cogs],['Gross profit',s.grossProfit],['Operating expenses',s.operatingExpenses],['Net profit',s.netProfit],['Total assets',s.totalAssets],['Total liabilities',s.totalLiabilities],['Total equity',s.totalEquity],['Trial Balance debits',s.trialDebits],['Trial Balance credits',s.trialCredits],[],['Control','Status','Detail'],...(rec.checks||[]).map(x=>[x.label,x.done?'Ready':'Resolve',x.detail])];
+    const s=rec.snapshot||{},rows=[['Month-End Close',period],['Status',rec.status],['Closed by',rec.closedBy],['Closed at',rec.closedAt],['Reopened by',rec.reopenedBy||''],['Reopened at',rec.reopenedAt||''],['Reopen reason',rec.reopenReason||''],[],['Financial snapshot','Amount'],['Revenue',s.revenue],['COGS',s.cogs],['Gross profit',s.grossProfit],['Operating expenses',s.operatingExpenses],['Net profit',s.netProfit],['Total assets',s.totalAssets],['Total liabilities',s.totalLiabilities],['Total equity',s.totalEquity],['Trial Balance debits',s.trialDebits],['Trial Balance credits',s.trialCredits],[],['Control','Status','Detail'],...(rec.checks||[]).map(x=>[x.label,x.done?'Ready':'Resolve',x.detail])];
     const csv=rows.map(r=>r.map(v=>{const q=String(v??'');return /[",\n]/.test(q)?'"'+q.replace(/"/g,'""')+'"':q}).join(',')).join('\n');
     ctx.downloadText('dalasipay-month-close-'+period+'.csv',csv);ctx.toast('Month-end close record downloaded');
   }
-  window.DalasiMonthClose={range,periodOf,record,isClosed,readiness,periods,panel,closePeriod,reopen,exportRecord};
+  window.DalasiMonthClose={range,periodOf,record,isClosed,readiness,periods,panel,closePeriod,openReopen,reopenModal,reopenSubmit,exportRecord};
 })();
