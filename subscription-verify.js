@@ -28,7 +28,7 @@
    const users=integerCount('users'),employees=integerCount('employees');
    const diag=data.monthlyDiagnostics;
    const diagnosticCount=n=>Number.isSafeInteger(n)&&n>=0?String(n):'Unavailable';
-   const monthly=diag?.authoritative===false&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(diag.month||'')?
+   const monthly=diag?.authoritative===false&&/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(diag.month||'')?
     ' Provisional '+diag.month+' document counts (not billing usage): issued invoices: '+diagnosticCount(diag.invoices)+', supplier bills: '+diagnosticCount(diag.supplierBills)+'.':
     ' Monthly document diagnostics unavailable.';
    const status=(label,n)=>label+': '+(n===null?'Unavailable':n);
