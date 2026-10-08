@@ -60,3 +60,13 @@ test('Supabase outage returns 503 with no sensitive details',async()=>{
   assert.doesNotMatch(await r.text(),/credential|network detail|server-secret-test/);
  }finally{globalThis.fetch=old;}
 });
+
+test('preflight only allows the DalasiPay origin',async()=>{
+ const target='https://worker.example/internal/licensing/observe';
+ const allowed=await worker.fetch(new Request(target,{method:'OPTIONS',headers:{origin:'https://dalasipay.bebusinesssolutionsgm.com'}}),{});
+ assert.equal(allowed.status,204);
+ assert.equal(allowed.headers.get('access-control-allow-origin'),'https://dalasipay.bebusinesssolutionsgm.com');
+ const denied=await worker.fetch(new Request(target,{method:'OPTIONS',headers:{origin:'https://untrusted.example'}}),{});
+ assert.equal(denied.status,403);
+ assert.equal(denied.headers.get('access-control-allow-origin'),null);
+});
