@@ -2210,3 +2210,30 @@ body{background:
     justify-content:center;
   }
 }
+
+
+/* DalasiPay v1.03 — editable job grades */
+.grade-table>div{
+  grid-template-columns:minmax(0,1fr) auto auto auto;
+}
+.grade-edit-btn{
+  justify-self:end;
+  min-height:30px;
+}
+.grade-table input[readonly]{
+  background:var(--panel-2);
+  color:var(--muted);
+}
+@media(max-width:640px){
+  .grade-table>div{
+    grid-template-columns:1fr auto;
+  }
+  .grade-table>div>small{
+    grid-column:1;
+  }
+  .grade-edit-btn{
+    grid-column:2;
+    grid-row:1/3;
+    align-self:center;
+  }
+}
