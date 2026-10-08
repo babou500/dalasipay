@@ -179,7 +179,7 @@
     const options=available.map(p=>'<option value="'+esc(p)+'" '+(p===period?'selected':'')+'>'+esc(periodLabel(p))+'</option>').join('');
     const expenseRows=m.expenseBreakdown.length?m.expenseBreakdown.map(x=>'<tr class="pnl-sub"><td>'+esc(x.category)+'</td><td>'+money2(x.amount)+'</td><td>—</td></tr>').join(''):'';
     return '<section class="surface pnl-card">'+
-      '<div class="table-tools"><div><h3>Profit & Loss</h3><p>Accrual-style operating statement. Invoices count as revenue when issued; collections do not create revenue again.</p></div><div class="inline-buttons"><select id="pnl-period-select">'+options+'</select><button class="secondary" data-action="business-report-export:profit-loss">'+icon('download',14)+' CSV</button></div></div>'+
+      '<div class="table-tools"><div><h3>Profit & Loss</h3><p>Accrual-style operating statement. Invoices count as revenue when issued; collections do not create revenue again.</p></div><div class="inline-buttons"><select id="pnl-period-select">'+options+'</select><button class="secondary" data-action="business-report-export:profit-loss">'+icon('download',14)+' Excel</button></div></div>'+
       '<div class="pnl-kpis">'+
         '<div><span>Revenue</span><b>'+money2(m.revenue)+'</b><small>'+periodLabel(period)+'</small></div>'+
         '<div><span>Gross profit</span><b>'+money2(m.grossProfit)+'</b><small>'+m.grossMargin+'% gross margin</small></div>'+
