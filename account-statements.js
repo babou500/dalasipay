@@ -34,7 +34,7 @@ function customerRows(s,id,from='0000-01-01',to='9999-12-31'){
 function supplierRows(s,id,from='0000-01-01',to='9999-12-31'){
   const rows=[];
   const bills=window.DalasiBusinessPayments?.supplierBillsFor?.(s,id)||(s.businessBills||[]).filter(x=>x.beneficiaryId===id);
-  bills.filter(x=>(x.status||'Draft')!=='Draft'&&inRange(x.invoiceDate||x.createdAt,from,to)).forEach(x=>rows.push({date:x.invoiceDate||String(x.createdAt||'').slice(0,10),kind:'Supplier bill',reference:x.invoiceNo||x.id,description:x.description||'Supplier bill',debit:round(x.amount),credit:0,sourceId:x.id}));
+  bills.filter(x=>['Approved','Part paid','Paid'].includes(x.status||'Draft')&&inRange(x.invoiceDate||x.createdAt,from,to)).forEach(x=>rows.push({date:x.invoiceDate||String(x.createdAt||'').slice(0,10),kind:'Supplier bill',reference:x.invoiceNo||x.id,description:x.description||'Supplier bill',debit:round(x.amount),credit:0,sourceId:x.id}));
   (s.supplierDebitNotes||[]).filter(x=>x.beneficiaryId===id&&x.status!=='Void'&&inRange(x.date,from,to)).forEach(x=>rows.push({date:x.date,kind:'Debit note',reference:x.debitNo||x.id,description:x.note||'Additional supplier charge',debit:round(x.amount),credit:0,sourceId:x.id}));
   (s.supplierCreditNotes||[]).filter(x=>x.beneficiaryId===id&&x.status!=='Void'&&inRange(x.date,from,to)).forEach(x=>rows.push({date:x.date,kind:'Credit note',reference:x.creditNo||x.supplierReference||x.id,description:x.note||'Supplier credit',debit:0,credit:round(x.amount),sourceId:x.id}));
   const payments=window.DalasiBusinessPayments?.beneficiaryPayments?.(s,id)||(s.businessPayments||[]).filter(x=>new Set(bills.map(b=>b.id)).has(x.billId));
