@@ -12,6 +12,7 @@ function mockedFetch(){
   calls.push({url:String(target),headers:options?.headers});
   if(options?.method==='HEAD')return new Response(null,{status:200,headers:{'content-range':'*/0'}});
   if(String(target).includes('/auth/v1/user'))return Response.json({id:user});
+  if(String(target).includes('organization_app_state'))return Response.json([{state:{data:{employees:[{id:'emp-1'}]}}}]);
   if(String(target).includes('organization_members'))return Response.json([{user_id:user}]);
   if(String(target).includes('workspace_subscriptions'))return Response.json([{organization_id:org,plan_id:'professional',status:'professional_preview',professional_preview:true}]);
   throw Error('unexpected endpoint');
@@ -36,7 +37,8 @@ test('valid user and membership see read-only Professional Preview',async()=>{
   assert.equal(body.planId,'professional-preview');
   assert.equal(body.enforcementActive,false);
   assert.equal(body.usage.invoicesPerMonth.count,null);
-  assert.equal(m.calls.length,5);
+  assert.equal(m.calls.length,6);
+  assert.equal(body.usage.employees.count,1);
   assert.ok(m.calls[1].url.includes('organization_members'));
   assert.ok(m.calls[2].url.includes('workspace_subscriptions'));
   assert.doesNotMatch(JSON.stringify(body),/server-secret-test/);
@@ -83,6 +85,7 @@ test('trusted record counts returned only for authorized workspace',async()=>{
    const count=url.includes('/employees?')?'4':'2';
    return new Response(null,{status:200,headers:{'content-range':'0-0/'+count}});
   }
+  if(url.includes('organization_app_state'))return Response.json([{state:{data:{employees:[{id:'a'},{id:'b'}]}}}]);
   if(url.includes('organization_members'))return Response.json([{user_id:user}]);
   if(url.includes('workspace_subscriptions'))return Response.json([{organization_id:org,plan_id:'professional',status:'professional_preview',professional_preview:true}]);
   throw Error('unexpected request');
@@ -92,7 +95,7 @@ test('trusted record counts returned only for authorized workspace',async()=>{
   assert.equal(response.status,200);
   const body=await response.json();
   assert.equal(body.usage.users.count,2);
-  assert.equal(body.usage.employees.count,4);
+  assert.equal(body.usage.employees.count,2);
   assert.equal(body.usage.invoicesPerMonth.count,null);
   assert.equal(body.enforcementActive,false);
   assert.equal(counts.length,2);
