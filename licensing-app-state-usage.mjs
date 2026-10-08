@@ -17,3 +17,13 @@ export function observeIssuedDocuments(records,month){
  const accepted=new Set(['sent','paid','partial','partially paid','overdue','unpaid','issued']);
  return records.filter(item=>item&&accepted.has(String(item.status||'').toLowerCase())&&typeof item.createdAt==='string'&&item.createdAt.slice(0,7)===month).length;
 }
+
+export function observeMonthlyWorkspaceDocuments(record,month){
+ const data=record?.state?.data;
+ return Object.freeze({
+  month,
+  invoices:observeIssuedDocuments(data?.['customer-invoices'],month),
+  supplierBills:observeIssuedDocuments(data?.['business-bills'],month),
+  authoritative:false
+ });
+}
