@@ -28,7 +28,7 @@
     valid.forEach(x=>out.push(line(id,date,reference,source,x.account,x.debit,x.credit,x.memo)));
   }
   function cashAccountName(state,id){
-    const a=window.DalasiCashBank?.accountById?.(state,id);return a?('Cash & Bank'):'Undeposited Funds';
+    const a=window.DalasiCashBank?.accountById?.(state,id);return a?(a.name||'Cash & Bank'):'Undeposited Funds';
   }
   function invoiceStatus(state,inv){return window.DalasiSalesInvoices?.status?.(state,inv)||(inv.status||'Draft');}
   function journals(state){
@@ -58,7 +58,7 @@
     (state.cashAccounts||[]).forEach(a=>{
       const amount=round(a.openingBalance||0);if(!amount)return;
       pushJournal(out,'OPEN-'+a.id,a.openingDate||a.createdAt||today,a.reference||a.name,'Cash account opening',[
-        {account:'Cash & Bank',debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
+        {account:a.name||'Cash & Bank',debit:amount>0?amount:0,credit:amount<0?Math.abs(amount):0,memo:a.name},
         {account:'Opening Balance Equity',debit:amount<0?Math.abs(amount):0,credit:amount>0?amount:0,memo:'Opening balance contra'}
       ]);
     });
@@ -291,7 +291,7 @@
     (state.businessLoans||[]).forEach(l=>{
       const principal=round(l.principal);if(!principal)return;
       pushJournal(out,'LOAN-'+l.id,l.startDate||l.createdAt,l.reference||l.id,'Loan recognition',[
-        {account:l.source==='Cash drawdown'?'Cash & Bank':'Opening Balance Equity',debit:principal,memo:l.lender||''},
+        {account:l.source==='Cash drawdown'?cashAccountName(state,l.accountId):'Opening Balance Equity',debit:principal,memo:l.lender||''},
         {account:'Loans & Borrowings',credit:principal,memo:l.lender||''}
       ]);
     });
@@ -313,7 +313,7 @@
 
     // Fixed assets: acquisition, depreciation and disposal.
     (state.fixedAssets||[]).forEach(a=>{
-      const cost=round(a.cost),openingAccum=round(a.openingAccumDep),source=a.source==='Cash purchase'?'Cash & Bank':'Opening Balance Equity';
+      const cost=round(a.cost),openingAccum=round(a.openingAccumDep),source=a.source==='Cash purchase'?cashAccountName(state,a.accountId):'Opening Balance Equity';
       if(cost){
         pushJournal(out,'FA-'+a.id,a.acquisitionDate||a.createdAt,a.reference||a.assetNo||a.id,'Fixed asset acquisition',[
           {account:'Property & Equipment, Cost',debit:cost,memo:a.name||a.category||''},
@@ -330,7 +330,7 @@
         const accum=round(a.disposalAccumDep),proceeds=round(a.disposalProceeds),gainLoss=round(a.disposalGainLoss);
         pushJournal(out,'FADISP-'+a.id,a.disposalDate,a.disposalReference||a.assetNo||a.id,'Fixed asset disposal',[
           {account:'Accumulated Depreciation',debit:accum,memo:a.name||''},
-          {account:'Cash & Bank',debit:proceeds,memo:'Disposal proceeds'},
+          {account:cashAccountName(state,a.disposalAccountId),debit:proceeds,memo:'Disposal proceeds'},
           {account:'Loss on Asset Disposal',debit:gainLoss<0?Math.abs(gainLoss):0,memo:a.name||''},
           {account:'Property & Equipment, Cost',credit:cost,memo:a.name||''},
           {account:'Gain on Asset Disposal',credit:gainLoss>0?gainLoss:0,memo:a.name||''}
@@ -390,6 +390,7 @@
   function trialBalance(state){
     const rows=journals(state),map=new Map();
     CHART.forEach(([code,name,type])=>map.set(name,{code,name,type,debit:0,credit:0}));
+    (window.DalasiAccounting?.cashLedgerAccounts?.(state)||[]).forEach(a=>{if(!map.has(a.name))map.set(a.name,{code:String(a.code||'9999'),name:a.name,type:a.type||'Asset',debit:0,credit:0});});
     (state.customAccounts||[]).forEach(a=>{if(!map.has(a.name))map.set(a.name,{code:String(a.code||'9999'),name:a.name,type:a.type||'Other',debit:0,credit:0});});
     rows.forEach(x=>{if(!map.has(x.account))map.set(x.account,{code:x.accountCode,name:x.account,type:x.accountType,debit:0,credit:0});const a=map.get(x.account);a.debit+=x.debit;a.credit+=x.credit;});
     const accounts=[...map.values()].map(x=>({...x,debit:round(x.debit),credit:round(x.credit),balance:round(x.debit-x.credit)})).filter(x=>x.debit||x.credit).sort((a,b)=>a.code.localeCompare(b.code));
