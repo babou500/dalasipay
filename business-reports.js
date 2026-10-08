@@ -83,7 +83,7 @@
     ];
     const category=state.businessReportCategory||'all',categories=['all','financial','treasury','sales','purchases','inventory','management'];
     const visibleReports=category==='all'?reports:reports.filter(r=>reportCategory(r[0])===category);
-    return tabs(state)+pageTitle('BUSINESS REPORTING','Reports','View, review and export live finance reports across the business.',`<button class="secondary" data-action="business-report-view:business-summary">${icon('eye',14)} View summary</button><button class="secondary" data-action="business-report-export:business-summary">${icon('download',14)} CSV</button>`)+
+    return tabs(state)+pageTitle('BUSINESS REPORTING','Reports','View, review and export live finance reports across the business.',`<button class="secondary" data-action="business-report-view:business-summary">${icon('eye',14)} View summary</button><button class="secondary" data-action="business-report-export:business-summary">${icon('download',14)} Excel</button>`)+
       '<div class="business-report-kpis">'+
         '<div class="surface"><span>Total revenue</span><b>'+money2(m.pnl?.revenue||0)+'</b><small>'+(state.pnlPeriod||state.currentPeriod)+' reporting period</small></div>'+
         '<div class="surface '+((m.pnl?.netProfit||0)<0?'cash-alert':'')+'"><span>Net profit</span><b>'+money2(m.pnl?.netProfit||0)+'</b><small>'+Number(m.pnl?.netMargin||0).toFixed(1)+'% net margin</small></div>'+
