@@ -99,3 +99,20 @@ test('trusted record counts returned only for authorized workspace',async()=>{
   assert.ok(counts.every(x=>x.includes('organization_id=eq.')));
  }finally{globalThis.fetch=previous;}
 });
+
+test('unauthorized workspace cannot trigger usage counts or subscription reads',async()=>{
+ const previous=globalThis.fetch;
+ const calls=[];
+ globalThis.fetch=async(target,options)=>{
+  const path=String(target);calls.push({path,method:options?.method});
+  if(path.includes('/auth/v1/user'))return Response.json({id:user});
+  if(path.includes('/organization_members'))return Response.json([]);
+  throw Error('Unauthorized request attempted protected data retrieval');
+ };
+ try{
+  const response=await worker.fetch(new Request(url,{headers:{authorization:'Bearer valid-token'}}),env);
+  assert.equal(response.status,403);
+  assert.equal(calls.filter(x=>x.method==='HEAD').length,0);
+  assert.equal(calls.some(x=>x.path.includes('workspace_subscriptions')),false);
+ }finally{globalThis.fetch=previous;}
+});
