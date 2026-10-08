@@ -2750,12 +2750,14 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const navGroups = [
       ['Overview',[['dashboard','Dashboard','dashboard']]],
       ['People & payroll',[['employees','Employees','employees'],['payroll','Payroll','payroll'],['payslips','Payslips','payslips']]],
-      ['Sales & customers',[['customers','Customers','employees'],['invoices','Sales','file'],['credit','Credit Control','shield'],['statements','Statements','reports'],['returns','Credits & Returns','file'],['debits','Debit Notes','file']]],
-      ['Purchases & cash',[['suppliers','Suppliers','building'],['expenses','Expenses & Purchases','file'],['payments','Payments','bank'],['cashbank','Cash & Bank','bank']]],
-      ['Accounting',[['accounting','Accounting','reports'],['corrections','Reversals & Corrections','alert'],['cashflow','Cash Flow','chart'],['tax','Tax & GRA','shield'],['budgets','Budgets','calendar'],['projects','Projects & Costs','building'],['loans','Loans & Debt','bank'],['assets','Assets','building'],['inventory','Inventory','box'],['reports','Reports','reports']]],
+      ['Sales & receivables',[['customers','Customers','employees'],['invoices','Sales','file'],['credit','Credit Control','shield'],['statements','Statements','reports'],['returns','Credits & Returns','file'],['debits','Debit Notes','file']]],
+      ['Purchases & treasury',[['suppliers','Suppliers','building'],['expenses','Expenses & Purchases','file'],['payments','Payments','bank'],['cashbank','Cash & Bank','bank'],['cashflow','Cash Flow','chart']]],
+      ['Accounting & compliance',[['accounting','Accounting','reports'],['corrections','Reversals & Corrections','alert'],['tax','Tax & GRA','shield'],['reports','Reports','reports']]],
+      ['Planning & operations',[['budgets','Budgets','calendar'],['projects','Projects & Costs','building'],['loans','Loans & Debt','bank'],['assets','Assets','building'],['inventory','Inventory','box']]],
       ['System',[['settings','Settings','settings']]]
     ];
     const nav = navGroups.flatMap(g=>g[1]);
+    const activeGroup=navGroups.find(([,items])=>items.some(n=>n[0]===state.page))?.[0]||'Overview';
     const label = nav.find(n=>n[0]===state.page)?.[1] || 'Dashboard';
     return `<div class="app-shell">
       <aside class="sidebar ${state.mobileOpen?'mobile-open':''}">
@@ -2766,7 +2768,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
         <button class="profile" data-page="settings" title="Open settings"><span>${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span><div><b>${esc(state.session?.name||'User')}</b><small>${esc(state.role||'member')}</small></div>${icon('settings',16)}</button>
       </aside>
       ${state.mobileOpen?'<div class="scrim" data-action="close-mobile"></div>':''}
-      <main class="main"><header class="topbar"><div class="crumb"><button class="menu-btn" data-action="open-mobile">${icon('menu',20)}</button><span>${esc(state.company)}</span><b>/</b><strong>${label}</strong></div><div class="top-actions"><button class="search-btn" data-action="open-search">${icon('search',17)}<span>Search DalasiPay</span><kbd>Ctrl K</kbd></button><div class="quick-create-wrap"><button class="quick-create-btn" data-action="toggle-quick-create">${icon('plus',15)}<span>Create</span></button>${state.quickCreateOpen?quickCreateMenu():''}</div><button class="icon-btn" data-action="toggle-dark">${icon(state.dark?'sun':'moon',19)}</button><div class="bell-wrap">${(()=>{const n=notificationSummary();return '<button class="icon-btn" data-action="toggle-notif">'+icon('bell',19)+(n.unread.length?'<span class="notification-badge '+(n.urgent?'urgent':'')+'">'+Math.min(99,n.unread.length)+'</span>':'')+'</button>'})()}${state.notifOpen?notifications():''}</div><span class="top-avatar">${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span></div></header>
+      <main class="main"><header class="topbar"><div class="crumb"><button class="menu-btn" data-action="open-mobile">${icon('menu',20)}</button><span class="crumb-company">${esc(state.company)}</span><b>/</b><span class="crumb-group">${esc(activeGroup)}</span><b>/</b><strong>${label}</strong></div><div class="top-actions"><button class="search-btn" data-action="open-search">${icon('search',17)}<span>Search records & modules</span><kbd>Ctrl K</kbd></button><div class="quick-create-wrap"><button class="quick-create-btn" data-action="toggle-quick-create">${icon('plus',15)}<span>Create</span></button>${state.quickCreateOpen?quickCreateMenu():''}</div><button class="icon-btn" data-action="toggle-dark">${icon(state.dark?'sun':'moon',19)}</button><div class="bell-wrap">${(()=>{const n=notificationSummary();return '<button class="icon-btn" data-action="toggle-notif">'+icon('bell',19)+(n.unread.length?'<span class="notification-badge '+(n.urgent?'urgent':'')+'">'+Math.min(99,n.unread.length)+'</span>':'')+'</button>'})()}${state.notifOpen?notifications():''}</div><span class="top-avatar">${esc((state.session?.name||'U').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase())}</span></div></header>
         ${!state.online?`<div class="offline">${icon('wifi',15)} You are offline. Browsing works, but payroll approval is disabled.</div>`:''}
         <section class="content">${renderPage()}</section>
       </main>
@@ -3123,7 +3125,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function searchResultsHtml(q=''){
     const query=String(q||'').trim().toLowerCase();
     if(!query){
-      return '<div class="command-welcome"><div><b>Jump anywhere in DalasiPay</b><p>Search people, customers, invoices, suppliers, purchases and products.</p></div><span>Type to search</span></div>'+
+      return '<div class="command-welcome"><div><b>Find anything in DalasiPay</b><p>Search records or jump straight to a module without navigating the sidebar.</p></div><span>Type a name, number or module</span></div>'+
         '<div class="command-section"><small>COMMON DESTINATIONS</small><div class="command-shortcuts">'+
         '<button data-page="invoices">'+icon('file',15)+'<span><b>Sales</b><small>Invoices, quotations and orders</small></span></button>'+
         '<button data-page="payments">'+icon('bank',15)+'<span><b>Payments</b><small>Bills and money movements</small></span></button>'+
@@ -3147,7 +3149,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(catalog.length)sections.push('<div class="command-section"><small>PRODUCTS & SERVICES</small>'+catalog.map(x=>'<button data-action="search-jump:catalog:'+x.id+'">'+icon('box',15)+'<span class="command-result-copy"><b>'+esc(x.name)+'</b><small>'+esc(x.code||x.type||'Catalog item')+'</small></span><span>'+esc(x.type||'Item')+'</span></button>').join('')+'</div>');
     return sections.join('')||'<div class="command-empty">'+icon('search',18)+'<b>No results for “'+esc(q)+'”</b><span>Try a customer, invoice number, supplier, employee or product name.</span></div>';
   }
-  function searchModal(){return `<div class="center-modal search-modal"><div class="modal-scrim" data-action="close-search"></div><div class="command-box command-box-v68"><div class="command-input">${icon('search',18)}<input id="global-search" autofocus autocomplete="off" placeholder="Search DalasiPay"><kbd>ESC</kbd></div><div id="search-results" class="command-results">${searchResultsHtml('')}</div><div class="command-footer"><span><kbd>Ctrl</kbd> <kbd>K</kbd> open search</span><span><kbd>Esc</kbd> close</span></div></div></div>`}
+  function searchModal(){return `<div class="center-modal search-modal"><div class="modal-scrim" data-action="close-search"></div><div class="command-box command-box-v68"><div class="command-input">${icon('search',18)}<input id="global-search" autofocus autocomplete="off" placeholder="Search customers, invoices, suppliers, products or modules"><kbd>ESC</kbd></div><div id="search-results" class="command-results">${searchResultsHtml('')}</div><div class="command-footer"><span><kbd>Ctrl</kbd> <kbd>K</kbd> open search</span><span><kbd>Esc</kbd> close</span></div></div></div>`}
   function notificationSummary(){
     const p=payrollCalc(),m=missingSshfc(),leaves=pendingLeaveRequests(),flow=approvalForPeriod(),expiring=expiryItems(60),onboarding=onboardingQueue();
     const ar=window.DalasiBusinessPayments?.receivableSummary?.(state)||{overdue:0};
