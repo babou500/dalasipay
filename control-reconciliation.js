@@ -26,20 +26,23 @@
     return {input:round(input),output:round(output-paid)};
   }
   function checks(state){
-    const tb=window.DalasiGeneralLedger?.trialBalance?.(state)||{accounts:[],balanced:true,difference:0};
+    const safe=(fn,fallback=0)=>{try{const v=fn();return v==null?fallback:v}catch(e){console.warn('Dalasi control reconciliation check failed',e);return fallback;}};
+    const tb=safe(()=>window.DalasiGeneralLedger?.trialBalance?.(state),{accounts:[],balanced:true,difference:0})||{accounts:[],balanced:true,difference:0};
     const cashAccounts=(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active');
-    const moduleCash=round(cashAccounts.length?(window.DalasiCashBank?.totals?.(state)?.total||0):((Number(state.balanceSheetSetup?.cashBank)||0)+(Number(state.balanceSheetSetup?.pettyCash)||0)));
+    const moduleCash=round(cashAccounts.length?safe(()=>window.DalasiCashBank?.totals?.(state)?.total,0):((Number(state.balanceSheetSetup?.cashBank)||0)+(Number(state.balanceSheetSetup?.pettyCash)||0)));
     const cashNames=new Set(cashAccounts.map(x=>x.name));let glCash=0;
     (tb.accounts||[]).forEach(a=>{if(a.name==='Cash & Bank'||cashNames.has(a.name))glCash+=Number(a.balance)||0;});glCash=round(glCash);
-    const ar=invoiceOutstanding(state),glAr=round(Number(tbAccount(tb,'Accounts Receivable').balance)||0);
-    const ap=supplierOutstanding(state),glAp=round(-(Number(tbAccount(tb,'Accounts Payable').balance)||0));
-    const fa=window.DalasiFixedAssets?.summary?.(state)||{count:0,netBookValue:0};
-    const moduleFa=round(fa.count?fa.netBookValue:(Number(state.balanceSheetSetup?.fixedAssetsNet)||0));
+    const ar=round(safe(()=>invoiceOutstanding(state),0)),glAr=round(Number(tbAccount(tb,'Accounts Receivable').balance)||0);
+    const ap=round(safe(()=>supplierOutstanding(state),0)),glAp=round(-(Number(tbAccount(tb,'Accounts Payable').balance)||0));
+    const fa=safe(()=>window.DalasiFixedAssets?.summary?.(state),null)||{};
+    const hasFa=(state.fixedAssets||[]).length>0;
+    const moduleFa=round(hasFa?(Number(fa.netBookValue)||0):(Number(state.balanceSheetSetup?.fixedAssetsNet)||0));
     const glFa=round((Number(tbAccount(tb,'Property & Equipment, Cost').balance)||0)+(Number(tbAccount(tb,'Property & Equipment, Net').balance)||0)+(Number(tbAccount(tb,'Accumulated Depreciation').balance)||0));
-    const loans=window.DalasiLoans?.summary?.(state)||{count:0,outstanding:0};
-    const moduleLoans=round(loans.count?loans.outstanding:(Number(state.balanceSheetSetup?.loansBorrowings)||0));
+    const loans=safe(()=>window.DalasiLoans?.summary?.(state),null)||{};
+    const hasLoans=(state.businessLoans||[]).length>0;
+    const moduleLoans=round(hasLoans?(Number(loans.outstanding)||0):(Number(state.balanceSheetSetup?.loansBorrowings)||0));
     const glLoans=round(-(Number(tbAccount(tb,'Loans & Borrowings').balance)||0));
-    const vat=vatSubledger(state),glVatIn=round(Number(tbAccount(tb,'VAT Input Recoverable').balance)||0),glVatOut=round(-(Number(tbAccount(tb,'VAT Output Payable').balance)||0));
+    const vat=safe(()=>vatSubledger(state),{input:0,output:0})||{input:0,output:0},glVatIn=round(Number(tbAccount(tb,'VAT Input Recoverable').balance)||0),glVatOut=round(-(Number(tbAccount(tb,'VAT Output Payable').balance)||0));
     const make=(key,label,module,ledger,detail)=>({key,label,module:round(module),ledger:round(ledger),difference:round(module-ledger),matched:Math.abs(round(module-ledger))<0.01,detail});
     return [
       make('cash','Cash & Bank',moduleCash,glCash,cashAccounts.length+' active operational account'+(cashAccounts.length===1?'':'s')),
@@ -101,7 +104,10 @@
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-control-recon-drill">Close</button></div></div></div>';
   }
   function render(state,h){
-    const {money2,icon,pill}=h,c=checks(state),matched=c.filter(x=>x.matched).length,review=c.length-matched,tb=window.DalasiGeneralLedger?.trialBalance?.(state)||{balanced:true,difference:0};
+    const {money2,icon,pill}=h;
+    let c=[];try{c=checks(state)}catch(e){console.error('Control reconciliation render failed',e);c=[]}
+    const matched=c.filter(x=>x.matched).length,review=c.length-matched;
+    let tb={balanced:true,difference:0};try{tb=window.DalasiGeneralLedger?.trialBalance?.(state)||tb}catch(e){console.warn('Trial balance unavailable in reconciliation',e)}
     const rows=c.map(x=>'<tr><td><div class="payment-payee"><b>'+esc(x.label)+'</b><small>'+esc(x.detail)+'</small></div></td><td>'+money2(x.module)+'</td><td>'+money2(x.ledger)+'</td><td class="'+(x.matched?'':'warn-text')+'"><b>'+money2(Math.abs(x.difference))+'</b></td><td>'+pill(x.matched?'MATCH':'REVIEW',x.matched?'ready':'approved')+'</td><td><button class="'+(x.matched?'secondary':'primary')+' tiny" data-action="control-recon-drill:'+esc(x.key)+'">'+(x.matched?'View detail':'Investigate')+'</button></td></tr>').join('');
     return '<div class="accounting-summary"><div class="surface"><span>Control checks</span><b>'+c.length+'</b><small>core subledgers tested</small></div><div class="surface"><span>Matched</span><b>'+matched+'</b><small>module agrees with ledger</small></div><div class="surface '+(review?'cash-alert':'')+'"><span>Needs review</span><b>'+review+'</b><small>differences requiring investigation</small></div><div class="surface"><span>Trial Balance</span><b>'+(tb.balanced?'Balanced':'Review')+'</b><small>'+(tb.balanced?'debits equal credits':money2(Math.abs(tb.difference))+' difference')+'</small></div></div>'+
       '<div class="payment-notice"><span>'+icon('shield',17)+'</span><div><b>Control accounts must reconcile to their source modules</b><p>DalasiPay does not automatically plug reconciliation differences. A REVIEW result means the underlying source, posting, opening balance or mapping should be investigated.</p></div></div>'+
