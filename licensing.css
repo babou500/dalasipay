@@ -1,0 +1,42 @@
+/* DalasiPay v1.20 — licensing & plan structure */
+.license-section{overflow:hidden}
+.license-plan-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--border);font-size:9px;font-weight:900;letter-spacing:.03em;background:var(--panel-2)}
+.license-plan-pill.free{color:var(--muted)}
+.license-plan-pill.standard{color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,var(--panel))}
+.license-plan-pill.professional{color:var(--good);background:color-mix(in srgb,var(--good) 9%,var(--panel))}
+.license-preview-banner{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:12px 13px;border:1px solid color-mix(in srgb,var(--primary) 24%,var(--border));border-radius:10px;background:color-mix(in srgb,var(--primary) 7%,var(--panel))}
+.license-preview-banner>span{color:var(--primary);flex:none}
+.license-preview-banner b{display:block;font-size:10.5px}
+.license-preview-banner p{margin:3px 0 0;color:var(--muted);font-size:9.5px;line-height:1.45}
+.license-current{display:grid;grid-template-columns:1.2fr .8fr;gap:10px;margin-bottom:12px}
+.license-current>div{padding:14px;border:1px solid var(--border);border-radius:11px;background:var(--panel-2)}
+.license-current span{display:block;color:var(--muted);font-size:8.5px;font-weight:850;letter-spacing:.08em}
+.license-current h4{margin:4px 0 2px;font-size:17px}
+.license-current p,.license-current small{margin:0;color:var(--muted);font-size:9.3px}
+.license-current b{display:block;margin-top:5px;font-size:12px}
+.license-usage-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 16px}
+.license-usage-item{padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
+.license-usage-item>div{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.license-usage-item span{color:var(--muted);font-size:8.8px}
+.license-usage-item b{font-size:9.5px;white-space:nowrap}
+.license-usage-item i{display:block;height:6px;margin:8px 0 5px;border-radius:999px;overflow:hidden;border:1px solid var(--border);background:var(--panel-2)}
+.license-usage-item em{display:block;height:100%;border-radius:inherit;background:var(--primary)}
+.license-usage-item small{color:var(--muted);font-size:8.3px}
+.license-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.license-plan-card{position:relative;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.license-plan-card.current{border-color:color-mix(in srgb,var(--primary) 35%,var(--border));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 10%,transparent)}
+.license-plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.license-plan-head span{display:block;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:.1em}
+.license-plan-head h4{margin:3px 0 0;font-size:15px}
+.license-plan-head>b{padding:4px 7px;border-radius:999px;background:var(--soft);color:var(--primary);font-size:8px}
+.license-plan-card>p{min-height:28px;margin:8px 0 10px;color:var(--muted);font-size:9px;line-height:1.45}
+.license-plan-card ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.license-plan-card li{display:flex;align-items:center;gap:6px;font-size:8.8px;color:var(--text)}
+.license-plan-card li svg{color:var(--good);flex:none}
+.license-plan-limits{display:flex;gap:5px;flex-wrap:wrap;margin-top:11px}
+.license-plan-limits span{padding:5px 6px;border-radius:7px;background:var(--panel-2);color:var(--muted);font-size:7.9px}
+.license-footnote{display:flex;flex-direction:column;gap:3px;margin-top:13px;padding:11px 12px;border-radius:9px;background:var(--panel-2);border:1px dashed var(--border)}
+.license-footnote b{font-size:9.4px}
+.license-footnote span{color:var(--muted);font-size:8.8px;line-height:1.45}
+@media(max-width:900px){.license-usage-grid,.license-plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.license-plan-card:last-child{grid-column:1/-1}}
+@media(max-width:620px){.license-current,.license-usage-grid,.license-plan-grid{grid-template-columns:1fr}.license-plan-card:last-child{grid-column:auto}}
