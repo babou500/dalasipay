@@ -701,7 +701,7 @@ input::placeholder,textarea::placeholder{color:#9aa7a2}
   .sidebar .side-callout.compact-payroll .side-callout-copy small{display:none}
   .sidebar .profile{margin-top:8px;padding-top:8px}
 }
-</style><link rel="stylesheet" href="./ui-refinement.css?v=20261008-1200"></head><body><div id="app"></div><!-- config.js -->
+</style><link rel="stylesheet" href="./ui-refinement.css?v=20261008-1300"></head><body><div id="app"></div><!-- config.js -->
 <script>
 window.DALASIPAY_CONFIG = {
   mode: 'supabase',
@@ -3135,6 +3135,14 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     }
     const match=(...vals)=>vals.some(v=>String(v||'').toLowerCase().includes(query));
     const sections=[];
+    const modules=[
+      ['dashboard','Dashboard','Overview','dashboard'],['employees','Employees','People & payroll','employees'],['payroll','Payroll','People & payroll','payroll'],['payslips','Payslips','People & payroll','payslips'],
+      ['customers','Customers','Sales & receivables','employees'],['invoices','Sales','Sales & receivables','file'],['credit','Credit Control','Sales & receivables','shield'],['statements','Statements','Sales & receivables','reports'],['returns','Credits & Returns','Sales & receivables','file'],['debits','Debit Notes','Sales & receivables','file'],
+      ['suppliers','Suppliers','Purchases & treasury','building'],['expenses','Expenses & Purchases','Purchases & treasury','file'],['payments','Payments','Purchases & treasury','bank'],['cashbank','Cash & Bank','Purchases & treasury','bank'],['cashflow','Cash Flow','Purchases & treasury','chart'],
+      ['accounting','Accounting','Accounting & compliance','reports'],['corrections','Reversals & Corrections','Accounting & compliance','alert'],['tax','Tax & GRA','Accounting & compliance','shield'],['reports','Reports','Accounting & compliance','reports'],
+      ['budgets','Budgets','Planning & operations','calendar'],['projects','Projects & Costs','Planning & operations','building'],['loans','Loans & Debt','Planning & operations','bank'],['assets','Assets','Planning & operations','building'],['inventory','Inventory','Planning & operations','box'],['settings','Settings','System','settings']
+    ].filter(x=>match(x[1],x[2],x[0])).slice(0,5);
+    if(modules.length)sections.push('<div class="command-section"><small>MODULES</small>'+modules.map(x=>'<button data-page="'+x[0]+'">'+icon(x[3],15)+'<span class="command-result-copy"><b>'+esc(x[1])+'</b><small>'+esc(x[2])+'</small></span><span>Open</span></button>').join('')+'</div>');
     const employees=(state.employees||[]).filter(e=>match(e.name,e.role,e.department,e.id)).slice(0,4);
     if(employees.length)sections.push('<div class="command-section"><small>EMPLOYEES</small>'+employees.map(e=>'<button data-search-employee="'+esc(e.id)+'"><span class="tiny-avatar">'+esc(e.initials||'')+'</span><span class="command-result-copy"><b>'+esc(e.name)+'</b><small>'+esc(e.role||e.department||e.id)+'</small></span><span>Employee</span></button>').join('')+'</div>');
     const customers=(state.customers||[]).filter(x=>match(x.name,x.contact,x.email,x.phone,x.reference)).slice(0,4);
