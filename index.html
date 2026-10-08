@@ -3493,6 +3493,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(target.dataset.org){switchOrganization(target.dataset.org);return;}
     if(target.dataset.run){state.selectedRun=state.runs.find(r=>r.id===target.dataset.run)||null;render();return;}
     const a=target.dataset.action;if(!a)return;
+    if(a.startsWith('settings-jump:')){const key=a.slice('settings-jump:'.length),el=document.getElementById('settings-'+key+'-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return;}
     if(a==='toggle-quick-create'){state.quickCreateOpen=!state.quickCreateOpen;state.notifOpen=false;render();return;}
     if(a.startsWith('reversal-approve:')){window.DalasiReversalApprovals.approve(a.slice('reversal-approve:'.length),state,{can,audit,save,toast,render});return;}
     if(a.startsWith('reversal-reject:')){window.DalasiReversalApprovals.reject(a.slice('reversal-reject:'.length),state,{can,audit,save,toast,render});return;}
