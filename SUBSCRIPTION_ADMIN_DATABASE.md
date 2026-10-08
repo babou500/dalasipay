@@ -31,3 +31,7 @@ Before activation: independently test rollback and concurrency; decide who can a
 ## Independent database verification (2026-10-08)
 
 Read-only catalog checks confirmed the review function is SECURITY INVOKER and EXECUTE is denied to anon, authenticated and service_role. The platform-admin list contains zero entries. Request and audit tables are empty. All 13 Professional Preview records remain. The service role lacks audit-event UPDATE privilege; authenticated cannot SELECT the admin allowlist. A non-destructive test call using an unregistered reviewer raised the expected insufficient-privilege exception and was handled in the test block. Positive-path atomic rollback and concurrent-review behavior remain unverified because no platform reviewer or test requests have been created. No permission was granted and no plan changed.
+
+## Transaction simulation (2026-10-08)
+
+Added isolated JavaScript tests for failed-audit rollback, staged review events, and unauthorized reviewer denial. These are logic simulations only, not evidence of PostgreSQL transactional rollback or concurrent database access. Live SQL function still uses SELECT FOR UPDATE and same-transaction request UPDATE/audit INSERT; independently validate those semantics against disposable test fixtures in a nonproduction Supabase environment before enabling the function. No platform administrators, requests, events or plan changes were created by these GitHub tests.
