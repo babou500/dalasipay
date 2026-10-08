@@ -20,7 +20,7 @@ test('only a signed Access subject with an independently approved operator mappi
 test('signed but unapproved Cloudflare member cannot see the dashboard',async()=>{
  const {sign,config}=await setup();
  const dashboard=createAccessBoundDashboard({...config,checkApprovedOperator:async()=>false});
- assert.equal((await dashboard(request(await sign({}))).status),403);
+ assert.equal((await dashboard(request(await sign({})))).status,403);
 });
 test('wrong audience, expired token, and missing token cannot reach membership lookup',async()=>{
  const {sign,config}=await setup();let calls=0;
