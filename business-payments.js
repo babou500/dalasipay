@@ -1008,24 +1008,57 @@
     const beneficiaryOptions=['<option value="">Manual / one-off payee</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'" '+(selected&&selected.id===b.id?'selected':'')+'>'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
     const typeOptions=TYPES.map(x=>'<option '+(x===typeValue?'selected':'')+'>'+x+'</option>').join('');
     const methodOptions=METHODS.map(x=>'<option '+(x===methodValue?'selected':'')+'>'+x+'</option>').join('');
-    const beneficiaryInfo=selected?'<div class="selected-beneficiary"><b>'+esc(selected.name)+'</b><span>'+esc(destinationSummary(selected))+'</span></div>':'';
-    const billBalance=bill?(window.DalasiReturns?.billBalance?.(state,bill)??(Number(bill.amount)||0)):0,billInfo=bill?'<div class="selected-bill"><b>Invoice '+esc(bill.invoiceNo||bill.id)+'</b><span>'+esc(bill.supplier)+' · balance '+h.money2(billBalance)+'</span></div>':'';
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-business-payment"></div><form id="business-payment-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">NEW BUSINESS PAYMENT</div><h2>Record payment</h2><p>Create a controlled payment record outside payroll.</p></div><button type="button" class="close" data-action="close-business-payment">×</button></div>'+
-      '<div class="payment-modal-note">This creates a payment record only. It does not send funds from a bank or mobile-money account.</div>'+
-      field('Saved beneficiary','<select id="payment-beneficiary-select" name="beneficiaryId">'+beneficiaryOptions+'</select>')+beneficiaryInfo+billInfo+'<input type="hidden" name="billId" value="'+esc(bill?.id||'')+'">'+
-      '<div class="form-grid">'+
-        field('Payee / beneficiary','<input name="payee" value="'+esc(bill?.supplier||selected?.name||'')+'" placeholder="e.g. ABC Supplies Ltd" required>')+
-        field('Payment type','<select name="type">'+typeOptions+'</select>')+
-        field('Amount (GMD)','<input name="amount" type="number" min="0.01" '+(bill?'max="'+billBalance+'" ':'')+'step="0.01" value="'+esc(bill?billBalance:'')+'" placeholder="0.00" required>')+
-        field('Payment method','<select name="method">'+methodOptions+'</select>')+
-        field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId',state.paymentSelectedAccountId||'','Select cash / bank account')+(!(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').length?'<button type="button" class="secondary tiny" data-action="payment-add-cash-account">+ Add cash/bank account</button>':''))+
-        field('Due date','<input name="dueDate" type="date" value="'+esc(bill?.dueDate||'')+'">')+
-        field('Reference / invoice no.','<input name="reference" value="'+esc(bill?.invoiceNo||'')+'" placeholder="Invoice, bill or internal reference">')+
+    const beneficiaryInfo=selected?'<div class="selected-beneficiary supplier-payment-beneficiary"><div><b>'+esc(selected.name)+'</b><span>'+esc(destinationSummary(selected))+'</span></div><span>'+esc(selected.preferredMethod||'Payment method not set')+'</span></div>':'';
+    const billBalance=bill?(window.DalasiReturns?.billBalance?.(state,bill)??(Number(bill.amount)||0)):0;
+    return '<div class="center-modal payment-modal supplier-payment-modal"><div class="modal-scrim" data-action="close-business-payment"></div><form id="business-payment-form" class="modal-box wide supplier-payment-form">'+
+      '<div class="modal-head"><div><div class="eyebrow">SUPPLIER PAYMENT</div><h2>'+(bill?'Pay supplier bill':'Record business payment')+'</h2><p>'+(bill?(esc(bill.supplier)+' · '+esc(bill.invoiceNo||bill.id)):'Create a controlled payment record outside payroll.')+'</p></div><button type="button" class="close" data-action="close-business-payment">×</button></div>'+
+      (bill?'<div class="supplier-payment-overview"><div><span>Original bill</span><b>'+h.money2(bill.amount)+'</b></div><div><span>Outstanding</span><b>'+h.money2(billBalance)+'</b></div><div><span>Due date</span><b>'+dueDate(bill.dueDate)+'</b></div></div>':'')+
+      '<input type="hidden" name="billId" value="'+esc(bill?.id||'')+'">'+
+      '<div class="supplier-payment-grid"><div class="supplier-payment-fields">'+
+        '<section class="payment-form-section"><div class="payment-form-section-head"><span>'+icon('building',16)+'</span><div><h3>Payee & payment details</h3><p>Choose the supplier, amount, method and account used for settlement.</p></div></div>'+
+          '<div class="supplier-payment-beneficiary-wrap">'+field('Saved beneficiary','<select id="payment-beneficiary-select" name="beneficiaryId">'+beneficiaryOptions+'</select>')+beneficiaryInfo+'</div>'+
+          '<div class="form-grid">'+
+            field('Payee / beneficiary','<input name="payee" value="'+esc(bill?.supplier||selected?.name||'')+'" placeholder="e.g. ABC Supplies Ltd" required>')+
+            field('Payment type','<select name="type">'+typeOptions+'</select>')+
+            field('Amount (GMD)','<input name="amount" type="number" min="0.01" '+(bill?'max="'+billBalance+'" ':'')+'step="0.01" value="'+esc(bill?billBalance:'')+'" placeholder="0.00" required>')+
+            field('Payment method','<select name="method">'+methodOptions+'</select>')+
+            field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId',state.paymentSelectedAccountId||'','Select cash / bank account')+(!(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').length?'<button type="button" class="secondary tiny" data-action="payment-add-cash-account">+ Add cash/bank account</button>':''))+
+            field('Due date','<input name="dueDate" type="date" value="'+esc(bill?.dueDate||'')+'">')+
+            field('Reference / invoice no.','<input name="reference" value="'+esc(bill?.invoiceNo||'')+'" placeholder="Invoice, bill or internal reference">')+
+            field('Description / purpose','<input name="description" value="'+esc(bill?.description||'')+'" placeholder="What is this payment for?">')+
+          '</div>'+
+        '</section>'+
       '</div>'+
-      field('Description / purpose','<input name="description" value="'+esc(bill?.description||'')+'" placeholder="What is this payment for?">')+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-business-payment">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft</button></div>'+
+      '<aside class="supplier-payment-summary" aria-live="polite"><div class="incoming-payment-summary-head"><span class="eyebrow">LIVE REVIEW</span><h3>Payment voucher</h3></div>'+
+        '<div class="incoming-payment-summary-row"><span>Payment amount</span><b data-supplier-payment-amount>'+h.money2(billBalance)+'</b></div>'+
+        (bill?'<div class="incoming-payment-summary-row"><span>Balance after payment</span><b data-supplier-payment-remaining>'+h.money2(0)+'</b></div><div class="incoming-payment-summary-row"><span>Resulting bill status</span><b data-supplier-payment-status>Paid</b></div>':'')+
+        '<div class="incoming-payment-posting"><span>EXPECTED ACCOUNTING EFFECT WHEN PAID</span><div><small>Debit supplier payable / obligation</small><b data-supplier-payment-debit>'+h.money2(billBalance)+'</b></div><div><small>Credit cash / bank</small><b data-supplier-payment-credit>'+h.money2(billBalance)+'</b></div><p>The payment is saved as a controlled draft first. Cash/Bank and the linked supplier obligation are affected when the approved payment is marked paid.</p></div>'+
+        '<div class="supplier-payment-meta"><span data-supplier-payment-account>Choose the paying account</span><span data-supplier-payment-method>'+esc(methodValue)+'</span></div>'+
+      '</aside></div>'+
+      '<div class="incoming-payment-footer"><div class="invoice-create-assurance">'+icon('check',15)+' <span>'+(bill?'Part-payments leave the remaining supplier balance open.':'The payment enters the approval workflow as a draft before funds are marked paid.')+'</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-business-payment">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save draft payment</button></div></div>'+
     '</form></div>';
+  }
+
+  function bindSupplierPaymentPreview(form,state){
+    if(!form||form.dataset.supplierPaymentPreviewBound==='1')return;
+    form.dataset.supplierPaymentPreviewBound='1';
+    const billId=String(new FormData(form).get('billId')||state.paymentBillId||''),bill=billId?billById(state,billId):null,outstanding=bill?(window.DalasiReturns?.billBalance?.(state,bill)??Number(bill.amount)||0):0;
+    const money=n=>'D'+(Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const update=()=>{
+      const fd=new FormData(form),amount=Math.max(0,Number(fd.get('amount')||0)),remaining=bill?Math.max(0,outstanding-amount):0,status=!bill?'Draft payment':amount<=0?'Awaiting amount':remaining<=0.004?'Paid':'Part paid';
+      const put=(sel,val)=>{const el=form.querySelector(sel);if(el)el.textContent=val;};
+      put('[data-supplier-payment-amount]',money(amount));
+      put('[data-supplier-payment-debit]',money(amount));
+      put('[data-supplier-payment-credit]',money(amount));
+      if(bill){put('[data-supplier-payment-remaining]',money(remaining));put('[data-supplier-payment-status]',status);}
+      const account=form.querySelector('[name="accountId"]'),accountLabel=account?.selectedOptions?.[0]?.textContent||'Choose the paying account';
+      const method=form.querySelector('[name="method"]')?.value||'Payment method';
+      put('[data-supplier-payment-account]',accountLabel);
+      put('[data-supplier-payment-method]',method);
+    };
+    form.addEventListener('input',update);
+    form.addEventListener('change',update);
+    update();
   }
   function beneficiaryModal(state,h){
     const field=h.field,icon=h.icon,selectedKind=state.beneficiaryDefaultKind||BENEFICIARY_TYPES[0];
@@ -1279,5 +1312,5 @@
     const csv=['Payment ID,Payee,Beneficiary ID,Bill ID,Voucher Number,Receipt Number,Type,Amount,Method,Due Date,Reference,Status,Created By,Created At,Paid At'].concat(rows.map(p=>[p.id,p.payee,p.beneficiaryId||'',p.billId||'',p.voucherNumber||'',p.receiptNumber||'',p.type,p.amount,p.method,p.dueDate,p.reference,p.status,p.createdBy,p.createdAt,p.paidAt||''].map(ctx.csvEscape).join(','))).join('\n');
     ctx.downloadText('dalasipay-business-payments.csv',csv);ctx.toast('Business payment register downloaded');
   }
-  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+  window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
