@@ -23,3 +23,10 @@
 /* Settings actions belong after the content, not over the plan cards. */
 .settings-content > .save-bar{position:static!important;inset:auto!important;transform:none!important;z-index:auto!important;background:transparent;box-shadow:none;min-height:0;padding:16px 0 28px;align-self:stretch}
 #settings-subscription-section{scroll-margin-top:95px}
+
+/* Keep verified observations visually separate from plan entitlements. */
+#subscription-usage-results:not(:empty){margin-top:18px}
+#settings-subscription-section .subscription-usage-panel{padding:18px;border:1px solid var(--border,#dfe8e4);border-radius:14px;background:var(--panel-2,#f5f9f7)}
+#settings-subscription-section .subscription-usage-panel .subscription-heading{margin:8px 0}
+#settings-subscription-section .subscription-usage-note{color:var(--muted,#64746e);font-size:12px;line-height:1.6;margin:0 0 14px}
+#settings-subscription-section .subscription-usage-panel .subscription-allowances+ .subscription-heading{margin-top:23px}
