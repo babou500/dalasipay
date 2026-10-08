@@ -19,3 +19,11 @@ test('errors fail closed and endpoint denies writes and other routes',async()=>{
  assert.equal((await handler()(new Request(url,{method:'POST'}))).status,405);
  assert.equal((await handler()(new Request('https://admin.example.test/other'))).status,404);
 });
+
+test('caller-selected identity query is rejected before authorization lookup',async()=>{
+ let lookups=0;
+ const h=handler(async()=>({userId:uid}),async()=>{lookups++;return true;});
+ const response=await h(new Request(url+'?userId=22222222-2222-4222-8222-222222222222',{headers:{Authorization:'Bearer valid'}}));
+ assert.equal(response.status,400);
+ assert.equal(lookups,0);
+});
