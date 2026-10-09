@@ -1,0 +1,84 @@
+name: Cloudflare manual release
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy all four existing Workers after protected-environment approval (false = tests and dry runs only)'
+        type: boolean
+        default: false
+      confirmation:
+        description: 'For deployment type exactly: DEPLOY VERIFIED COMMIT'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production-release
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    uses: ./.github/workflows/licensing-checks.yml
+  dry-run:
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix tools/cloudflare --ignore-scripts --no-audit --no-fund
+      - run: node scripts/cloudflare-release.mjs dry-run
+  deploy:
+    needs: dry-run
+    if: inputs.deploy && github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY VERIFIED COMMIT'
+    environment: cloudflare-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require completed owner security setup
+        env:
+          READY: ${{ vars.MANUAL_DEPLOYMENT_READY }}
+        run: test "$READY" = 'reviewers-configured-auto-builds-disabled'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix tools/cloudflare --ignore-scripts --no-audit --no-fund
+      - name: Record versions before deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/cloudflare-release.mjs snapshot
+      - name: Deploy approved commit, preserving Worker variables and secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RELEASE_APPROVAL: ${{ inputs.confirmation }}
+        run: node scripts/cloudflare-release.mjs deploy
+      - name: Verify deployed endpoints and security configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/cloudflare-release.mjs verify
+      - name: Add release and rollback evidence to run summary
+        if: always()
+        run: |
+          echo '### Release evidence (no credentials)' >> "$GITHUB_STEP_SUMMARY"
+          for file in release-snapshot.json release-verify.json; do
+            if test -f "$file"; then
+              echo '```json' >> "$GITHUB_STEP_SUMMARY"
+              cat "$file" >> "$GITHUB_STEP_SUMMARY"
+              echo '' >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo 'Complete authenticated UI and read-only database checks in GITHUB_DEPLOYMENT.md. A failed check requires manual rollback review.' >> "$GITHUB_STEP_SUMMARY"
