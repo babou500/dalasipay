@@ -66,3 +66,5 @@
 #settings-subscription-section .subscription-admin-preview .subscription-admin-steps{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
 #settings-subscription-section .subscription-admin-preview-card{min-height:160px}
 @media(max-width:600px){#settings-subscription-section .subscription-admin-preview .subscription-admin-steps{grid-template-columns:1fr}}
+
+.subscription-request-form{display:grid;gap:14px;margin:18px 0}.subscription-request-form label{display:grid;gap:7px}.subscription-request-form textarea,.subscription-request-form select{font:inherit;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text)}.subscription-request-form textarea{min-height:100px}.subscription-request-form button{justify-self:start}

@@ -1,0 +1,14 @@
+# Existing main application's static-only Worker; preserves its custom domain.
+name = "dalasipay"
+account_id = "40e35bbd6d3097406a7c8f6e5e9bd4c8"
+compatibility_date = "2026-10-06"
+workers_dev = true
+preview_urls = true
+[[routes]]
+pattern = "dalasipay.bebusinesssolutionsgm.com"
+custom_domain = true
+[assets]
+directory = "../.wrangler/main-assets"
+[observability]
+enabled = true
+head_sampling_rate = 1
