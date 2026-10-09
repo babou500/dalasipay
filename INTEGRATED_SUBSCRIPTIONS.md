@@ -27,3 +27,14 @@ The owner deferred customer sign-in. Live authenticated main-app request submiss
 Ready: shared read views, configurable informational plan drafts, audited customer requests and review decisions. Explicit authorization required: entitlement-changing approvals, pricing/billing, expiry enforcement, plan restrictions and migration of existing customers.
 
 Database advisors retain intentional RPC-only RLS tables and the deliberately authenticated security-definer customer RPC, whose session and owner checks are tested. Existing [leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) is still disabled; no Auth policy was changed.
+
+
+## Release checks — 9 October 2026
+
+- 169 Node tests and 18 PostgreSQL integration tests passed, zero failures/skips.
+- [GitHub CI passed](https://github.com/babou500/dalasipay/actions/runs/37877157775).
+- Both changed Worker dry runs passed. Main deployment uploaded only the three changed public assets; 88 existing assets were reused and then verified unchanged from live delivery.
+- Live main HTML, customer integration script and stylesheet returned 200 and matched the deployed source. Main sign-in page rendered without browser console errors.
+- Anonymous administrator directory access returned 302 to the trusted Cloudflare Access issuer. Service binding still targets the private Worker; private public/preview URLs remain disabled.
+- Final production read confirms 13 organizations, 13 unlimited Preview subscriptions, zero fabricated customer requests and an unchanged full-row checksum.
+- A fresh signed administrator session check is awaiting interactive Access sign-in. The previous release verified the authenticated Worker/Supabase flow; this integration does not change its authentication code.
