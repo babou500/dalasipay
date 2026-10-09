@@ -1,4 +1,4 @@
-# Actual verification â€” 2026-10-09 UTC
+# Actual verification - 2026-10-09 UTC
 
 ## Source and deployed cause
 
@@ -24,7 +24,7 @@ for those negative tests, and the synthetic token grants no access.
 | Actual private production binding, before/after | 503 before; 403 after for the same untrusted-key scenario |
 | Signing-key endpoint | HTTP 200, two RSA keys |
 | Fresh unauthenticated staging request after deploy | HTTP 302 to the configured Access tenant |
-| Live positive real-operator Access â†’ membership â†’ dashboard | **Not completed** |
+| Live positive real-operator Access -> membership -> dashboard | **Not completed** |
 
 PostgreSQL tests use isolated fixtures and actual SQL permissions, not a production
 appointment. They demonstrate atomic rollback when the audit insert fails, exact
@@ -81,3 +81,5 @@ failure, and replay denial through both bootstrap scripts after revocation.
 Two new cryptographic tests verify the signed subject, including a subject that
 differs from a login-log ID, and reject wrong owner/audience/expiry/signature.
 No live appointment has occurred. The actual signed Access session remains pending.
+
+The follow-up GitHub CI run passed: https://github.com/babou500/dalasipay/actions/runs/37870612311 . Live checks again confirmed private public/preview URLs disabled, the correct service binding, and HTTP 302 for an unauthenticated request. The existing 87 licensing tests were rerun and passed.
