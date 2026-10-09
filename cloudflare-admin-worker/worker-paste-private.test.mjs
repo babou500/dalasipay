@@ -15,7 +15,7 @@ test('identity comparison denies missing Access assertion',async()=>{
 });
 test('identity comparison fails closed without trusted configuration',async()=>{
  const r=await handler.fetch(request('/internal/admin/identity-match'),{});
- assert.equal(r.status,503);assert.deepEqual(await r.json(),{authorized:false});
+ assert.equal(r.status,503);assert.deepEqual(await r.json(),{authorized:false,check:'configuration'});
 });
 test('authorization endpoint remains denied without assertion',async()=>{
  const r=await handler.fetch(request('/internal/admin/authorize'),base);
