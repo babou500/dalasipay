@@ -1,5 +1,7 @@
 # Actual verification - 2026-10-09 UTC
 
+Current dashboard update and deployment: see [DASHBOARD_UPDATE_VERIFICATION.md](DASHBOARD_UPDATE_VERIFICATION.md). The record below documents the earlier owner bootstrap deployment.
+
 ## Outcome
 
 The authorized sole owner is now the first DalasiPay platform administrator.
