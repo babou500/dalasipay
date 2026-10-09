@@ -75,6 +75,7 @@ jobs:
           node --check cloudflare-admin-worker/operator-identity-map.mjs
           node --check cloudflare-admin-worker/restricted-admin-lookup.mjs
           node --check cloudflare-admin-worker/private-auth-entry.mjs
+          node --check cloudflare-admin-worker/worker-paste-private.js
           node --check cloudflare-admin-worker/private-service-authorization.mjs
           node --check cloudflare-admin-worker/private-membership.mjs
           node --check cloudflare-admin-worker/membership-integration.mjs
@@ -112,6 +113,7 @@ jobs:
             cloudflare-admin-worker/operator-identity-map.test.mjs \
             cloudflare-admin-worker/restricted-admin-lookup.test.mjs \
             cloudflare-admin-worker/private-auth-entry.test.mjs \
+            cloudflare-admin-worker/worker-paste-private.test.mjs \
             cloudflare-admin-worker/private-service-authorization.test.mjs \
             cloudflare-admin-worker/private-membership.test.mjs \
             cloudflare-admin-worker/membership-integration.test.mjs \
