@@ -37,13 +37,18 @@ async function signedIdentity(request,env){
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
-  if(request.method!=='POST'||url.pathname!=='/internal/admin/authorize')return answer(404);
+  if(request.method!=='POST'||!['/internal/admin/authorize','/internal/admin/identity-match'].includes(url.pathname))return answer(404);
   // Keep fail-closed until encrypted credential is installed.
   if(!env?.DALASIPAY_SUPABASE_URL||!env?.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY||
      !env?.ACCESS_ISSUER||!env?.ACCESS_AUDIENCE)return answer(503);
   let subject;
   try{subject=await signedIdentity(request,env);}catch{return answer(503);}
   if(!subject)return answer(403);
+  if(url.pathname==='/internal/admin/identity-match'){
+   const expected=env?.EXPECTED_ADMIN_ACCESS_SUBJECT;
+   if(typeof expected!=='string'||expected.length<8)return answer(503);
+   return new Response(JSON.stringify({identityMatched:subject===expected}),{status:200,headers:H});
+  }
   try{
    const endpoint=new URL('/rest/v1/rpc/platform_admin_identity_authorized_internal',env.DALASIPAY_SUPABASE_URL);
    if(endpoint.protocol!=='https:'||endpoint.hostname!=='zdpmlzmljozcmqndyfog.supabase.co')return answer(503);
