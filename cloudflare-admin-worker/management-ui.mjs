@@ -10,7 +10,7 @@ const history=rows=>rows.length?table(['Action','Date (UTC)','Previous plan','Pr
 export const managementNav=`<nav aria-label="Administration"><a href="/">Subscriptions</a><a href="/businesses">Businesses</a><a href="/plans">Plan drafts</a><a href="/requests">Requests</a><a href="/audit">Audit history</a></nav>`;
 export function renderManagement(view,data,{offset=0,notice=''}={}){
  const titles={businesses:'Business directory',business:'Business profile',plans:'Licensing plan drafts',requests:'Subscription requests',audit:'Administrative audit history'};
- let content='';const rows=Array.isArray(data.rows)?data.rows.slice(0,100):[];
+ let content='';const rows=Array.isArray(data.rows)?data.rows.slice(0,100):[];if(view==='plans')rows.sort((a,b)=>['free','standard','professional'].indexOf(a.plan_id)-['free','standard','professional'].indexOf(b.plan_id));
  if(view==='businesses')content=table(['Business','Subscription','Entitlement','Renewal planning date','Members'],rows.map(x=>`<tr><td><a href="${link(x.id)}">${escape(x.name)}</a><small>${escape(x.id)}</small></td><td>${escape(labels(x.plan_id??'Not recorded'))}<small>${escape(labels(x.status??'Not recorded'))}</small></td><td>${x.professional_preview?'Unlimited Professional Preview':'Not recorded as preview'}</td><td>${escape(x.renewal_date)}</td><td>${escape(x.member_count)}</td></tr>`));
  if(view==='business'){
   const p=data.profile,s=data.subscription??{},d=data.details??{};
