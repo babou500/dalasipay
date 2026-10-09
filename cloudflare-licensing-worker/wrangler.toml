@@ -4,6 +4,7 @@ name = "dalasipay-licensing-staging"
 main = "index.mjs"
 compatibility_date = "2026-10-08"
 workers_dev = true
+preview_urls = false
 # Intentionally no routes, custom domains, environment secrets, or production triggers.
 # Non-secret values are tracked here. Keep the service-role key ONLY in Cloudflare Secrets.
 [vars]
