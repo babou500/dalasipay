@@ -75,7 +75,7 @@ export function createPrivateWorker({fetchImpl=fetch,cryptoImpl=crypto,now=()=>M
   if(url.pathname==='/internal/admin/authorize')return answer(200,true);
   if(url.pathname==='/internal/admin/manage'){
    let input;try{input=await request.json();}catch{return answer(400);}
-   if(!['businesses','business','plans','requests','audit','review','save_plan','save_details'].includes(input?.action)||!input.payload||typeof input.payload!=='object'||Array.isArray(input.payload)||!Number.isSafeInteger(input.offset??0)||(input.offset??0)<0||(input.offset??0)>100000)return answer(400);
+   if(!['businesses','business','plans','requests','audit','review','billing','save_price','save_plan','save_details'].includes(input?.action)||!input.payload||typeof input.payload!=='object'||Array.isArray(input.payload)||!Number.isSafeInteger(input.offset??0)||(input.offset??0)<0||(input.offset??0)>100000)return answer(400);
    try{
     const response=await fetchImpl(new URL('/rest/v1/rpc/platform_licensing_manage_internal',base),{method:'POST',headers:dbHeaders,body:JSON.stringify({p_subject:subject,p_action:input.action,p_payload:input.payload,p_offset:input.offset??0}),redirect:'manual',signal:AbortSignal.timeout(10000)});
     if(!response.ok){let error;try{error=await response.json();}catch{}return answer(error?.code==='42501'?403:error?.code==='55000'?409:response.status===400?400:503);}

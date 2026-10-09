@@ -115,6 +115,7 @@ jobs:
             supabase-licensing-provider.test.mjs \
             verified-licensing-endpoint.test.mjs \
             platform-admin-session.test.mjs \
+            tests/annual-pricing.test.mjs \
             tests/platform-admin-lookup-proposal.test.mjs \
             cloudflare-admin-worker/index.test.mjs \
             cloudflare-admin-worker/dashboard-preview.test.mjs \
