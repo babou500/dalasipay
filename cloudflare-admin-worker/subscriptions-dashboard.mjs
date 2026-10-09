@@ -9,7 +9,7 @@ export function renderSubscriptions({subscriptions,nextOffset}){
  const previews=rows.filter(r=>r.professional_preview).length;
  const statuses=new Set(rows.map(r=>String(r.status??''))).size;
  const pagination=nextOffset===null?'':'<a class="next" href="/?offset='+Number(nextOffset)+'">Next page →</a>';
- const data=rows.map(r=>`<tr><td><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
+ const data=rows.map(r=>`<tr><td><strong class="orgname">${escape(r.organization_name||"Unnamed business")}</strong><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
  return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subscriptions | DalasiPay Administrator</title>
 <style>
@@ -26,7 +26,7 @@ h1{font-size:clamp(27px,3vw,39px);letter-spacing:-1.2px;line-height:1.2;margin:0
 .panel{background:white;border:1px solid #e0e7ee;border-radius:16px;overflow:hidden;box-shadow:0 3px 16px #1a3c5708}
 .panelhead{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:21px 24px;border-bottom:1px solid #e9eef3}.panelhead h2{margin:0;font-size:18px;letter-spacing:-.3px}.panelhead p{margin:4px 0 0;color:#75899a;font-size:13px}
 table{border-collapse:collapse;min-width:800px;width:100%}section{overflow-x:auto}th,td{text-align:left;padding:17px 20px;border-bottom:1px solid #edf1f5;font-size:13px}th{color:#667c8e;text-transform:uppercase;letter-spacing:.06em;font-size:11px;background:#f9fbfd}tbody tr:hover{background:#fafcfe}tbody tr:last-child td{border-bottom:0}
-.workspace{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#315772;font-size:12px;word-break:break-word}
+.orgname{display:block;font-size:13px;color:#203e57;margin-bottom:5px}.workspace{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#315772;font-size:12px;word-break:break-word}
 .status{display:inline-block;background:#e9f2fa;color:#225985;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}
 .preview{color:#127263;font-weight:700}.date{color:#627789;white-space:nowrap}
 .panelfoot{padding:16px 24px;background:#fcfdff;border-top:1px solid #e9eef3;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#74899a;font-size:12px}.next{text-decoration:none;font-weight:700}
@@ -39,7 +39,7 @@ footer{padding-top:26px;color:#8294a4;font-size:12px}
 <div class="notice"><strong>Professional Preview protection is active.</strong> Unlimited preview access remains unchanged. Billing and subscription restrictions are disabled.</div>
 <div class="summary"><div class="metric"><small>Subscriptions on this page</small><strong>${rows.length}</strong><span>${nextOffset===null?'End of subscription list':'More subscriptions on the next page'}</span></div><div class="metric"><small>Unlimited previews on this page</small><strong>${previews}</strong><span>Existing benefits preserved</span></div><div class="metric"><small>Subscription statuses on this page</small><strong>${statuses}</strong><span>Read-only overview</span></div></div>
 <div class="panel"><div class="panelhead"><div><h2>Workspace subscriptions</h2><p>Verified subscription records from DalasiPay</p></div><span class="flag">View only</span></div>
-<section><table><thead><tr><th scope="col">Workspace ID</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Entitlement</th><th scope="col">Updated (UTC)</th></tr></thead><tbody>${data}</tbody></table></section>
+<section><table><thead><tr><th scope="col">Business / Workspace</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Entitlement</th><th scope="col">Updated (UTC)</th></tr></thead><tbody>${data}</tbody></table></section>
 ${rows.length?'':'<p style="padding:20px 24px">No subscriptions found.</p>'}
 <div class="panelfoot"><span>Showing ${rows.length} records on this page</span>${pagination}</div></div>
 <footer>DalasiPay Platform Administration · Powered by BE Business Solutions · Secure read-only access</footer>
