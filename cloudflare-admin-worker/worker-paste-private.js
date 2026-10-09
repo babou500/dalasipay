@@ -81,8 +81,8 @@ export function createPrivateWorker({fetchImpl=fetch,cryptoImpl=crypto,now=()=>M
    const response=await fetchImpl(endpoint,{method:'GET',headers:dbHeaders,redirect:'manual',signal:AbortSignal.timeout(10000)});
    if(!response.ok)return diagnostic('subscription_service');
    const rows=await response.json();
-   if(!Array.isArray(rows)||rows.length>101||rows.some(r=>typeof r.organization_id!=='string'||typeof r.plan_id!=='string'||typeof r.status!=='string'||typeof r.professional_preview!=='boolean'||typeof r.updated_at!=='string'||typeof r.organizations?.name!=='string'))return diagnostic('subscription_response');
-   const subscriptions=rows.slice(0,100).map(({organization_id,plan_id,status,professional_preview,updated_at,organizations})=>({organization_id,organization_name:organizations.name,plan_id,status,professional_preview,updated_at}));
+   if(!Array.isArray(rows)||rows.length>101||rows.some(r=>typeof r.organization_id!=='string'||typeof r.plan_id!=='string'||typeof r.status!=='string'||typeof r.professional_preview!=='boolean'||typeof r.updated_at!=='string'||(r.organizations!==undefined&&r.organizations!==null&&typeof r.organizations?.name!=='string')))return diagnostic('subscription_response');
+   const subscriptions=rows.slice(0,100).map(({organization_id,plan_id,status,professional_preview,updated_at,organizations})=>({organization_id,organization_name:organizations?.name??null,plan_id,status,professional_preview,updated_at}));
    return new Response(JSON.stringify({authorized:true,subscriptions,nextOffset:rows.length>100?offset+100:null}),{status:200,headers:H});
   }catch{return diagnostic('subscription_service');}
  }
