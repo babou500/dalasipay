@@ -35,6 +35,6 @@ export default {
   if(action==='authorize')return reply(200,{authorized:true});
   if(!Array.isArray(data.subscriptions)||data.subscriptions.length>100||!(data.nextOffset===null||data.nextOffset===offset+100))return reply(503,{authorized:false,check:'private_response'});
   if(url.pathname!=='/')return reply(200,{authorized:true,subscriptions:data.subscriptions,nextOffset:data.nextOffset});
-  return new Response(renderSubscriptions(data),{status:200,headers:{...H,'content-type':'text/html; charset=utf-8','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}});
+  return new Response(renderSubscriptions(data,{query:url.searchParams.get('q')??'',status:url.searchParams.get('status')??'all'}),{status:200,headers:{...H,'content-type':'text/html; charset=utf-8','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}});
  }
 };
