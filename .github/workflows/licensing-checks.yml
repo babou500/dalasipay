@@ -117,6 +117,7 @@ jobs:
             cloudflare-admin-worker/private-auth-entry.test.mjs \
             cloudflare-admin-worker/worker-paste-private.test.mjs \
             cloudflare-admin-worker/auth-flow.integration.test.mjs \
+            cloudflare-admin-worker/bootstrap-identity.test.mjs \
             cloudflare-admin-worker/private-service-authorization.test.mjs \
             cloudflare-admin-worker/private-membership.test.mjs \
             cloudflare-admin-worker/membership-integration.test.mjs \

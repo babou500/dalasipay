@@ -1,4 +1,4 @@
-# Actual verification — 2026-10-09 UTC
+# Actual verification â€” 2026-10-09 UTC
 
 ## Source and deployed cause
 
@@ -15,8 +15,8 @@ for those negative tests, and the synthetic token grants no access.
 
 | Verification | Actual result |
 | --- | --- |
-| Administrator Node regression/integration tests | 66 passed, 0 failed, 0 skipped |
-| PostgreSQL bootstrap/permissions/audit rollback/two-Worker flow | 5 passed, 0 failed, 0 skipped |
+| Administrator Node regression/integration tests | 68 passed, 0 failed, 0 skipped |
+| PostgreSQL bootstrap/permissions/audit rollback/two-Worker flow | 10 passed, 0 failed, 0 skipped |
 | Existing licensing/subscription regression suite | 87 passed, 0 failed, 0 skipped |
 | Both Wrangler deployment dry-runs | Passed |
 | Exact deployed code on workerd, before fix | 503, unsupported redirect mode reproduced |
@@ -24,7 +24,7 @@ for those negative tests, and the synthetic token grants no access.
 | Actual private production binding, before/after | 503 before; 403 after for the same untrusted-key scenario |
 | Signing-key endpoint | HTTP 200, two RSA keys |
 | Fresh unauthenticated staging request after deploy | HTTP 302 to the configured Access tenant |
-| Live positive real-operator Access → membership → dashboard | **Not completed** |
+| Live positive real-operator Access â†’ membership â†’ dashboard | **Not completed** |
 
 PostgreSQL tests use isolated fixtures and actual SQL permissions, not a production
 appointment. They demonstrate atomic rollback when the audit insert fails, exact
@@ -66,3 +66,18 @@ The Codex browser remained on Cloudflare's loading screen; a CLI OAuth refresh
 provided deployment access but does not establish a dashboard Access session.
 See README.md for one deployment and bootstrap procedure. Do not treat deployment
 or identityMatched:true alone as proof of operational administrator access.
+
+## Single-owner follow-up
+
+Authenticated infrastructure and database checks established repository admin
+access, the Cloudflare account email, and a confirmed active Supabase account that
+created BE Business Solutions and is its sole member with role owner. These facts
+support the explicitly requested owner exception; email alone grants nothing.
+
+The additional PostgreSQL tests execute the owner procedure and verify honest
+self-authorization audit metadata, rejection of unverified/stale identity and
+incorrect ownership evidence, active confirmed sole ownership, rollback on audit
+failure, and replay denial through both bootstrap scripts after revocation.
+Two new cryptographic tests verify the signed subject, including a subject that
+differs from a login-log ID, and reject wrong owner/audience/expiry/signature.
+No live appointment has occurred. The actual signed Access session remains pending.

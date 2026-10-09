@@ -8,6 +8,7 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15s';
 LOCK TABLE public.subscription_platform_admins IN EXCLUSIVE MODE;
 LOCK TABLE public.platform_admin_access_identities IN EXCLUSIVE MODE;
+LOCK TABLE public.subscription_admin_events IN SHARE ROW EXCLUSIVE MODE;
 SELECT jsonb_build_array(set_config('bootstrap.subject', :'access_subject', true),
  set_config('bootstrap.user_id', :'target_user_id', true),
  set_config('bootstrap.organization_id', :'organization_id', true),
@@ -30,7 +31,8 @@ BEGIN
  IF approver = '' OR operator_name = '' OR approver = operator_name OR approval_reference = '' OR length(reason) < 10 THEN
   RAISE EXCEPTION 'Independent documented approval required';
  END IF;
- IF EXISTS (SELECT 1 FROM public.subscription_platform_admins) OR EXISTS (SELECT 1 FROM public.platform_admin_access_identities) THEN
+ IF EXISTS (SELECT 1 FROM public.subscription_platform_admins) OR EXISTS (SELECT 1 FROM public.platform_admin_access_identities)
+ OR EXISTS (SELECT 1 FROM public.subscription_admin_events WHERE event_type='platform_admin_appointed') THEN
   RAISE EXCEPTION 'First-administrator bootstrap already used or identity state is not empty';
  END IF;
  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = target AND deleted_at IS NULL) THEN RAISE EXCEPTION 'Target Auth UUID not active'; END IF;

@@ -84,40 +84,55 @@ an appointed administrator; revocation must be a separately audited database
 transaction that disables the exact mapping, removes membership, and appends a
 `platform_admin_revoked` event. Do not restore any subscription rows for rollback.
 
-## Controlled first administrator
+## Controlled single-owner first administrator
 
-No administrator was appointed in this rollout. Do not derive the Access subject
-from Cloudflare account ID, Supabase UUID, or matching email.
+The sole owner explicitly authorized this initial appointment on 2026-10-09.
+A second approver is not required for the documented single-owner exception.
+No administrator may be appointed until all checks below succeed.
 
-1. Independently verify the candidate and active Supabase Auth UUID. Obtain a
-   separate approver, operator, reason, and approval reference. Choose an existing
-   organization UUID solely as the required audit-event anchor; event metadata
-   explicitly records platform scope.
-2. Obtain a fresh Access assertion through the trusted operator's authenticated
-   session into a protected local file. Do not paste it into chat, shell history,
-   a URL, or the repository. Set nonsecret `ACCESS_ISSUER` and `ACCESS_AUDIENCE` in
-   the local environment and run:
+1. Through authenticated infrastructure APIs, verify GitHub repository administrator
+   access, the Cloudflare account and email, and the connected Supabase project.
+   Query Supabase to establish the confirmed, active Auth UUID, organization creator,
+   and exactly one organization member with role `owner`. Matching email alone is
+   insufficient. Record the checked facts and authorization reference privately.
+2. Obtain a fresh Access JWT using the owner's interactive Access sign-in and the
+   supported Cloudflare client. Keep it in protected temporary storage; never put
+   it in chat, logs, shell history, URLs, or Git. Set `ACCESS_ISSUER`,
+   `ACCESS_AUDIENCE`, and `OWNER_EMAIL`, then run:
 
    ```sh
    node cloudflare-admin-worker/verify-bootstrap-subject.mjs PROTECTED_TOKEN_FILE NEW_PRIVATE_EVIDENCE_FILE
    ```
 
-   The tool verifies the actual signature against the trusted issuer's current
-   keys before writing subject evidence. It does not appoint anyone. Review that
-   evidence independently and set `EXPECTED_ADMIN_ACCESS_SUBJECT` to that exact
-   verified subject. Dispose of the token file through the operator's secure
-   local handling process; preserve only the reviewed identity evidence.
-3. The authorized database operator runs `bootstrap-first-admin.sql` using psql
-   against project `zdpmlzmljozcmqndyfog`, in a protected postgres session. Supply
-   its required psql variables using a protected local input file. The script
-   rejects nonempty bootstrap state, inactive/unknown UUIDs, invalid subjects,
-   missing organizations, and missing or same-person approval. It locks both
-   identity tables, inserts membership and the approved mapping, and appends the
-   appointment audit event in one transaction. Any error rolls everything back.
-   No bootstrap endpoint or permanent database function is created.
-4. Independently review exactly one expected membership, mapping, and audit event.
-   Run deployment verification step 7. Retain the approval and outcome in the
-   controlled security record. Subject changes require a new reviewed mapping.
+   This uses the same signature verifier as the private Worker, checks the pinned
+   issuer/audience and current signing keys, and obtains the actual signed `sub`.
+   It does not infer `sub` from login logs, account IDs, or email. Set the private
+   Worker's `EXPECTED_ADMIN_ACCESS_SUBJECT` to this verified subject.
+3. The trusted infrastructure operator executes `bootstrap-owner.sql` in a
+   protected `postgres` session on the connected project. Supply the required
+   psql variables listed in that file using protected local input. Identity evidence
+   must come from the verifier, not user-submitted JSON. Ownership evidence uses
+   `source=authenticated_infrastructure_and_database_checks`, `githubRepository`,
+   `githubAdmin`, `cloudflareAccountId`, `cloudflareAccountEmail`, and
+   `supabaseProject`. Retain the owner's exact authorization and reference.
+
+   The SQL rechecks active confirmed ownership and sole membership, locks the
+   relevant rows/tables, and inserts membership, exact-subject mapping, and an
+   honest `single_owner_initial_bootstrap` audit event atomically. It requires fresh
+   verified identity evidence and empty administrator state. Any error rolls back.
+   An existing appointment audit event permanently consumes bootstrap eligibility,
+   including after revocation. The legacy two-person script checks the same marker.
+   No reusable bootstrap endpoint or permanent privileged function is created.
+
+   The database cannot itself authenticate a JSON signature-verification flag:
+   the trusted offline operator must run and review the verifier first. Browser and
+   service roles cannot execute this privileged procedure.
+4. Review the single expected membership, mapping, and append-only audit event.
+   Compare the full ordered subscription snapshot checksum before/after. Test a
+   real signed session at identity-match, authorization, subscriptions, and the
+   dashboard; verify unauthorized subjects remain denied. Retain only safe evidence
+   and results, then remove the temporary token. Do not claim completion before
+   the live authorized flow succeeds.
 
 ## Tests
 

@@ -7,6 +7,7 @@ import {webcrypto} from 'node:crypto';
 import staging from '../cloudflare-admin-worker/staging-entry.mjs';
 const {PGlite}=await import(process.env.PGLITE_MODULE?pathToFileURL(process.env.PGLITE_MODULE).href:'@electric-sql/pglite');
 const bootstrap=await readFile(new URL('../cloudflare-admin-worker/bootstrap-first-admin.sql',import.meta.url),'utf8');
+const ownerBootstrap=await readFile(new URL('../cloudflare-admin-worker/bootstrap-owner.sql',import.meta.url),'utf8');
 const user='11111111-1111-4111-8111-111111111111';
 const organization='22222222-2222-4222-8222-222222222222';
 const subject='verified-bootstrap-subject';
@@ -19,8 +20,9 @@ async function fixture(){
  const db=new PGlite();
  await db.exec(`CREATE SCHEMA auth;
  CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
- CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz);
- CREATE TABLE public.organizations(id uuid PRIMARY KEY);
+ CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz,email text,email_confirmed_at timestamptz,banned_until timestamptz);
+ CREATE TABLE public.organizations(id uuid PRIMARY KEY,created_by uuid REFERENCES auth.users(id));
+ CREATE TABLE public.organization_members(organization_id uuid REFERENCES organizations(id),user_id uuid REFERENCES auth.users(id),role text,PRIMARY KEY(organization_id,user_id));
  CREATE TABLE public.subscription_platform_admins(user_id uuid PRIMARY KEY REFERENCES auth.users(id),granted_at timestamptz DEFAULT now());
  CREATE TABLE public.platform_admin_access_identities(access_subject text PRIMARY KEY CHECK(length(access_subject) BETWEEN 8 AND 256),user_id uuid REFERENCES auth.users(id),approved boolean NOT NULL DEFAULT false,created_at timestamptz DEFAULT now());
  ALTER TABLE public.subscription_platform_admins ENABLE ROW LEVEL SECURITY;
@@ -28,8 +30,9 @@ async function fixture(){
  REVOKE ALL ON public.subscription_platform_admins,public.platform_admin_access_identities FROM PUBLIC,anon,authenticated,service_role;
  CREATE TABLE public.subscription_admin_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,organization_id uuid NOT NULL REFERENCES public.organizations(id),actor_user_id uuid REFERENCES auth.users(id),target_user_id uuid REFERENCES auth.users(id),event_type text NOT NULL CHECK(event_type IN ('platform_admin_appointed','platform_admin_revoked')),metadata jsonb NOT NULL DEFAULT '{}',CHECK(target_user_id IS NOT NULL));
  CREATE TABLE public.workspace_subscriptions(organization_id uuid PRIMARY KEY,plan_id text,status text,professional_preview boolean,updated_at timestamptz);
- INSERT INTO auth.users VALUES ('${user}',NULL);
- INSERT INTO public.organizations VALUES ('${organization}');
+ INSERT INTO auth.users(id,deleted_at,email,email_confirmed_at) VALUES ('${user}',NULL,'owner@fixture.test',now());
+ INSERT INTO public.organizations VALUES ('${organization}','${user}');
+ INSERT INTO public.organization_members VALUES ('${organization}','${user}','owner');
  INSERT INTO public.workspace_subscriptions VALUES ('${organization}','professional','professional_preview',true,now());
  CREATE FUNCTION public.platform_admin_identity_authorized_internal(p_subject text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$ SELECT EXISTS(SELECT 1 FROM public.platform_admin_access_identities m JOIN public.subscription_platform_admins a ON a.user_id=m.user_id WHERE m.access_subject=p_subject AND m.approved IS TRUE) $$;
  REVOKE ALL ON FUNCTION public.platform_admin_identity_authorized_internal(text) FROM PUBLIC,anon,authenticated;
@@ -87,4 +90,30 @@ test('two Worker entry points plus real PostgreSQL: signed JWT to membership to 
   const response=await staging.fetch(request(),{ADMIN_MEMBERSHIP_SERVICE:binding});assert.equal(response.status,200);assert.match(await response.text(),/professional_preview/);assert.equal(queries,2);
   await db.exec('UPDATE platform_admin_access_identities SET approved=false');assert.equal((await staging.fetch(request(),{ADMIN_MEMBERSHIP_SERVICE:binding})).status,403);assert.equal(queries,3);
  }finally{await db.close();}
+});
+
+const ownerIdentity=()=>({subject,email:'owner@fixture.test',issuer:'https://throbbing-salad-ace9.cloudflareaccess.com',audience:'2d449e11a99981d10cac40746e34cfb3208ec2161a769855db0c402875ea5602',signatureVerified:true,verifiedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+300000).toISOString(),jwtSha256:'a'.repeat(64)});
+const ownerOwnership={githubRepository:'babou500/dalasipay',githubAdmin:true,cloudflareAccountId:'40e35bbd6d3097406a7c8f6e5e9bd4c8',cloudflareAccountEmail:'owner@fixture.test',supabaseProject:'zdpmlzmljozcmqndyfog',source:'authenticated_infrastructure_and_database_checks'};
+function ownerSql(overrides={}){
+ const params={target_user_id:user,organization_id:organization,owner_email:'owner@fixture.test',identity_evidence:JSON.stringify(ownerIdentity()),ownership_evidence:JSON.stringify(ownerOwnership),authorization_reference:'sole-owner-request-fixture',authorization_text:'I am the sole owner and authorize my verified account as the first platform administrator.',...overrides};
+ return ownerBootstrap.replace(/^\\set.*$/gm,'').replace(/\\gset/g,';').replace(/:'([a-z_]+)'/g,(_,name)=>"'"+params[name].replaceAll("'","''")+"'");
+}
+test('single owner approves first appointment with actual ownership and signed-subject evidence; subscriptions untouched',async()=>{
+ const db=await fixture();try{const before=(await db.query('SELECT * FROM workspace_subscriptions')).rows;await db.exec(ownerSql());assert.deepEqual(await counts(db),{admins:1,identities:1,events:1});const event=(await db.query('SELECT * FROM subscription_admin_events')).rows[0];assert.equal(event.actor_user_id,user);assert.equal(event.metadata.method,'single_owner_initial_bootstrap');assert.equal(event.metadata.bootstrap_consumed,true);assert.equal(event.metadata.identity_evidence.subject,subject);assert.ok(!('approver' in event.metadata));assert.deepEqual((await db.query('SELECT * FROM workspace_subscriptions')).rows,before);}finally{await db.close();}
+});
+test('revocation cannot reset either owner or independent bootstrap consumed marker',async()=>{
+ const db=await fixture();try{await db.exec(ownerSql());await db.exec('DELETE FROM platform_admin_access_identities; DELETE FROM subscription_platform_admins');await assert.rejects(db.exec(ownerSql()),/consumed/);await db.exec('ROLLBACK');await assert.rejects(db.exec(sql()),/already used/);await db.exec('ROLLBACK');assert.deepEqual(await counts(db),{admins:0,identities:0,events:1});}finally{await db.close();}
+});
+test('owner bootstrap rejects absent authorization, unverified/expired/mismatched identity and untrusted ownership',async()=>{
+ for(const override of [{authorization_text:''},{authorization_reference:''},{identity_evidence:JSON.stringify({...ownerIdentity(),signatureVerified:false})},{identity_evidence:JSON.stringify({...ownerIdentity(),email:'other@fixture.test'})},{identity_evidence:JSON.stringify({...ownerIdentity(),expiresAt:new Date(Date.now()-60000).toISOString()})},{identity_evidence:JSON.stringify({...ownerIdentity(),issuer:'https://attacker.cloudflareaccess.com'})},{ownership_evidence:JSON.stringify({...ownerOwnership,githubAdmin:false})}]){
+  const db=await fixture();try{await assert.rejects(db.exec(ownerSql(override)));await db.exec('ROLLBACK');assert.deepEqual(await counts(db),{admins:0,identities:0,events:0});}finally{await db.close();}
+ }
+});
+test('owner bootstrap refuses a nonowner, nonsole membership or unconfirmed Auth account',async()=>{
+ for(const mutation of ["UPDATE organization_members SET role='member'", "UPDATE auth.users SET email_confirmed_at=NULL", "UPDATE auth.users SET banned_until=now()+interval '1 day'", "INSERT INTO auth.users(id) VALUES ('33333333-3333-4333-8333-333333333333'); INSERT INTO organization_members VALUES ('"+organization+"','33333333-3333-4333-8333-333333333333','member')"]){
+  const db=await fixture();try{await db.exec(mutation);await assert.rejects(db.exec(ownerSql()),/owner/);await db.exec('ROLLBACK');assert.deepEqual(await counts(db),{admins:0,identities:0,events:0});}finally{await db.close();}
+ }
+});
+test('owner bootstrap audit failure rolls back the grant and cannot run as service_role',async()=>{
+ const db=await fixture();try{await db.exec('ALTER TABLE subscription_admin_events ADD CONSTRAINT fail_audit CHECK(false)');await assert.rejects(db.exec(ownerSql()),/fail_audit/);await db.exec('ROLLBACK');assert.deepEqual(await counts(db),{admins:0,identities:0,events:0});await db.exec('SET ROLE service_role');await assert.rejects(db.exec(ownerSql()),/permission denied/);await db.exec('ROLLBACK; RESET ROLE');assert.deepEqual(await counts(db),{admins:0,identities:0,events:0});}finally{await db.close();}
 });
