@@ -4,12 +4,15 @@ const date=value=>{
  const parsed=Date.parse(String(value??''));
  return Number.isFinite(parsed)?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(parsed)):'—';
 };
-export function renderSubscriptions({subscriptions,nextOffset}){
+export function renderSubscriptions({subscriptions,nextOffset},{query="",status="all"}={}){
  const rows=Array.isArray(subscriptions)?subscriptions:[];
+ const searched=String(query).trim().slice(0,100).toLocaleLowerCase('en');
+ const selected=['all','preview','other'].includes(status)?status:'all';
+ const filtered=rows.filter(r=>(!searched||[r.organization_name,r.organization_id,r.plan_id,r.status].some(v=>String(v??'').toLocaleLowerCase('en').includes(searched)))&&(selected==='all'||(selected==='preview'?r.professional_preview:!r.professional_preview)));
  const previews=rows.filter(r=>r.professional_preview).length;
  const statuses=new Set(rows.map(r=>String(r.status??''))).size;
- const pagination=nextOffset===null?'':'<a class="next" href="/?offset='+Number(nextOffset)+'">Next page →</a>';
- const data=rows.map(r=>`<tr><td><strong class="orgname">${escape(r.organization_name||"Unnamed business")}</strong><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
+ const pagination=nextOffset===null?'':'<a class="next" href="/?offset='+Number(nextOffset)+'&amp;q='+encodeURIComponent(String(query).slice(0,100))+'&amp;status='+selected+'">Next page →</a>';
+ const data=filtered.map(r=>`<tr><td><strong class="orgname">${escape(r.organization_name||"Unnamed business")}</strong><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
  return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subscriptions | DalasiPay Administrator</title>
 <style>
@@ -24,7 +27,7 @@ h1{font-size:clamp(27px,3vw,39px);letter-spacing:-1.2px;line-height:1.2;margin:0
 .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px}
 .metric{background:#fff;border:1px solid #e3eaf1;border-radius:14px;padding:21px 23px;box-shadow:0 2px 10px #1c3b5607}.metric small{display:block;color:#62798c;font-size:13px;font-weight:600}.metric strong{display:block;font-size:32px;letter-spacing:-1px;margin-top:8px}.metric span{display:block;font-size:12px;color:#7890a1;margin-top:2px}
 .panel{background:white;border:1px solid #e0e7ee;border-radius:16px;overflow:hidden;box-shadow:0 3px 16px #1a3c5708}
-.panelhead{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:21px 24px;border-bottom:1px solid #e9eef3}.panelhead h2{margin:0;font-size:18px;letter-spacing:-.3px}.panelhead p{margin:4px 0 0;color:#75899a;font-size:13px}
+.filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:16px 24px;border-bottom:1px solid #e9eef3;background:#fff}.filters label{display:flex;flex-direction:column;gap:6px;color:#526b80;font-size:12px;font-weight:700}.filters input,.filters select{border:1px solid #cddae6;border-radius:9px;background:#fff;color:#233e52;padding:11px 12px;font:inherit;font-size:14px;min-width:220px}.filters button{border:0;border-radius:9px;padding:12px 17px;background:#124e75;color:#fff;font-weight:700;cursor:pointer}.filters .reset{padding:10px 4px;font-weight:700;text-decoration:none}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:21px 24px;border-bottom:1px solid #e9eef3}.panelhead h2{margin:0;font-size:18px;letter-spacing:-.3px}.panelhead p{margin:4px 0 0;color:#75899a;font-size:13px}
 table{border-collapse:collapse;min-width:800px;width:100%}section{overflow-x:auto}th,td{text-align:left;padding:17px 20px;border-bottom:1px solid #edf1f5;font-size:13px}th{color:#667c8e;text-transform:uppercase;letter-spacing:.06em;font-size:11px;background:#f9fbfd}tbody tr:hover{background:#fafcfe}tbody tr:last-child td{border-bottom:0}
 .orgname{display:block;font-size:13px;color:#203e57;margin-bottom:5px}.workspace{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#315772;font-size:12px;word-break:break-word}
 .status{display:inline-block;background:#e9f2fa;color:#225985;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}
@@ -39,9 +42,10 @@ footer{padding-top:26px;color:#8294a4;font-size:12px}
 <div class="notice"><strong>Professional Preview protection is active.</strong> Unlimited preview access remains unchanged. Billing and subscription restrictions are disabled.</div>
 <div class="summary"><div class="metric"><small>Subscriptions on this page</small><strong>${rows.length}</strong><span>${nextOffset===null?'End of subscription list':'More subscriptions on the next page'}</span></div><div class="metric"><small>Unlimited previews on this page</small><strong>${previews}</strong><span>Existing benefits preserved</span></div><div class="metric"><small>Subscription statuses on this page</small><strong>${statuses}</strong><span>Read-only overview</span></div></div>
 <div class="panel"><div class="panelhead"><div><h2>Workspace subscriptions</h2><p>Verified subscription records from DalasiPay</p></div><span class="flag">View only</span></div>
+<form class="filters" method="get" action="/"><label for="q">Search business or workspace<input id="q" name="q" type="search" maxlength="100" placeholder="Business name, ID, plan…" value="${escape(String(query).slice(0,100))}"></label><label for="status">Entitlement<select id="status" name="status"><option value="all" ${selected==='all'?'selected':''}>All subscriptions</option><option value="preview" ${selected==='preview'?'selected':''}>Unlimited preview</option><option value="other" ${selected==='other'?'selected':''}>Other</option></select></label><button type="submit">Apply filters</button><a class="reset" href="/">Clear</a></form>
 <section><table><thead><tr><th scope="col">Business / Workspace</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Entitlement</th><th scope="col">Updated (UTC)</th></tr></thead><tbody>${data}</tbody></table></section>
-${rows.length?'':'<p style="padding:20px 24px">No subscriptions found.</p>'}
-<div class="panelfoot"><span>Showing ${rows.length} records on this page</span>${pagination}</div></div>
+${filtered.length?'':'<p style="padding:20px 24px">No subscriptions match your filters on this page.</p>'}
+<div class="panelfoot"><span>Showing ${filtered.length} of ${rows.length} records on this page</span>${pagination}</div></div>
 <footer>DalasiPay Platform Administration · Powered by BE Business Solutions · Secure read-only access</footer>
 </main></body></html>`;
 }
