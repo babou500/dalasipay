@@ -1,6 +1,9 @@
 # DalasiPay first platform administrator: controlled bootstrap
 
-Status: PROCEDURE DRAFT ONLY. No executable production grant, endpoint or appointment.
+Status (2026-10-09): Tested offline procedure prepared; no administrator appointed.
+See [the current controlled bootstrap and deployment procedure](cloudflare-admin-worker/README.md)
+and [actual verification results](cloudflare-admin-worker/VERIFICATION.md).
+The remaining notes below record the earlier design and approval requirements.
 
 ## Prerequisites
 1. The platform operator establishes the candidate's identity through a trusted independent channel and confirms that the candidate controls their Supabase Auth account.

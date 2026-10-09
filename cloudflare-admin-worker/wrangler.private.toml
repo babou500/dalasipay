@@ -1,0 +1,10 @@
+name = "dalasipay-admin-auth-private"
+main = "worker-paste-private.js"
+compatibility_date = "2026-10-08"
+workers_dev = false
+preview_urls = false
+routes = []
+[vars]
+DALASIPAY_SUPABASE_URL = "https://zdpmlzmljozcmqndyfog.supabase.co"
+# Supply ACCESS_ISSUER, ACCESS_AUDIENCE and EXPECTED_ADMIN_ACCESS_SUBJECT
+# using Cloudflare encrypted secrets. Database credential stays private here.
