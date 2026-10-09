@@ -21,9 +21,9 @@ function setup({privateEnv=env,membership=true,rpcStatus=200,rpcBody,keys=[key],
   assert.equal(url.origin,env.DALASIPAY_SUPABASE_URL);
   assert.equal(options.headers.apikey,'fixture-credential');
   if(url.pathname.includes('/rpc/')){assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{p_subject:subject});return Response.json(rpcBody??membership,{status:rpcStatus});}
-  assert.equal(url.pathname,'/rest/v1/workspace_subscriptions');assert.equal(options.method,'GET');assert.equal(url.searchParams.get('limit'),'101');
+  assert.equal(url.pathname,'/rest/v1/workspace_subscriptions');assert.equal(options.method,'GET');assert.equal(url.searchParams.get('limit'),'101');assert.match(url.searchParams.get('select'),/organizations\(name\)/);
   if(subscriptionsDown)throw Error('secret db detail');
-  return Response.json(rows??[{organization_id:'workspace-fixture',plan_id:'professional',status:'professional_preview',professional_preview:true,updated_at:'2026-10-09T00:00:00Z',private_field:'must not escape'}]);
+  return Response.json(rows??[{organization_id:'workspace-fixture',organizations:{name:'Example Trading Ltd'},plan_id:'professional',status:'professional_preview',professional_preview:true,updated_at:'2026-10-09T00:00:00Z',private_field:'must not escape'}]);
  };
  const privateWorker=createPrivateWorker({fetchImpl,cryptoImpl:webcrypto,now:()=>1500});
  const binding={fetch:request=>privateWorker.fetch(request,privateEnv)};
@@ -31,7 +31,7 @@ function setup({privateEnv=env,membership=true,rpcStatus=200,rpcBody,keys=[key],
  return {run,calls,privateWorker};
 }
 test('two Workers: verified actual JWT subject authorizes read-only real-data adapter',async()=>{
- const a=setup();const r=await a.run('/',await sign());assert.equal(r.status,200);const html=await r.text();assert.match(html,/workspace-fixture/);assert.match(html,/Unlimited/);assert.doesNotMatch(html,/fixture-credential|private_field|must not escape/);assert.match(r.headers.get('cache-control'),/no-store/);assert.match(r.headers.get('content-security-policy'),/default-src 'none'/);assert.equal(a.calls.length,3);
+ const a=setup();const r=await a.run('/',await sign());assert.equal(r.status,200);const html=await r.text();assert.match(html,/workspace-fixture/);assert.match(html,/Example Trading Ltd/);assert.match(html,/Unlimited/);assert.doesNotMatch(html,/fixture-credential|private_field|must not escape/);assert.match(r.headers.get('cache-control'),/no-store/);assert.match(r.headers.get('content-security-policy'),/default-src 'none'/);assert.equal(a.calls.length,3);
 });
 test('identity match requires no database credential and does not appoint administrators',async()=>{
  const a=setup({privateEnv:{ACCESS_ISSUER:issuer+'/',ACCESS_AUDIENCE:env.ACCESS_AUDIENCE,EXPECTED_ADMIN_ACCESS_SUBJECT:subject}});
@@ -68,8 +68,8 @@ test('private response and binding failures cannot masquerade as identity mismat
  }
 });
 test('subscription pagination bounded; only safe columns cross private boundary',async()=>{
- const a=setup({rows:Array.from({length:101},(_,i)=>({organization_id:String(i),plan_id:'professional',status:'professional_preview',professional_preview:true,updated_at:'now',secret:'hidden'}))});
- const r=await a.run('/internal/admin/subscriptions?offset=100',await sign());const data=await r.json();assert.equal(r.status,200);assert.equal(data.subscriptions.length,100);assert.equal(data.nextOffset,200);assert.ok(data.subscriptions.every(x=>!('secret' in x)));assert.equal(a.calls.at(-1).url.searchParams.get('offset'),'100');assert.equal((await a.run('/?offset=-1',await sign())).status,400);
+ const a=setup({rows:Array.from({length:101},(_,i)=>({organization_id:String(i),organizations:{name:'Business '+i},plan_id:'professional',status:'professional_preview',professional_preview:true,updated_at:'now',secret:'hidden'}))});
+ const r=await a.run('/internal/admin/subscriptions?offset=100',await sign());const data=await r.json();assert.equal(r.status,200);assert.equal(data.subscriptions.length,100);assert.equal(data.nextOffset,200);assert.ok(data.subscriptions.every(x=>!('secret' in x)&&typeof x.organization_name==='string'&&!('organizations' in x)));assert.equal(a.calls.at(-1).url.searchParams.get('offset'),'100');assert.equal((await a.run('/?offset=-1',await sign())).status,400);
 });
 test('dashboard escapes database strings',()=>{const html=renderSubscriptions({subscriptions:[{organization_id:'<script>alert(1)</script>',plan_id:'&',status:'"',professional_preview:true,updated_at:'<img>'}],nextOffset:null});assert.doesNotMatch(html,/<script>|<img>/);assert.match(html,/&lt;script&gt;/);});
 test('private URL exposure disabled in tracked deployment config',async()=>{const config=await readFile(new URL('./wrangler.private.toml',import.meta.url),'utf8');assert.match(config,/workers_dev = false/);assert.match(config,/preview_urls = false/);assert.ok(config.includes('routes = []'));});
