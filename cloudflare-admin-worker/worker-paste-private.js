@@ -75,11 +75,18 @@ export function createPrivateWorker({fetchImpl=fetch,cryptoImpl=crypto,now=()=>M
   if(url.pathname==='/internal/admin/authorize')return answer(200,true);
   if(url.pathname==='/internal/admin/manage'){
    let input;try{input=await request.json();}catch{return answer(400);}
-   if(!['businesses','business','plans','requests','audit','review','billing','save_price','save_plan','save_details'].includes(input?.action)||!input.payload||typeof input.payload!=='object'||Array.isArray(input.payload)||!Number.isSafeInteger(input.offset??0)||(input.offset??0)<0||(input.offset??0)>100000)return answer(400);
+   if(!['businesses','business','plans','requests','audit','review','billing','wave_settings','save_wave_settings','review_wave_payment','wave_evidence','wave_receipt','save_price','save_plan','save_details'].includes(input?.action)||!input.payload||typeof input.payload!=='object'||Array.isArray(input.payload)||!Number.isSafeInteger(input.offset??0)||(input.offset??0)<0||(input.offset??0)>100000)return answer(400);
    try{
-    const response=await fetchImpl(new URL('/rest/v1/rpc/platform_licensing_manage_internal',base),{method:'POST',headers:dbHeaders,body:JSON.stringify({p_subject:subject,p_action:input.action,p_payload:input.payload,p_offset:input.offset??0}),redirect:'manual',signal:AbortSignal.timeout(10000)});
+    const document=['wave_evidence','wave_receipt'].includes(input.action);const response=await fetchImpl(new URL('/rest/v1/rpc/'+(document?'subscription_billing_internal':'platform_licensing_manage_internal'),base),{method:'POST',headers:dbHeaders,body:JSON.stringify(document?{p_subject:subject,p_action:input.action==='wave_evidence'?'evidence':'receipt',p_payload:input.payload}:{p_subject:subject,p_action:input.action,p_payload:input.payload,p_offset:input.offset??0}),redirect:'manual',signal:AbortSignal.timeout(10000)});
     if(!response.ok){let error;try{error=await response.json();}catch{}return answer(error?.code==='42501'?403:error?.code==='55000'?409:response.status===400?400:503);}
     const management=await response.json();if(!management||typeof management!=='object'||Array.isArray(management))return diagnostic('management_response');
+    if(input.action==='wave_evidence'){
+     if(typeof management.path!=='string'||!new RegExp('^[a-f0-9-]{36}/[a-f0-9-]{36}/[a-f0-9-]{36}\\.(png|jpg)$','i').test(management.path))return answer(403);
+     const asset=await fetchImpl(new URL('/storage/v1/object/authenticated/subscription-wave-evidence/'+management.path,base),{headers:dbHeaders,redirect:'manual',signal:AbortSignal.timeout(10000)});if(!asset.ok)return answer(403);
+     const reader=asset.body?.getReader();if(!reader)return answer(403);const chunks=[];let size=0;while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>5242880){await reader.cancel();return answer(400);}chunks.push(value);}const bytes=new Uint8Array(size);let pos=0;for(const part of chunks){bytes.set(part,pos);pos+=part.length;}
+     const png=size>=8&&[137,80,78,71,13,10,26,10].every((b,i)=>bytes[i]===b),jpg=size>=3&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255;if(!png&&!jpg)return answer(400);
+     return new Response(bytes,{headers:{'content-type':png?'image/png':'image/jpeg','cache-control':'no-store, private','x-content-type-options':'nosniff','content-disposition':'attachment','content-security-policy':"default-src 'none'; sandbox"}});
+    }
     return new Response(JSON.stringify({authorized:true,management}),{status:200,headers:H});
    }catch{return diagnostic('management_service');}
   }
