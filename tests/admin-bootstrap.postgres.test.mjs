@@ -21,7 +21,7 @@ async function fixture(){
  await db.exec(`CREATE SCHEMA auth;
  CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
  CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz,email text,email_confirmed_at timestamptz,banned_until timestamptz);
- CREATE TABLE public.organizations(id uuid PRIMARY KEY,created_by uuid REFERENCES auth.users(id));
+ CREATE TABLE public.organizations(id uuid PRIMARY KEY,created_by uuid REFERENCES auth.users(id),name text);
  CREATE TABLE public.organization_members(organization_id uuid REFERENCES organizations(id),user_id uuid REFERENCES auth.users(id),role text,PRIMARY KEY(organization_id,user_id));
  CREATE TABLE public.subscription_platform_admins(user_id uuid PRIMARY KEY REFERENCES auth.users(id),granted_at timestamptz DEFAULT now());
  CREATE TABLE public.platform_admin_access_identities(access_subject text PRIMARY KEY CHECK(length(access_subject) BETWEEN 8 AND 256),user_id uuid REFERENCES auth.users(id),approved boolean NOT NULL DEFAULT false,created_at timestamptz DEFAULT now());
@@ -31,13 +31,13 @@ async function fixture(){
  CREATE TABLE public.subscription_admin_events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,organization_id uuid NOT NULL REFERENCES public.organizations(id),actor_user_id uuid REFERENCES auth.users(id),target_user_id uuid REFERENCES auth.users(id),event_type text NOT NULL CHECK(event_type IN ('platform_admin_appointed','platform_admin_revoked')),metadata jsonb NOT NULL DEFAULT '{}',CHECK(target_user_id IS NOT NULL));
  CREATE TABLE public.workspace_subscriptions(organization_id uuid PRIMARY KEY,plan_id text,status text,professional_preview boolean,updated_at timestamptz);
  INSERT INTO auth.users(id,deleted_at,email,email_confirmed_at) VALUES ('${user}',NULL,'owner@fixture.test',now());
- INSERT INTO public.organizations VALUES ('${organization}','${user}');
+ INSERT INTO public.organizations VALUES ('${organization}','${user}','Fixture Business');
  INSERT INTO public.organization_members VALUES ('${organization}','${user}','owner');
  INSERT INTO public.workspace_subscriptions VALUES ('${organization}','professional','professional_preview',true,now());
  CREATE FUNCTION public.platform_admin_identity_authorized_internal(p_subject text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public AS $$ SELECT EXISTS(SELECT 1 FROM public.platform_admin_access_identities m JOIN public.subscription_platform_admins a ON a.user_id=m.user_id WHERE m.access_subject=p_subject AND m.approved IS TRUE) $$;
  REVOKE ALL ON FUNCTION public.platform_admin_identity_authorized_internal(text) FROM PUBLIC,anon,authenticated;
  GRANT EXECUTE ON FUNCTION public.platform_admin_identity_authorized_internal(text) TO service_role;
- GRANT SELECT ON public.workspace_subscriptions TO service_role;`);
+ GRANT SELECT ON public.workspace_subscriptions,public.organizations TO service_role;`);
  return db;
 }
 async function counts(db){return (await db.query('SELECT (SELECT count(*)::int FROM subscription_platform_admins) AS admins,(SELECT count(*)::int FROM platform_admin_access_identities) AS identities,(SELECT count(*)::int FROM subscription_admin_events) AS events')).rows[0];}
@@ -82,12 +82,12 @@ test('two Worker entry points plus real PostgreSQL: signed JWT to membership to 
    const url=new URL(target);if(url.pathname==='/cdn-cgi/access/certs')return Response.json({keys:[key]});queries++;
    await db.exec('SET ROLE service_role');try{
     if(url.pathname.includes('/rpc/'))return Response.json((await db.query('SELECT platform_admin_identity_authorized_internal($1) AS allowed',[JSON.parse(options.body).p_subject])).rows[0].allowed);
-    assert.equal(options.method,'GET');return Response.json((await db.query('SELECT organization_id,plan_id,status,professional_preview,updated_at::text FROM workspace_subscriptions ORDER BY organization_id LIMIT 101')).rows);
+    assert.equal(options.method,'GET');return Response.json((await db.query('SELECT s.organization_id,s.plan_id,s.status,s.professional_preview,s.updated_at::text,jsonb_build_object(\'name\',o.name) AS organizations FROM workspace_subscriptions s LEFT JOIN organizations o ON o.id=s.organization_id ORDER BY s.organization_id LIMIT 101')).rows);
    }finally{await db.exec('RESET ROLE');}
   }});
   const binding={fetch:r=>privateWorker.fetch(r,{ACCESS_ISSUER:issuer,ACCESS_AUDIENCE:aud,DALASIPAY_SUPABASE_URL:'https://zdpmlzmljozcmqndyfog.supabase.co',DALASIPAY_SUPABASE_SERVICE_ROLE_KEY:'fixture-only'})};
   const request=()=>new Request('https://fixture.internal/',{headers:{'cf-access-jwt-assertion':jwt}});
-  const response=await staging.fetch(request(),{ADMIN_MEMBERSHIP_SERVICE:binding});assert.equal(response.status,200);assert.match(await response.text(),/professional_preview/);assert.equal(queries,2);
+  const response=await staging.fetch(request(),{ADMIN_MEMBERSHIP_SERVICE:binding});assert.equal(response.status,200);const html=await response.text();assert.match(html,/Professional Preview/);assert.match(html,/Fixture Business/);assert.match(html,/Unlimited access/);assert.equal(queries,2);
   await db.exec('UPDATE platform_admin_access_identities SET approved=false');assert.equal((await staging.fetch(request(),{ADMIN_MEMBERSHIP_SERVICE:binding})).status,403);assert.equal(queries,3);
  }finally{await db.close();}
 });

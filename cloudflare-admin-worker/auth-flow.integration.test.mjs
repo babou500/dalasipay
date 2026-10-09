@@ -93,6 +93,7 @@ test('dashboard search and entitlement filters are read-only, escaped and page s
  const jwt=await sign();
  const alpha=await a.run('/?q=Alpha&status=preview',jwt);
  assert.equal(alpha.status,200);
+ assert.match(alpha.headers.get("content-security-policy"),/form-action 'self'/);
  const body=await alpha.text();
  assert.match(body,/Alpha Traders/);assert.doesNotMatch(body,/Beta Services/);
  assert.match(body,/Showing 1 of 2 records/);
