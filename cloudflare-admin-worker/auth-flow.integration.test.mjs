@@ -84,3 +84,21 @@ test('existing admin/check route preserves explicit denial and successful approv
  const a=setup();assert.deepEqual(await (await a.run('/internal/admin/check',await sign())).json(),{authorized:true});
  const b=setup({membership:false});assert.equal((await b.run('/internal/admin/check',await sign())).status,403);
 });
+
+test('dashboard search and entitlement filters are read-only, escaped and page scoped',async()=>{
+ const a=setup({rows:[
+  {organization_id:'id-1',organizations:{name:'Alpha Traders'},plan_id:'professional',status:'professional_preview',professional_preview:true,updated_at:'2026-10-09T00:00:00Z'},
+  {organization_id:'id-2',organizations:{name:'Beta Services'},plan_id:'standard',status:'active',professional_preview:false,updated_at:'2026-10-09T00:00:00Z'}
+ ]});
+ const jwt=await sign();
+ const alpha=await a.run('/?q=Alpha&status=preview',jwt);
+ assert.equal(alpha.status,200);
+ const body=await alpha.text();
+ assert.match(body,/Alpha Traders/);assert.doesNotMatch(body,/Beta Services/);
+ assert.match(body,/Showing 1 of 2 records/);
+ const other=await(await a.run('/?status=other',jwt)).text();
+ assert.match(other,/Beta Services/);assert.doesNotMatch(other,/Alpha Traders/);
+ const malicious=renderSubscriptions({subscriptions:[],nextOffset:null},{query:'"><script>alert(1)</script>',status:'all'});
+ assert.doesNotMatch(malicious,/<script>/);assert.match(malicious,/&lt;script&gt;/);
+ assert.equal(a.calls.filter(x=>x.url.pathname.includes('/rpc/')).length,2);
+});
