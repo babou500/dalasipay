@@ -77,12 +77,12 @@ export function createPrivateWorker({fetchImpl=fetch,cryptoImpl=crypto,now=()=>M
   try{const input=await request.json();offset=input.offset??0;if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return answer(400);}catch{return answer(400);}
   try{
    const endpoint=new URL('/rest/v1/workspace_subscriptions',base);
-   endpoint.search=new URLSearchParams({select:'organization_id,plan_id,status,professional_preview,updated_at',order:'organization_id.asc',offset:String(offset),limit:'101'});
+   endpoint.search=new URLSearchParams({select:'organization_id,plan_id,status,professional_preview,updated_at,organizations(name)',order:'organization_id.asc',offset:String(offset),limit:'101'});
    const response=await fetchImpl(endpoint,{method:'GET',headers:dbHeaders,redirect:'manual',signal:AbortSignal.timeout(10000)});
    if(!response.ok)return diagnostic('subscription_service');
    const rows=await response.json();
-   if(!Array.isArray(rows)||rows.length>101||rows.some(r=>typeof r.organization_id!=='string'||typeof r.plan_id!=='string'||typeof r.status!=='string'||typeof r.professional_preview!=='boolean'||typeof r.updated_at!=='string'))return diagnostic('subscription_response');
-   const subscriptions=rows.slice(0,100).map(({organization_id,plan_id,status,professional_preview,updated_at})=>({organization_id,plan_id,status,professional_preview,updated_at}));
+   if(!Array.isArray(rows)||rows.length>101||rows.some(r=>typeof r.organization_id!=='string'||typeof r.plan_id!=='string'||typeof r.status!=='string'||typeof r.professional_preview!=='boolean'||typeof r.updated_at!=='string'||typeof r.organizations?.name!=='string'))return diagnostic('subscription_response');
+   const subscriptions=rows.slice(0,100).map(({organization_id,plan_id,status,professional_preview,updated_at,organizations})=>({organization_id,organization_name:organizations.name,plan_id,status,professional_preview,updated_at}));
    return new Response(JSON.stringify({authorized:true,subscriptions,nextOffset:rows.length>100?offset+100:null}),{status:200,headers:H});
   }catch{return diagnostic('subscription_service');}
  }
