@@ -14,5 +14,7 @@ history permanently consumes eligibility, even after revocation. Membership,
 identity mapping, and honest owner-authorization evidence commit together.
 No subscription, billing, accounting, or payroll change accompanies appointment.
 
-Status: ownership facts checked; signed Access identity and live authorized test
-are still pending. No administrator has been appointed.
+Status: ownership and actual signed Access identity verified. The atomic owner
+appointment committed with audit event 1. Live authorization and the read-only
+dashboard passed, displaying all 13 unchanged Professional Preview subscriptions.
+A second live bootstrap attempt was rejected. Initial bootstrap is consumed.

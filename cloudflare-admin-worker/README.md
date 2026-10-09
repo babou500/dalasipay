@@ -70,7 +70,7 @@ Run these commands from the repository root with the chosen Node on PATH:
    real Access session at `/internal/admin/identity-match`: a verified comparison
    returns HTTP 200 with a boolean; a backend failure remains 503 with a safe
    `check` code. A match is not an appointment.
-7. Perform the separately approved bootstrap below, then test real operator
+7. Perform the explicitly authorized owner bootstrap below, then test real operator
    `/internal/admin/check` (200, authorized true), `/internal/admin/subscriptions`
    (real rows), and `/` (read-only table). Also verify a nonadministrator gets 403.
    Record status codes, Worker version IDs, approval reference, and results;
@@ -151,3 +151,5 @@ actual bootstrap script and both Worker entry points. Its HTTP transport is an
 in-process adapter; it does not prove Cloudflare Access browser sign-in or live
 Supabase PostgREST. The GitHub workflow runs both suites. See
 `VERIFICATION.md` for the actual run results and remaining live test.
+
+The single-owner bootstrap was completed and live-tested on 2026-10-09. It is now consumed; see VERIFICATION.md.

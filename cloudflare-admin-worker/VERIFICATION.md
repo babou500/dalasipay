@@ -1,85 +1,97 @@
 # Actual verification - 2026-10-09 UTC
 
-## Source and deployed cause
+## Outcome
 
-Inspected repository base `ec5576dd598d03ef2e593572eda047817cda1d96`, both deployed
-Worker source files, bindings and URL configuration, and live Supabase catalogs.
-The live private binding returned 503 `token_verification_service` for a synthetic
-untrusted token whose claims reached key retrieval. The exact deployed code in
-local Cloudflare workerd reproduced the unsupported `redirect:'error'` exception.
-Replacing it with manual redirects returned the expected 403. The deployed live
-binding also returned 403 after the fix. No real operator token was logged or used
-for those negative tests, and the synthetic token grants no access.
+The authorized sole owner is now the first DalasiPay platform administrator.
+Authenticated infrastructure checks and live Supabase facts established repository
+admin access, the Cloudflare account, a confirmed active Auth account, organization
+creation, and exactly one BE Business Solutions member with role owner.
+The official Cloudflare client completed interactive Access sign-in. The shared
+Worker verifier validated the actual JWT signature against current issuer keys,
+pinned issuer/audience, expiry, and the verified owner email before using its `sub`.
+No login-log ID or matching email was used as authority to appoint.
+
+The reviewed `bootstrap-owner.sql` executed as postgres and committed one membership,
+one approved exact-subject mapping, and one `platform_admin_appointed` audit event
+atomically. Audit event 1 records `single_owner_initial_bootstrap`, the owner's
+explicit authorization reference, verified identity evidence without a token,
+trusted ownership facts, and the consumed marker. Actor and target honestly identify
+the owner; no fictitious approver is recorded. A live repeat of the same procedure
+was rejected: `Owner bootstrap already consumed or administrator state is not empty`.
+Post-rejection counts remain one administrator, one mapping, one appointment.
+
+## Actual live end-to-end checks
+
+The signed session was submitted as an Access cookie to the real staging URL;
+Access supplied the assertion, staging called its production private binding,
+and the private Worker consulted real Supabase authorization/subscription data.
+
+| Check | Actual result |
+| --- | --- |
+| Before appointment: actual signed owner session authorization | HTTP 403, authorized false |
+| Actual signed subject identity match | HTTP 200, identityMatched true |
+| After appointment: authorization | HTTP 200, authorized true |
+| Real read-only subscriptions endpoint | HTTP 200, 13 rows, all 13 Professional Preview |
+| Dashboard HTML | HTTP 200, 13 subscription table rows and 13 Unlimited cells |
+| No Access session at subscriptions endpoint | HTTP 302 to Access |
+| Unknown unappointed subject in live restricted RPC | false |
+| Second live owner bootstrap attempt | Rejected; counts unchanged |
+| Full subscription data checksum before/after appointment and replay | Identical |
+| Private workers.dev and preview URLs | Both disabled |
+| Staging production binding | ADMIN_MEMBERSHIP_SERVICE -> dalasipay-admin-auth-private |
+
+This is an actual authorized HTTP end-to-end test with the owner's signed Access
+session and live services. Dashboard HTML was inspected and counted; a visual
+browser rendering was not inspected because the Codex browser blocks this host.
+No second person's real session was supplied. Unauthorized-subject coverage also
+includes the live pre-appointment signed-session denial, the unknown-subject RPC,
+the earlier live invalid-signing-key rejection, and signed unmapped test fixtures.
+
+All 13 existing subscriptions remain unchanged, including full row data. Professional
+Preview stays unlimited. No billing, plan restrictions, payroll, or accounting change
+was made. Temporary raw-token files and newly created client token caches are removed
+after verification; only safe evidence and outcomes are retained privately/in audit.
 
 ## Executed tests
 
-| Verification | Actual result |
+| Suite | Result |
 | --- | --- |
-| Administrator Node regression/integration tests | 68 passed, 0 failed, 0 skipped |
-| PostgreSQL bootstrap/permissions/audit rollback/two-Worker flow | 10 passed, 0 failed, 0 skipped |
-| Existing licensing/subscription regression suite | 87 passed, 0 failed, 0 skipped |
-| Both Wrangler deployment dry-runs | Passed |
-| Exact deployed code on workerd, before fix | 503, unsupported redirect mode reproduced |
-| Corrected code on workerd | 403 for untrusted signing key |
-| Actual private production binding, before/after | 503 before; 403 after for the same untrusted-key scenario |
-| Signing-key endpoint | HTTP 200, two RSA keys |
-| Fresh unauthenticated staging request after deploy | HTTP 302 to the configured Access tenant |
-| Live positive real-operator Access -> membership -> dashboard | **Not completed** |
+| Administrator Node regression/integration | 68 passed, 0 failed, 0 skipped |
+| Actual PostgreSQL bootstrap/permissions/audit/two-Worker integration | 10 passed, 0 failed, 0 skipped |
+| Existing licensing/subscription regression | 87 passed, 0 failed, 0 skipped |
+| Total | 165 passed |
+| GitHub CI for owner-bootstrap implementation | Passed, run 37870612311 |
+| Both original Wrangler deployment dry-runs | Passed |
 
-PostgreSQL tests use isolated fixtures and actual SQL permissions, not a production
-appointment. They demonstrate atomic rollback when the audit insert fails, exact
-subject authorization, denial of browser RPC execution and roster access, duplicate
-bootstrap rejection, and revocation. They do not test concurrent independent
-PostgreSQL connections or real Supabase HTTP transport.
+PostgreSQL tests use PGlite fixtures and an in-process HTTP adapter, not production
+appointments. They cover sole ownership, confirmed active accounts, fresh signed
+identity evidence, rollback on audit failure, denied service-role execution, and
+replay through both bootstrap scripts after revocation. Two cryptographic tests
+prove use of actual signed subject distinct from a login-log ID and reject wrong
+owner/audience/expiry/signature. Concurrent independent PostgreSQL connections were
+not exercised. Live checks above separately verify real Access, Workers, and Supabase.
 
-## Live Supabase review
+## 503 cause and deployment audit
 
-The function `public.platform_admin_identity_authorized_internal(text)` is STABLE,
-SECURITY DEFINER, with search path pinned to pg_catalog/public, and returns only
-EXISTS over approved exact-subject mappings joined to platform administrators.
-EXECUTE is granted to postgres/service_role, denied to anon/authenticated.
-Service_role cannot directly SELECT either administrator table and can SELECT
-workspace subscriptions. Browser roles cannot SELECT those tables/subscriptions.
-An unknown subject returned false. No function, role grant, policy, migration,
-administrator, mapping, or subscription was changed on Supabase.
-
-After deployment: 13 subscriptions, 13 Professional Preview rows, 0 administrators,
-0 identity mappings, 0 audit events. Preview and existing subscriptions remain
-unchanged. No accounting or payroll files were edited.
-
-## Deployment audit
+The deployed private Worker used `redirect:'error'` while fetching signing keys.
+Cloudflare workerd rejects that redirect mode. Exact deployed code reproduced the
+exception locally; the real private binding returned 503 before the fix and 403
+for the same untrusted-key scenario after deployment. Manual redirects with explicit
+non-success rejection fix the error while preserving validation.
 
 | Existing Worker | Deployed version | Previous version |
 | --- | --- | --- |
 | dalasipay-admin-auth-private | 6f551963-6ede-49ca-b86b-77c419bfa2ce | 61a63821-80f6-4eb1-96d4-91255da45e17 |
 | dalasipay-admin-staging | cabf9e66-fbc9-4df7-85f7-e42101e95369 | 318d4f05-08c6-4d20-8662-1e35dc1e2fbd |
 
-Post-deployment API checks confirmed the production service binding, preserved
-private secrets/variables, staging workers.dev enabled with previews disabled,
-and private workers.dev and preview URLs both disabled. Only these existing
-Workers were deployed. No additional permanent Worker, Access bypass, billing,
-plan enforcement, or database permission was introduced.
+The existing deployment immediately served the authorized real dashboard after
+appointment; no further Worker deployment or additional Worker was needed.
+Private URLs remain disabled and Access remains required. Existing secrets were
+preserved and never exposed. The restricted SECURITY DEFINER function has a pinned
+search path and exact-subject approved mapping lookup; anon/authenticated cannot
+execute it and service_role cannot read the administrator roster. No function,
+role grant, policy, or migration was changed for the owner appointment.
 
-The remaining positive live test requires a real Access session, independently
-verified subject/account evidence, and the separately approved first appointment.
-The Codex browser remained on Cloudflare's loading screen; a CLI OAuth refresh
-provided deployment access but does not establish a dashboard Access session.
-See README.md for one deployment and bootstrap procedure. Do not treat deployment
-or identityMatched:true alone as proof of operational administrator access.
-
-## Single-owner follow-up
-
-Authenticated infrastructure and database checks established repository admin
-access, the Cloudflare account email, and a confirmed active Supabase account that
-created BE Business Solutions and is its sole member with role owner. These facts
-support the explicitly requested owner exception; email alone grants nothing.
-
-The additional PostgreSQL tests execute the owner procedure and verify honest
-self-authorization audit metadata, rejection of unverified/stale identity and
-incorrect ownership evidence, active confirmed sole ownership, rollback on audit
-failure, and replay denial through both bootstrap scripts after revocation.
-Two new cryptographic tests verify the signed subject, including a subject that
-differs from a login-log ID, and reject wrong owner/audience/expiry/signature.
-No live appointment has occurred. The actual signed Access session remains pending.
-
-The follow-up GitHub CI run passed: https://github.com/babou500/dalasipay/actions/runs/37870612311 . Live checks again confirmed private public/preview URLs disabled, the correct service binding, and HTTP 302 for an unauthenticated request. The existing 87 licensing tests were rerun and passed.
+See README.md for the controlled procedure and code rollback. Bootstrap is now
+consumed; any later appointment or revocation requires a separately authorized,
+audited administrative transaction and cannot reuse the initial bootstrap.
