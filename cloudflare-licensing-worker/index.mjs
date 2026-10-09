@@ -1,3 +1,4 @@
+import {handleCustomerPortal} from './customer-portal.mjs';
 // Dedicated, opt-in licensing observer Worker. Not a part of the existing site.
 import { createVerifiedLicensingEndpoint } from '../verified-licensing-endpoint.mjs';
 
@@ -25,6 +26,7 @@ function supabaseClient(baseUrl, key, authToken){
 }
 export default {
  async fetch(request,env){
+  const portal=await handleCustomerPortal(request,env);if(portal)return portal;
   const url=new URL(request.url);
   // No cross-origin browser access. Do not configure CORS for this endpoint.
   if(url.pathname!=='/internal/licensing/observe')return new Response('Not found',{status:404});

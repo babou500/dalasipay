@@ -1,3 +1,4 @@
+import {handleManagement} from './management-routes.mjs';
 // Only a Cloudflare service binding can reach the private Worker.
 import {renderSubscriptions} from './subscriptions-dashboard.mjs';
 const H={'content-type':'application/json; charset=utf-8','cache-control':'no-store, private','x-content-type-options':'nosniff','x-frame-options':'DENY'};
@@ -5,6 +6,7 @@ const checks=new Set(['signing_keys_request','signing_keys_http','signing_keys_r
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:H});
 export default {
  async fetch(request,env){
+  const managed=await handleManagement(request,env);if(managed)return managed;
   const url=new URL(request.url);
   const paths={'/internal/admin/identity-match':'identity-match','/internal/admin/check':'authorize','/internal/admin/authorize':'authorize','/internal/admin/subscriptions':'subscriptions','/':'subscriptions'};
   const action=paths[url.pathname];

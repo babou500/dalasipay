@@ -1,3 +1,4 @@
+import {managementNav} from './management-ui.mjs';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const title=value=>String(value??'—').replace(/[_-]+/g,' ').replace(/\b\w/g,letter=>letter.toUpperCase());
 const date=value=>{
@@ -12,7 +13,7 @@ export function renderSubscriptions({subscriptions,nextOffset},{query="",status=
  const previews=rows.filter(r=>r.professional_preview).length;
  const statuses=new Set(rows.map(r=>String(r.status??''))).size;
  const pagination=nextOffset===null?'':'<a class="next" href="/?offset='+Number(nextOffset)+'&amp;q='+encodeURIComponent(String(query).slice(0,100))+'&amp;status='+selected+'">Next page →</a>';
- const data=filtered.map(r=>`<tr><td><strong class="orgname">${escape(r.organization_name||"Unnamed business")}</strong><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
+ const data=filtered.map(r=>`<tr><td><a href="/business?id=${encodeURIComponent(r.organization_id)}"><strong class="orgname">${escape(r.organization_name||"Unnamed business")}</strong></a><span class="workspace" title="${escape(r.organization_id)}">${escape(r.organization_id)}</span></td><td>${escape(title(r.plan_id))}</td><td><span class="status">${escape(title(r.status))}</span></td><td>${r.professional_preview?'<span class="preview">Unlimited access</span>':'—'}</td><td class="date">${escape(date(r.updated_at))}</td></tr>`).join('');
  return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subscriptions | DalasiPay Administrator</title>
 <style>
@@ -33,10 +34,10 @@ table{border-collapse:collapse;min-width:800px;width:100%}section{overflow-x:aut
 .status{display:inline-block;background:#e9f2fa;color:#225985;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}
 .preview{color:#127263;font-weight:700}.date{color:#627789;white-space:nowrap}
 .panelfoot{padding:16px 24px;background:#fcfdff;border-top:1px solid #e9eef3;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#74899a;font-size:12px}.next{text-decoration:none;font-weight:700}
-footer{padding-top:26px;color:#8294a4;font-size:12px}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}nav a{padding:10px 14px;background:white;border:1px solid #d8e2ec;border-radius:9px;text-decoration:none}footer{padding-top:26px;color:#8294a4;font-size:12px}
 @media(max-width:760px){main{padding:18px 15px 35px}header{padding-bottom:17px}.brand{font-size:17px}.flag{font-size:10px}.summary{grid-template-columns:1fr;gap:10px}.metric{padding:16px}.metric strong{font-size:25px}.panelhead{padding:17px}.eyebrow{margin-top:24px}}
 </style></head><body><main>
-<header><div class="brand"><span class="mark">D</span><span>DalasiPay <span style="font-weight:500;color:#658096">/ Administration</span></span></div><span class="flag">Secure · Read-only</span></header>
+<header><div class="brand"><span class="mark">D</span><span>DalasiPay <span style="font-weight:500;color:#658096">/ Administration</span></span></div><span class="flag">Secure · Read-only</span></header>${managementNav}
 <p class="eyebrow">Platform oversight</p><h1>Subscription overview</h1>
 <p class="intro">Review workspace subscriptions and preview entitlements without changing customer accounts.</p>
 <div class="notice"><strong>Professional Preview protection is active.</strong> Unlimited preview access remains unchanged. Billing and subscription restrictions are disabled.</div>

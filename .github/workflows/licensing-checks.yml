@@ -18,6 +18,8 @@ on:
       - 'cloudflare-admin-worker/**'
       - 'tests/admin-bootstrap.postgres.test.mjs'
       - 'tests/admin-auth-runtime/**'
+      - 'tests/licensing-management.postgres.test.mjs'
+      - 'supabase/migrations/**'
       - 'tests/platform-admin-lookup-proposal*'
   pull_request:
     paths:
@@ -32,6 +34,8 @@ on:
       - 'verified-licensing-endpoint*'
       - 'platform-admin-session*'
       - 'cloudflare-admin-worker/**'
+      - 'tests/licensing-management.postgres.test.mjs'
+      - 'supabase/migrations/**'
 
 permissions:
   contents: read
@@ -118,9 +122,11 @@ jobs:
             cloudflare-admin-worker/worker-paste-private.test.mjs \
             cloudflare-admin-worker/auth-flow.integration.test.mjs \
             cloudflare-admin-worker/bootstrap-identity.test.mjs \
+            cloudflare-admin-worker/management-routes.test.mjs \
             cloudflare-admin-worker/private-service-authorization.test.mjs \
             cloudflare-admin-worker/private-membership.test.mjs \
             cloudflare-admin-worker/membership-integration.test.mjs \
+            cloudflare-licensing-worker/customer-portal.test.mjs \
             cloudflare-licensing-worker/index.test.mjs
 
       - name: Install isolated PostgreSQL test runtime
@@ -128,4 +134,4 @@ jobs:
       - name: Verify first-administrator transaction and Worker flow against PostgreSQL
         env:
           PGLITE_MODULE: ${{ github.workspace }}/tests/admin-auth-runtime/node_modules/@electric-sql/pglite/dist/index.js
-        run: node --test tests/admin-bootstrap.postgres.test.mjs
+        run: node --test tests/admin-bootstrap.postgres.test.mjs tests/licensing-management.postgres.test.mjs
