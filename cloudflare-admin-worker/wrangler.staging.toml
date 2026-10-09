@@ -1,0 +1,10 @@
+name = "dalasipay-admin-staging"
+main = "staging-entry.mjs"
+compatibility_date = "2026-10-08"
+workers_dev = true
+preview_urls = false
+# The existing workers.dev hostname is Access-protected. Verify Access remains enabled.
+# Never enable a new public hostname or bypass policy.
+[[services]]
+binding = "ADMIN_MEMBERSHIP_SERVICE"
+service = "dalasipay-admin-auth-private"

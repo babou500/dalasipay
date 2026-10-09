@@ -35,11 +35,11 @@ test('tampered signature and unsigned tokens are denied',async()=>{
  assert.equal(await verifier(req(b64({alg:'none',kid:'test-key'})+'.'+payload+'.'+sig)),null);
 });
 
-test('Cloudflare issuer without trailing slash is valid configuration',async()=>{
- const {make}=await fixture();
- const signed=await make({iss:'https://example.cloudflareaccess.com'});
- const base=await fixture();
- const verifier=createAccessVerifier({issuer:'https://example.cloudflareaccess.com',audience,now:()=>1500,loadKeys:async()=>({keys:[]})});
- assert.equal(await verifier(req(signed)),null);
- assert.equal(typeof verifier,'function');
+test('both issuer slash forms verify real signatures with normalized trusted issuer',async()=>{
+ const {make,verifier}=await fixture();
+ assert.equal((await verifier(req(await make({iss:'https://example.cloudflareaccess.com'})))).subject,'verified-subject');
+});
+test('untrusted issuer configuration and future not-before claims are refused',async()=>{
+ assert.throws(()=>createAccessVerifier({issuer:'https://attacker.test',audience,loadKeys:async()=>({keys:[]})}),TypeError);
+ const {make,verifier}=await fixture();assert.equal(await verifier(req(await make({nbf:1601}))),null);
 });

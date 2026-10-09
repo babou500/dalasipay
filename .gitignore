@@ -1,0 +1,8 @@
+# Local Cloudflare sessions and test dependencies must never be committed.
+.wrangler/
+node_modules/
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example

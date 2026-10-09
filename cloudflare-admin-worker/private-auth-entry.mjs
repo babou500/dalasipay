@@ -27,8 +27,8 @@ export default {
   const verifyAccess=createAccessVerifier({
    issuer,audience:env.ACCESS_AUDIENCE,
    loadKeys:async()=>{
-    const endpoint=new URL('cdn-cgi/access/certs',issuer).href;
-    const response=await fetch(endpoint,{redirect:'error'});
+    const endpoint=new URL('/cdn-cgi/access/certs',issuer).href;
+    const response=await fetch(endpoint,{redirect:'manual'});
     if(!response.ok)throw Error('Certificate provider unavailable');
     return response.json();
    }
