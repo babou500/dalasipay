@@ -5,6 +5,7 @@
 // No secrets are exposed in responses. No admin exists until separately approved.
 const H={'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'};
 const answer=(status,authorized=false)=>new Response(JSON.stringify({authorized}),{status,headers:H});
+const diagnostic=(code)=>new Response(JSON.stringify({authorized:false,check:code}),{status:503,headers:H});
 const textDecoder=new TextDecoder();
 const b64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(s.length/4)*4,'=')),c=>c.charCodeAt(0));
 function parse(s){return JSON.parse(textDecoder.decode(b64(s)));}
@@ -40,13 +41,13 @@ export default {
   if(request.method!=='POST'||!['/internal/admin/authorize','/internal/admin/identity-match'].includes(url.pathname))return answer(404);
   // Keep fail-closed until encrypted credential is installed.
   if(!env?.DALASIPAY_SUPABASE_URL||!env?.DALASIPAY_SUPABASE_SERVICE_ROLE_KEY||
-     !env?.ACCESS_ISSUER||!env?.ACCESS_AUDIENCE)return answer(503);
+     !env?.ACCESS_ISSUER||!env?.ACCESS_AUDIENCE)return diagnostic('configuration');
   let subject;
-  try{subject=await signedIdentity(request,env);}catch{return answer(503);}
+  try{subject=await signedIdentity(request,env);}catch{return diagnostic('token_verification_service');}
   if(!subject)return answer(403);
   if(url.pathname==='/internal/admin/identity-match'){
    const expected=env?.EXPECTED_ADMIN_ACCESS_SUBJECT;
-   if(typeof expected!=='string'||expected.length<8)return answer(503);
+   if(typeof expected!=='string'||expected.length<8)return diagnostic('identity_configuration');
    return new Response(JSON.stringify({identityMatched:subject===expected}),{status:200,headers:H});
   }
   try{
