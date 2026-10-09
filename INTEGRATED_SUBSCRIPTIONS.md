@@ -22,7 +22,7 @@ Regression tests cover RPC action isolation, safe DOM rendering, server-derived 
 
 All 13 production subscriptions remain Professional Preview. Before/after full-row checksum using `md5(string_agg(to_jsonb(s)::text,'' order by organization_id))`: `16d01b4bd7d59de8ae4df5dcec963e60`. Accounting/payroll modules are unchanged.
 
-The owner deferred customer sign-in. Live authenticated main-app request submission and a genuine request-to-administrator review journey remain pending; do not describe them as fully verified. No customer password or token is needed in chat.
+Live authenticated customer reading and one explicitly approved request submission have now passed. The request reached the Administrator Dashboard and audit history. Successful review remains unverified because the authorized customer is also the sole administrator and self-review is prohibited. See LIVE_INTEGRATION_VERIFICATION.md for the current evidence and remaining checks.
 
 Ready: shared read views, configurable informational plan drafts, audited customer requests and review decisions. Explicit authorization required: entitlement-changing approvals, pricing/billing, expiry enforcement, plan restrictions and migration of existing customers.
 
@@ -37,4 +37,4 @@ Database advisors retain intentional RPC-only RLS tables and the deliberately au
 - Live main HTML, customer integration script and stylesheet returned 200 and matched the deployed source. Main sign-in page rendered without browser console errors.
 - Anonymous administrator directory access returned 302 to the trusted Cloudflare Access issuer. Service binding still targets the private Worker; private public/preview URLs remain disabled.
 - Final production read confirms 13 organizations, 13 unlimited Preview subscriptions, zero fabricated customer requests and an unchanged full-row checksum.
-- A fresh signed administrator session check is awaiting interactive Access sign-in. The previous release verified the authenticated Worker/Supabase flow; this integration does not change its authentication code.
+- The current authenticated Administrator browser session has now loaded the real directory, customer request and audit event successfully. Authentication code was unchanged. See LIVE_INTEGRATION_VERIFICATION.md.
