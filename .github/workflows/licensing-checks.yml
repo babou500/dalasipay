@@ -8,6 +8,8 @@ on:
       - 'licensing-*.js'
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
+      - 'index.html'
+      - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
       - '.github/workflows/licensing-checks.yml'
@@ -26,6 +28,8 @@ on:
       - 'licensing-*.js'
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
+      - 'index.html'
+      - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
       - '.github/workflows/licensing-checks.yml'
@@ -92,6 +96,7 @@ jobs:
             licensing-policy.test.js \
             workspace-subscription.test.js \
             subscription-plan-view.test.js \
+            subscription-customer.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \

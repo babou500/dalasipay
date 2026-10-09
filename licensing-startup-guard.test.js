@@ -11,9 +11,10 @@ test('server licensing observer and HTTP adapter are not loaded by the browser',
  assert.doesNotMatch(html,/<script\b[^>]*\bsrc=["'][^"']*(?:cloudflare-licensing-observer|licensing-http-adapter|licensing-observer-core)\.mjs/i);
 });
 test('subscription view is optional and keeps its safe fallback',()=>{
- assert.match(html,/DalasiPlanView/);
+ assert.match(html,/if\(window\.DalasiCustomerSubscription\?\.mount\)/);
  assert.match(html,/Subscription information is temporarily unavailable/);
- assert.match(html,/renderPlanComparison\?\.\(\)/);
+ assert.match(html,/else subscriptionRoot\.textContent=/);
+ assert.doesNotMatch(html,/await\s+window\.DalasiCustomerSubscription/);
 });
 test('dashboard startup is independent of licensing service',()=>{
  assert.match(html,/if\(state\.session\)loadOrgState\(\)/);
