@@ -1,0 +1,9 @@
+// Prepared document renderer. No public route, issuance or payment side effects.
+const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function billingDocument(invoice,receipt=null){
+ if(invoice.currency_code!=='GMD'||invoice.billing_period_months!==12||!Number.isSafeInteger(invoice.amount_minor)||invoice.amount_minor<=0)throw Error('Invalid annual invoice');
+ if(receipt&&(!Number.isSafeInteger(receipt.amount_minor)||receipt.amount_minor<=0||receipt.amount_minor>invoice.amount_minor||!receipt.receipt_number))throw Error('Invalid receipt');
+ const title=receipt?'Payment receipt':'Annual subscription invoice';
+ const facts={'Document number':receipt?.receipt_number??invoice.invoice_number,'Business':invoice.business_name,'Plan':invoice.plan_id,'Invoice':invoice.invoice_number,'Currency':'GMD','Annual service period':invoice.service_start+' to '+invoice.service_end,'Renewal date':invoice.service_end,'Payment due':invoice.due_on,'Amount':'D'+((receipt?.amount_minor??invoice.amount_minor)/100).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})};
+ return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'</title><style>body{font:16px system-ui;color:#17354c;max-width:800px;margin:40px auto;padding:24px}h1{border-bottom:2px solid #17354c;padding-bottom:20px}dt{color:#567;margin-top:22px}dd{margin:5px 0;font-weight:600}footer{margin-top:40px;font-size:12px}@page{size:A4;margin:20mm}@media print{body{margin:0;padding:0}}</style></head><body><h1>DalasiPay · '+title+'</h1><dl>'+Object.entries(facts).map(([k,v])=>'<dt>'+escape(k)+'</dt><dd>'+escape(v)+'</dd>').join('')+'</dl><footer>BE Business Solutions · Subscription billing ledger. This document does not change subscription access. Use browser Print / Save as PDF.</footer></body></html>';
+}

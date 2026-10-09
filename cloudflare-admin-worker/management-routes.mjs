@@ -1,5 +1,5 @@
 import {renderManagement} from './management-ui.mjs';
-const paths={'/businesses':'businesses','/business':'business','/plans':'plans','/requests':'requests','/audit':'audit'};
+const paths={'/businesses':'businesses','/business':'business','/plans':'plans','/requests':'requests','/audit':'audit','/billing':'billing'};
 const H={'cache-control':'no-store, private','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer'};
 const CSP="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{...H,'content-type':'application/json; charset=utf-8'}});
@@ -19,6 +19,10 @@ export async function handleManagement(request,env){
   action=form.get('action');
   if(action==='review'){if(!uuid(form.get('id')))return reply(400,{authorized:false});payload={id:form.get('id'),decision:form.get('decision'),note:form.get('note')};redirect='/requests?saved=1';}
   else if(action==='save_details'){if(!uuid(form.get('id')))return reply(400,{authorized:false});payload={id:form.get('id'),version:Number(form.get('version')),renewal_date:form.get('renewal_date'),notes:form.get('notes')};redirect='/business?id='+encodeURIComponent(payload.id)+'&saved=1';}
+  else if(action==='save_price'){
+   const price=form.get('annual_price_gmd'),reason=form.get('reason')?.trim();if(!/^[0-9]{1,7}$/.test(price??'')||form.get('confirmed')!=='yes'||!reason||reason.length<10||reason.length>1000)return reply(400,{authorized:false});
+   payload={plan_id:form.get('plan_id'),version:Number(form.get('version')),annual_price_gmd:Number(price),currency_code:'GMD',billing_period_months:12,confirmed:true,reason};redirect='/plans?saved=1';
+  }
   else if(action==='save_plan'){
    const limits={};for(const k of ['companies','users','employees','invoicesPerMonth','supplierBillsPerMonth']){const value=form.get(k);if(value!==''&&!/^[0-9]{1,7}$/.test(value??''))return reply(400,{authorized:false});limits[k]=value===''?null:Number(value);}
    payload={plan_id:form.get('plan_id'),label:form.get('label'),version:Number(form.get('version')),limits,features:form.getAll('features')};redirect='/plans?saved=1';
