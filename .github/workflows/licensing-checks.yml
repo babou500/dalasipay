@@ -66,6 +66,7 @@ jobs:
         run: |
           node --check registration-feedback.js
           node --check registration-feedback.test.js
+          node --check onboarding-customer.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
@@ -110,6 +111,7 @@ jobs:
             subscription-plan-view.test.js \
             subscription-customer.test.js \
             registration-feedback.test.js \
+            onboarding-customer.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \
