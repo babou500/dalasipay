@@ -1911,6 +1911,11 @@ input,select,textarea{font-size:12.5px;min-height:44px}
 <script>
 (() => {
   const seedEmployees = window.DALASIPAY_SEED || [];
+  // Recovery links can create a temporary Supabase session before the user chooses
+  // a new password. Preserve this screen even when normal session bootstrap succeeds.
+  const initialAuthParams = new URLSearchParams(location.search);
+  const recoveryRequested = initialAuthParams.get('auth') === 'recovery';
+  const invalidRecoveryLink = recoveryRequested && (initialAuthParams.has('error') || initialAuthParams.has('error_code'));
 
   const state = {
     page: 'dashboard',
@@ -1927,8 +1932,9 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     runs: [],
     workspaceOpen: false,
     createCompanyOpen: false,
-    authView: new URLSearchParams(location.search).get('auth')==='signup'?'signup':new URLSearchParams(location.search).get('auth')==='recovery'?'recovery':'signin',
-    authError: '',
+    authView: initialAuthParams.get('auth')==='signup'?'signup':recoveryRequested?(invalidRecoveryLink?'forgot':'recovery'):'signin',
+    authFlowActive: recoveryRequested,
+    authError: invalidRecoveryLink?'This password-reset link is invalid or has expired. Request a fresh recovery email.':'',
     authNotice: new URLSearchParams(location.search).get('auth')==='confirmed'?'Email confirmed. You can sign in now.':'',
     authPendingEmail: '',
     payrollStep: 3,
@@ -3334,7 +3340,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function renderPage(){const pages={dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,corrections:correctionsPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage};const fn=pages[state.page]||dashboard;try{return fn()}catch(err){console.error('DalasiPay page render failed',state.page,err);const message=esc(err?.message||'Unknown rendering error');return '<section class="surface" style="padding:24px;max-width:760px;margin:20px auto"><div class="eyebrow">RECOVERY MODE</div><h2 style="margin:6px 0 8px">DalasiPay could not open this page</h2><p style="color:var(--muted);line-height:1.55">Your workspace data is still present. A page component failed while rendering, so DalasiPay stopped that component instead of showing a blank screen.</p><div class="warn-box compact"><div><b>Technical detail</b><p>'+message+'</p></div></div><div class="inline-buttons" style="margin-top:14px"><button class="primary" data-page="dashboard">Go to dashboard</button><button class="secondary" data-page="settings">Open settings</button></div></section>';}}
   function render(){
     const existingSidebar=document.querySelector('.sidebar');if(existingSidebar)state.sidebarScrollTop=existingSidebar.scrollTop||0;
-    if(!state.session){app.innerHTML=authScreen();bindInputs();return;}
+    if(state.authFlowActive||!state.session){app.innerHTML=authScreen();bindInputs();return;}
     if(!state.org){app.innerHTML=onboardingScreen(false);bindInputs();return;}
     if(state.role==='employee'){app.innerHTML=employeeWorkspace();bindInputs();return;}
     try{app.innerHTML=shell()}catch(err){console.error('DalasiPay signed-in shell failed',err);app.innerHTML='<div style="max-width:760px;margin:10vh auto;padding:24px;font-family:Inter,system-ui,sans-serif"><div style="background:#fff;border:1px solid #dfe6e1;border-radius:14px;padding:24px"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:#0f5e50">RECOVERY MODE</div><h2 style="margin:7px 0 10px;color:#17211f">DalasiPay could not open your workspace</h2><p style="color:#71807b;line-height:1.5">Your saved workspace is still present. A startup component failed before the dashboard could load.</p><pre style="white-space:pre-wrap;background:#f8faf8;border:1px solid #dfe6e1;border-radius:8px;padding:12px;color:#a84242">'+esc(err?.message||'Unknown startup error')+'</pre><button data-action="sign-out" style="margin-top:12px;border:0;border-radius:8px;padding:10px 14px;background:#0f5e50;color:#fff;font-weight:700;cursor:pointer">Sign out safely</button></div></div>'} bindInputs();
@@ -3467,7 +3473,13 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       }
       if(state.authView==='recovery'){
         const password=String(fd.get('password')||''),confirm=String(fd.get('confirmPassword')||'');if(password!==confirm)throw new Error('The two passwords do not match.');
-        await window.DalasiAuth.updatePassword(password);state.authView='signin';state.authNotice='Password updated. Sign in with your new password.';history.replaceState({},'',location.pathname);render();return;
+        await window.DalasiAuth.updatePassword(password);
+        // Recovery is complete only after signing out of the temporary session.
+        await window.DalasiAuth.signOut();
+        state.session=null;state.org=null;state.organizations=[];
+        state.authFlowActive=false;state.authView='signin';
+        state.authNotice='Password updated. Sign in with your new password.';
+        history.replaceState({},'',location.pathname);render();return;
       }
       const email=String(fd.get('email')||'').trim().toLowerCase();state.authPendingEmail=email;
       const result=state.authView==='signup'?await window.DalasiAuth.signUp({name:fd.get('name'),email,password:fd.get('password')}):await window.DalasiAuth.signIn({email,password:fd.get('password')});
@@ -3979,7 +3991,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a==='final-close'){if(!requirePermission('payroll.final_approve','Payroll Admin or Owner access is required to close payroll.'))return;const checklist=payrollCloseChecklist();if(!checklist.ready){toast('Complete all blocking close controls first');return}const run=state.runs.find(r=>r.period===state.currentPeriod);if(!run){toast('Paid payroll archive not found');return}const record=window.DalasiAdmin.createCloseRecord({period:state.currentPeriod,run,status:state.payrollStatus,checklist,closedBy:state.session?.name||'User'});state.closeRecords=state.closeRecords.filter(x=>x.period!==state.currentPeriod);state.closeRecords.push(record);run.status='Closed';run.closedAt=record.closedAt;run.closedBy=record.closedBy;periodStatus('Closed');state.runs=window.DalasiAuth.saveRun(state.org.id,run);audit('payroll.closed',{period:state.currentPeriod,runId:run.id});state.closeOpen=false;save();toast(`${periodLabel(state.currentPeriod)} payroll closed`);render()}
     else if(a==='toggle-auth'){state.authView=state.authView==='signin'?'signup':'signin';state.authError='';state.authNotice='';render()}
     else if(a==='forgot-password'){state.authView='forgot';state.authError='';state.authNotice='';render()}
-    else if(a==='back-signin'){state.authView='signin';state.authError='';render()}
+    else if(a==='back-signin'){state.authView='signin';state.authFlowActive=false;state.authError='';state.authNotice='';if(new URLSearchParams(location.search).get('auth')==='recovery')history.replaceState({},'',location.pathname);render()}
     else if(a==='resend-confirmation'){try{if(!state.authPendingEmail){toast('Enter your email first');return}await window.DalasiAuth.resendConfirmation(state.authPendingEmail);state.authNotice=`Confirmation email resent to ${state.authPendingEmail}.`;state.authError='';render()}catch(err){state.authError=err?.message||'Unable to resend confirmation.';render()}}
     else if(a==='demo-login'){const d=window.DalasiAuth.seedDemo();state.session=d.session;loadOrgState();if(!window.DalasiAuth.getOrgValue(d.org.id,'employees',null))window.DalasiAuth.setOrgValue(d.org.id,'employees',seedEmployees);loadOrgState();render()}
     else if(a==='toggle-workspace'){state.workspaceOpen=!state.workspaceOpen;state.profileMenuOpen=false;render()}
