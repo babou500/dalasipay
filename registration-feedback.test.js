@@ -104,3 +104,43 @@ test('Cloudflare package includes feedback and revalidation headers; CI includes
   assert.match(html,/registration-feedback\.js\?v=/);
   assert.match(fs.readFileSync('.github/workflows/licensing-checks.yml','utf8'),/registration-feedback\.test\.js/);
 });
+
+
+test('post-signup screen presents returning and new customer paths without asserting account existence',()=>{
+  const begin=html.indexOf('  function authScreen(){'),end=html.indexOf('  function onboardingScreen(',begin);
+  assert.ok(begin>=0&&end>begin);
+  const render=new Function('state','window','field','icon','esc',html.slice(begin,end)+'return authScreen;');
+  const makeScreen=(notice)=>render(
+    {authView:'signin',authPendingEmail:'returning@example.com',authError:'',authNotice:notice},
+    {DalasiAuthFeedback:feedback,DalasiProduction:{configured:()=>true}},
+    (label,markup)=>label+markup,
+    ()=>'',value=>String(value)
+  )();
+  const result=makeScreen(feedback.notices.signup);
+  assert.match(result,/Choose how to continue/);
+  assert.match(result,/Already have a DalasiPay account\?/);
+  assert.match(result,/Sign in with your existing password/);
+  assert.match(result,/New to DalasiPay\?/);
+  assert.match(result,/confirmation email was sent/);
+  for(const action of ['back-signin','forgot-password','resend-confirmation'])
+    assert.match(result,new RegExp('data-action="'+action+'"'));
+  assert.doesNotMatch(result,/Account created|This email is already registered/);
+  const normal=makeScreen('');
+  assert.doesNotMatch(normal,/auth-next-steps/);
+  assert.match(normal,/Welcome back/);
+});
+
+test('outcome screen is the same for masked existing, new and unconfirmed accounts',async()=>{
+  for(const response of [
+    {data:{user:{id:'new',identities:[{provider:'email'}]},session:null},error:null},
+    {data:{user:{id:'masked',identities:[]},session:null},error:null},
+    {data:{user:{id:'unconfirmed',email_confirmed_at:null},session:null},error:null},
+    {data:null,error:{code:'user_already_exists',message:'PRIVATE CUSTOMER'}}
+  ]){
+    const app=setup(response);
+    await app.run();
+    assert.equal(app.state.authView,'signin');
+    assert.equal(app.state.authNotice,feedback.notices.signup);
+    assert.deepEqual(app.counts(),{writes:0,bootstraps:0,loads:0});
+  }
+});
