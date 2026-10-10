@@ -98,7 +98,7 @@ test('failure after server creation warns against repeating a possible successfu
 
 test('getting-started guide appears only for a just-created owner workspace and offers safe navigation',()=>{
   const fn=new Function('state','esc','icon',extract('  function firstWorkspaceGuide(){','  function dashboard(){')+'return firstWorkspaceGuide;');
-  const show=state=>fn(state,x=>String(x).replace(/</g,'&lt;'),()=>'');
+  const show=state=>fn(state,x=>String(x).replace(/</g,'&lt;'),()=>'')();
   const matching={org:{id:'new'},role:'owner',justCreatedWorkspaceId:'new',company:'<New Shop>'};
   const guide=show(matching);
   assert.match(guide,/WELCOME TO DALASIPAY/);
