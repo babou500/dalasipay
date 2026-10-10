@@ -1,11 +1,21 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { normalizeCloudflareCredentials } from './cloudflare-credentials.mjs';
 
 const configs = ['cloudflare-admin-worker/wrangler.private.toml', 'cloudflare-admin-worker/wrangler.staging.toml', 'cloudflare-licensing-worker/wrangler.toml', 'cloudflare-main/wrangler.toml'];
 const names = ['dalasipay-admin-auth-private', 'dalasipay-admin-staging', 'dalasipay-licensing-staging', 'dalasipay'];
 const mode = process.argv[2];
 if (!['dry-run', 'snapshot', 'deploy', 'verify'].includes(mode)) throw Error('Choose dry-run, snapshot, deploy or verify');
+if (mode === 'deploy' && (process.env.GITHUB_REF !== 'refs/heads/main' || process.env.RELEASE_APPROVAL !== 'DEPLOY VERIFIED COMMIT')) throw Error('Explicit approved main release required');
+if (mode !== 'dry-run') {
+  // GitHub environment secret fields may preserve an accidental line wrap or trailing newline.
+  // Normalize before any API call AND before passing the environment to Wrangler subprocesses.
+  // Never output the raw or normalized token to logs.
+  const credentials = normalizeCloudflareCredentials(process.env);
+  process.env.CLOUDFLARE_API_TOKEN = credentials.token;
+  process.env.CLOUDFLARE_ACCOUNT_ID = credentials.accountId;
+}
 function run(args) {
   const r = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
   if (r.status !== 0) throw Error('Release command failed');
@@ -18,7 +28,6 @@ async function get(path) {
   return j.result;
 }
 if (['dry-run', 'deploy'].includes(mode)) {
-  if (mode === 'deploy' && (process.env.GITHUB_REF !== 'refs/heads/main' || process.env.RELEASE_APPROVAL !== 'DEPLOY VERIFIED COMMIT')) throw Error('Explicit approved main release required');
   run(['cloudflare-main/prepare-assets.mjs']);
   for (const config of configs) run(['tools/cloudflare/node_modules/wrangler/bin/wrangler.js', 'deploy', '--config', config, '--keep-vars', ...(mode === 'dry-run' ? ['--dry-run'] : [])]);
 }
