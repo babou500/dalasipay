@@ -56,6 +56,6 @@ if (mode === 'verify') {
   if (!main.ok) throw Error('Main application unavailable');
   const portal = await fetch('https://dalasipay-licensing-staging.baboucarrnjie212.workers.dev/subscriptions');
   if (!portal.ok) throw Error('Customer portal unavailable');
-  await verifyPublicSources({baseUrl:'https://dalasipay.bebusinesssolutionsgm.com/',revision:process.env.GITHUB_SHA});
+  await verifyPublicSources({baseUrl:'https://dalasipay.bebusinesssolutionsgm.com/',revision:process.env.GITHUB_SHA,maxAttempts:8,retryDelayMs:5000});
   console.log('Public availability, Access redirect, private isolation and customer source checks passed. Authenticated UI/database checks remain manual.');
 }

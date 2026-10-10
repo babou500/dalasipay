@@ -126,3 +126,32 @@ test('release verifies exact authentication HTML and assets without writing or a
   await assert.rejects(verifyPublicSources({baseUrl:'https://example.test/',readSource:()=> 'approved',fetchImpl:async()=>({ok:true,text:async()=>'stale Account created'})}),/approved commit: index.html/);
   await assert.rejects(verifyPublicSources({baseUrl:'https://example.test/',readSource:()=> 'approved',fetchImpl:async()=>({ok:false})}),/approved commit: index.html/);
 });
+
+
+test('release source verification retries temporary propagation but never accepts a persistent mismatch',async()=>{
+  const calls=[],waits=[],seen=new Map();
+  await verifyPublicSources({
+    baseUrl:'https://example.test/',revision:'approved',maxAttempts:3,retryDelayMs:5,
+    readSource:path=>'approved:'+path,
+    wait:async ms=>{waits.push(ms);},
+    fetchImpl:async url=>{
+      calls.push(url.pathname);
+      const n=(seen.get(url.pathname)||0)+1;seen.set(url.pathname,n);
+      const path=url.pathname==='/'?'index.html':url.pathname.slice(1);
+      return {ok:true,text:async()=>url.pathname==='/'&&n===1?'stale page':'approved:'+path};
+    }
+  });
+  assert.equal(seen.get('/'),2);
+  assert.deepEqual(waits,[5]);
+  assert.equal(calls.filter(x=>x==='/registration-feedback.js').length,1);
+  await assert.rejects(verifyPublicSources({
+    baseUrl:'https://example.test/',maxAttempts:3,retryDelayMs:1,
+    readSource:()=> 'approved',wait:async()=>{},
+    fetchImpl:async()=>({ok:true,text:async()=> 'old'})
+  }),/approved commit: index\.html after 3 attempt/);
+  await assert.rejects(verifyPublicSources({
+    baseUrl:'https://example.test/',maxAttempts:2,retryDelayMs:1,
+    readSource:()=> 'approved',wait:async()=>{},
+    fetchImpl:async()=>{throw Error('transient failure');}
+  }),/approved commit: index\.html after 2 attempt/);
+});
