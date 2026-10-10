@@ -3483,10 +3483,17 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       }
       const email=String(fd.get('email')||'').trim().toLowerCase();state.authPendingEmail=email;
       const result=state.authView==='signup'?await window.DalasiAuth.signUp({name:fd.get('name'),email,password:fd.get('password')}):await window.DalasiAuth.signIn({email,password:fd.get('password')});
-      if(result?.needsEmailConfirmation){state.authView='signin';state.authNotice=`Account created for ${result.email}. Check your email to confirm it, then sign in.`;state.session=null;render();return}
+      if(result?.needsEmailConfirmation){state.authView='signin';state.authNotice=`If ${result.email} is a new email address, check your inbox for a confirmation link. Already registered? Sign in below or choose Forgot password.`;state.session=null;render();return}
       state.session=result;loadOrgState();render();
     }
-    catch(err){state.authError=err?.message||'Unable to complete authentication.';render();}
+    catch(err){
+      const message=String(err?.message||'');
+      if(state.authView==='signup'&&/user already registered|email already (?:registered|in use)/i.test(message)){
+        state.authView='signin';
+        state.authNotice='This email may already be registered. Sign in below or choose Forgot password to regain access.';
+      }else state.authError=message||'Unable to complete authentication.';
+      render();
+    }
   }
   async function handleCompany(ev){
     ev.preventDefault();const fd=new FormData(ev.target);
