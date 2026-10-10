@@ -84,6 +84,20 @@
 @media(max-width:700px){.sheet-toolbar{align-items:flex-start;flex-direction:column}.monthly-admin-bar{padding:14px}.admin-evidence-kpis{display:grid;grid-template-columns:1fr 1fr;width:100%}.payroll-task{grid-template-columns:28px 1fr}.payroll-task button{grid-column:2;justify-self:start}.task-progress{grid-template-columns:1fr}.evidence-pack-grid{grid-template-columns:1fr 1fr}.modal-box.xwide{width:100%;max-width:none;border-radius:16px 16px 0 0}}
 
 .auth-notice{display:flex;gap:8px;align-items:flex-start;padding:11px 12px;border-radius:8px;background:var(--success);color:var(--success-foreground);font-size:12.5px;margin:10px 0 14px}
+.onboarding-stage-note{margin:0 0 18px;padding:9px 12px;border-radius:9px;background:#f1f8f4;color:#245b48;font-size:12px;font-weight:750}
+.onboarding-production-note{padding:12px 14px;border:1px solid #d3e6d9;background:#f6fbf7;border-radius:10px;font-size:12px;line-height:1.55;color:#355847;margin:14px 0}
+.onboarding-error:not([hidden]){padding:11px 13px;border:1px solid #f4c8c8;background:#fff4f4;border-radius:8px;color:#993333;font-size:12px;margin:10px 0}
+.onboarding-actions button:disabled{opacity:.7;cursor:wait}
+.first-workspace-guide{margin:0 0 18px;padding:20px;border:1px solid #bcd8c9;background:#f8fbf9}
+.first-workspace-guide-header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:15px}
+.first-workspace-guide-header h3{font-size:19px;margin:5px 0 7px}
+.first-workspace-guide-header p{font-size:12px;color:var(--muted-foreground);line-height:1.55;margin:0}
+.first-workspace-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.first-workspace-guide-grid>div{padding:14px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.first-workspace-guide-grid b{font-size:12.5px}
+.first-workspace-guide-grid p{font-size:11.5px;line-height:1.5;color:var(--muted-foreground);margin:7px 0 12px}
+.first-workspace-guide-grid button{border:0;background:transparent;padding:3px 0;color:var(--primary);font-size:11.5px;font-weight:800;cursor:pointer}
+@media(max-width:760px){.first-workspace-guide-grid{grid-template-columns:1fr}.first-workspace-guide{padding:15px}}
 .auth-next-steps{display:grid;gap:9px;margin:12px 0 16px}
 .auth-next-step{padding:12px 13px;border-radius:11px;border:1px solid #d8e5df;background:#f8fbf9}
 .auth-next-step:first-child{background:#f0f8f5;border-color:#b4d7cb}
@@ -1940,6 +1954,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     runs: [],
     workspaceOpen: false,
     createCompanyOpen: false,
+    companyCreating: false,
+    justCreatedWorkspaceId: null,
     authView: initialAuthParams.get('auth')==='signup'?'signup':recoveryRequested?(invalidRecoveryLink?'forgot':'recovery'):'signin',
     authFlowActive: recoveryRequested,
     authError: invalidRecoveryLink?'This password-reset link is invalid or has expired. Request a fresh recovery email.':'',
@@ -2774,7 +2790,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return `<div class="auth-shell auth-shell-professional"><div class="auth-brand-panel"><div class="auth-brand"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-copy"><span class="eyebrow">BUSINESS ACCOUNTING · PAYMENTS · PAYROLL</span><h1>Run your business finances from one trusted workspace.</h1><p>Manage sales, expenses, banking, tax, accounting and payroll with clear controls and reliable records.</p><div class="auth-capabilities"><div><span>${icon('reports',16)}</span><b>Accounting</b><small>Ledgers, journals and financial statements</small></div><div><span>${icon('bank',16)}</span><b>Cash & payments</b><small>Receivables, payables and bank controls</small></div><div><span>${icon('shield',16)}</span><b>Compliance</b><small>VAT, tax workflows and audit history</small></div><div><span>${icon('payroll',16)}</span><b>Payroll</b><small>People, approvals and statutory controls</small></div></div></div><div class="auth-brand-footer"><span>Built for businesses in The Gambia</span><small>Powered by BE Business Solutions</small></div></div><div class="auth-card-wrap"><div class="auth-card"><div class="auth-logo-mobile"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-card-heading"><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${esc(intro)}</p></div>${signupOutcomeHtml}${state.authError?`<div class="auth-error" role="alert">${icon('alert',15)} ${esc(state.authError)}</div>`:''}<form id="auth-form">${form}</form>${!production&&!forgot&&!confirmation&&!recovery?`<div class="auth-divider"><span>or</span></div><button class="secondary demo-login" data-action="demo-login">Open demo workspace</button>`:''}${links}<div class="auth-security">${icon('lock',14)}<span><b>Secure sign-in</b><small>Your workspace access is protected and private.</small></span></div><div class="auth-legal">DalasiPay · BE Business Solutions</div></div></div></div>`;
   }
   function onboardingScreen(extra=false){
-    return `<div class="onboarding-shell professional-onboarding"><div class="onboarding-card"><div class="onboarding-top"><div class="auth-brand compact"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><span class="onboarding-step">${extra?'NEW COMPANY':'COMPANY SETUP'}</span></div><div class="onboarding-heading"><h1>${extra?'Create another company':'Set up your company'}</h1><p>Create a separate workspace for this business. Accounting records, payments, payroll and audit history stay isolated by company.</p></div><div class="onboarding-progress"><span class="active"></span><span></span><span></span><small>Business profile</small></div><form id="company-form"><section class="onboarding-section"><div class="onboarding-section-head"><span>${icon('building',16)}</span><div><b>Business profile</b><small>Basic information used to create the workspace.</small></div></div>${field('Company name','<input name="company" required autocomplete="organization" placeholder="e.g. Kaira Trading Ltd">')}<div class="two-fields">${field('Industry','<select name="industry"><option>Professional services</option><option>Retail</option><option>Hospitality</option><option>NGO / nonprofit</option><option>Education</option><option>Construction</option><option>Agriculture</option><option>Financial services</option><option>Other</option></select>')}${field('Team size','<select name="size"><option>1-10 employees</option><option>11-50 employees</option><option>51-200 employees</option><option>201+ employees</option></select>')}</div><div class="two-fields">${field('Country','<select name="country" disabled><option>The Gambia</option></select>')}${field('Currency','<select name="currency" disabled><option>GMD · Gambian Dalasi</option></select>')}</div></section><label class="sample-check onboarding-sample"><input type="checkbox" name="sample"><span class="sample-check-icon">${icon('employees',16)}</span><span><b>Start with demonstration data</b><small>Add 32 sample Gambian employees so you can explore payroll and people workflows. Leave this off for a clean business workspace.</small></span></label><div class="onboarding-assurance"><span>${icon('shield',15)}</span><div><b>Your company remains separate</b><small>Workspace records and permissions are isolated from your other companies.</small></div></div><div class="onboarding-actions">${extra?'<button type="button" class="secondary" data-action="cancel-company">Cancel</button>':''}<button class="primary">Create company workspace ${icon('arrow',14)}</button></div></form><div class="onboarding-footer"><span>DalasiPay · Accounting, Payments & Payroll</span><span>Powered by BE Business Solutions</span></div></div></div>`;
+    const production=!!window.DalasiProduction?.configured?.();
+    return `<div class="onboarding-shell professional-onboarding"><div class="onboarding-card"><div class="onboarding-top"><div class="auth-brand compact"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><span class="onboarding-step">${extra?'NEW COMPANY':'COMPANY SETUP'}</span></div><div class="onboarding-heading"><h1>${extra?'Create another company':'Set up your company'}</h1><p>Create a separate workspace for this business. Accounting records, payments, payroll and audit history stay isolated by company.</p></div><div class="onboarding-stage-note">Business profile · One-time setup</div><form id="company-form"><section class="onboarding-section"><div class="onboarding-section-head"><span>${icon('building',16)}</span><div><b>Business profile</b><small>Basic information used to create the workspace.</small></div></div>${field('Company name','<input name="company" required maxlength="120" autocomplete="organization" placeholder="e.g. Kaira Trading Ltd">')}<div class="two-fields">${field('Industry','<select name="industry"><option>Professional services</option><option>Retail</option><option>Hospitality</option><option>NGO / nonprofit</option><option>Education</option><option>Construction</option><option>Agriculture</option><option>Financial services</option><option>Other</option></select>')}${field('Team size','<select name="size"><option>1-10 employees</option><option>11-50 employees</option><option>51-200 employees</option><option>201+ employees</option></select>')}</div><div class="two-fields">${field('Country','<select name="country" disabled><option>The Gambia</option></select>')}${field('Currency','<select name="currency" disabled><option>GMD · Gambian Dalasi</option></select>')}</div></section>${production?'<div class="onboarding-production-note">Your new workspace starts empty. Add only your own business records when you are ready.</div>':`<label class="sample-check onboarding-sample"><input type="checkbox" name="sample"><span class="sample-check-icon">${icon('employees',16)}</span><span><b>Start with demonstration data</b><small>Add 32 sample Gambian employees so you can explore payroll and people workflows. Leave this off for a clean business workspace.</small></span></label>`}<div class="onboarding-assurance"><span>${icon('shield',15)}</span><div><b>Your company remains separate</b><small>Workspace records and permissions are isolated from your other companies.</small></div></div><p class="onboarding-error" id="company-error" role="alert" hidden></p><div class="onboarding-actions">${extra?'<button type="button" class="secondary" data-action="cancel-company">Cancel</button>':''}<button class="primary" type="submit">Create company workspace ${icon('arrow',14)}</button></div></form><div class="onboarding-footer"><span>DalasiPay · Accounting, Payments & Payroll</span><span>Powered by BE Business Solutions</span></div></div></div>`;
   }
   function workspaceMenu(){
     return `<div class="workspace-menu"><small>YOUR WORKSPACES</small>${state.organizations.map(o=>`<button data-org="${o.id}" class="${state.org?.id===o.id?'active':''}"><span class="workspace-avatar">${esc(o.name.slice(0,1).toUpperCase())}</span><span><b>${esc(o.name)}</b><small>${window.DalasiAuth.roleFor(o.id)||'member'}</small></span>${state.org?.id===o.id?'✓':''}</button>`).join('')}<div class="workspace-divider"></div><button data-action="new-company">${icon('plus',15)} Create company</button><button data-action="sign-out">${icon('lock',15)} Sign out</button></div>`;
@@ -2835,12 +2852,23 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return `<section class="surface pilot-readiness"><div class="pilot-readiness-head"><div><span class="eyebrow">LIVE PILOT READINESS</span><h3>${r.ready?'Workspace ready for controlled pilot':'Finish setup before real payroll'}</h3><p>${r.completed}/${r.total} production checks complete. This checklist is operational guidance, not legal or tax certification.</p></div><div class="pilot-score ${r.ready?'ready':''}"><strong>${r.score}%</strong><span>${r.ready?'READY':'SETUP'}</span></div></div><div class="pilot-progress"><i style="width:${r.score}%"></i></div><div class="pilot-check-grid">${rows}</div>${r.ready?'<div class="success-banner compact">'+icon('shield',17)+'<div><b>Controlled pilot prerequisites are complete</b><p>Run one parallel test payroll and reconcile it against the company\'s existing process before relying on DalasiPay for live payments.</p></div></div>':''}</section>`;
   }
 
+  function firstWorkspaceGuide(){
+    if(!state.org||state.role!=='owner'||state.justCreatedWorkspaceId!==state.org.id)return '';
+    return `<section class="surface first-workspace-guide" aria-label="New company getting started">
+      <div class="first-workspace-guide-header"><div><span class="eyebrow">WELCOME TO DALASIPAY</span><h3>${esc(state.company)} is ready to set up</h3><p>Begin with these steps. Nothing is posted to your accounts until you choose to record it.</p></div><button type="button" class="text-btn" data-action="dismiss-onboarding-guide">Dismiss</button></div>
+      <div class="first-workspace-guide-grid">
+        <div><b>1. Review your accounts</b><p>Start with the chart of accounts. Check opening balances carefully before recording them.</p><button type="button" data-page="accounting">Open accounting ${icon('arrow',13)}</button></div>
+        <div><b>2. Add a customer</b><p>Save your first customer contact so you can invoice them later.</p><button type="button" data-page="customers">Open customers ${icon('arrow',13)}</button></div>
+        <div><b>3. Prepare your first invoice</b><p>Create an invoice only when you have a real sale to record.</p><button type="button" data-page="invoices">Open invoices ${icon('arrow',13)}</button></div>
+      </div></section>`;
+  }
   function dashboard(){
     const p=payrollCalc(),t=p.totals,missing=missingSshfc(),dept=window.DalasiPayroll.departmentSummary(p.rows),attendance=attendanceSummary(),pendingLeave=pendingLeaveRequests(),expiring=expiryItems(60),onboarding=onboardingQueue(),offboarding=offboardingQueue(),variance=payrollVariance(),cal=opsCalendar(),recurring=recurringCounts(),batch=batchForPeriod(),recon=batch?window.DalasiOps.reconcile(batch,p):null;
     const statusClass=state.payrollStatus.toLowerCase(),netPct=t.gross?Math.round(t.net/t.gross*100):0,avgEmployer=p.rows.length?t.employerCost/p.rows.length:0,active=state.employees.filter(e=>e.status==='Active').length;
     const grossVar=variance.metrics?.find(x=>x.key==='gross');
     const pay=window.DalasiBusinessPayments.summary(state.businessPayments||[]);
     return `${window.DalasiCommandCenter.render(state,{pageTitle,icon,money2,esc,pill,payrollCalc,periodLabel,shortPeriod,periodControls})}
+    ${firstWorkspaceGuide()}
     ${pilotReadinessCard()}
     <div class="executive-kpis"><div class="surface exec-kpi"><span>HEADCOUNT</span><b>${active}</b><small>${state.employees.length-active} non-active records</small></div><div class="surface exec-kpi"><span>GROSS PAYROLL</span><b>${money2(t.gross)}</b><small>${grossVar&&variance.hasBaseline?`${grossVar.pct>=0?'+':''}${grossVar.pct}% vs ${shortPeriod(variance.baselinePeriod)}`:'No prior archived baseline'}</small></div><div class="surface exec-kpi"><span>AVG EMPLOYER COST</span><b>${money2(avgEmployer)}</b><small>per active payroll employee</small></div><div class="surface exec-kpi"><span>PEOPLE ACTIONS</span><b>${onboarding.length+offboarding.length+expiring.length}</b><small>${onboarding.length} onboarding · ${expiring.length} expiry alerts</small></div></div>
     <div class="kpi-grid five-kpis">${kpi('bank','Net payroll',money2(t.net),`${netPct}% of gross`,'after PAYE & deductions')}${kpi('reports','PAYE',money2(t.paye),'Due by 15th','current GRA band defaults',true)}${kpi('calendar','Attendance',`${attendance.rate}%`,`${attendance.configured}/${p.rows.length} updated`,`${attendance.overtime.toFixed(1)} overtime hours`)}${kpi('shield',`${state.rules.scheme} employee contribution`,money2(t.employeeContribution),state.rules.scheme==='NPF'?rate(state.rules.npfEmployeeRate):'Employer only',state.rules.scheme==='NPF'?'of basic salary':'FPS has no employee deduction')}${kpi('employees','Onboarding',onboarding.length,onboarding.length?'Needs HR attention':'All complete','active employee workflows')}</div>
@@ -3522,17 +3550,37 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
 
   async function handleCompany(ev){
-    ev.preventDefault();const fd=new FormData(ev.target);
+    ev.preventDefault();
+    if(state.companyCreating)return;
+    const form=ev.target,fd=new FormData(form),submit=form?.querySelector?.('button[type="submit"]'),errorEl=form?.querySelector?.('#company-error');
+    const originalLabel=submit?.innerHTML,production=!!window.DalasiProduction?.configured?.();
+    let created=false;
+    state.companyCreating=true;
+    if(errorEl){errorEl.textContent='';errorEl.hidden=true;}
+    if(submit){submit.disabled=true;submit.textContent='Creating workspace…';}
     try{
-      const org=await window.DalasiAuth.createOrganization({name:fd.get('company'),industry:fd.get('industry'),size:fd.get('size')});
-      if(fd.get('sample')&&!window.DalasiProduction?.configured?.())window.DalasiAuth.setOrgValue(org.id,'employees',seedEmployees);
-      state.createCompanyOpen=false;loadOrgState();audit('workspace.onboarding.completed',{sampleEmployees:Boolean(fd.get('sample'))});save();
-      if(window.DalasiProduction?.configured?.()){
+      const name=String(fd.get('company')||'').trim();
+      if(!name)throw new Error('Enter your company name.');
+      if(name.length>120)throw new Error('Company names must be 120 characters or fewer.');
+      const org=await window.DalasiAuth.createOrganization({name,industry:fd.get('industry'),size:fd.get('size')});
+      created=true;
+      if(fd.get('sample')&&!production)window.DalasiAuth.setOrgValue(org.id,'employees',seedEmployees);
+      state.createCompanyOpen=false;state.justCreatedWorkspaceId=org.id;
+      loadOrgState();
+      audit('workspace.onboarding.completed',{sampleEmployees:!production&&Boolean(fd.get('sample'))});
+      save();
+      if(production){
         const synced=await window.DalasiProduction.syncNow(org.id);
         if(!synced?.ok)toast(synced?.conflict?'Workspace created. Pull the newer server copy before continuing.':'Workspace created. Secure sync still needs attention.');
       }
       render();
-    }catch(err){toast(err?.message||'Unable to create workspace');render();}
+    }catch(err){
+      const message=created?'Your workspace may already have been created. Refresh and sign in again before trying to create it again.':(err?.message||'Unable to create workspace. Please try again.');
+      if(errorEl){errorEl.textContent=message;errorEl.hidden=false;}else toast(message);
+    }finally{
+      state.companyCreating=false;
+      if(submit&&!created){submit.disabled=false;submit.innerHTML=originalLabel;}
+    }
   }
   async function handleInvite(ev){
     ev.preventDefault();const fd=new FormData(ev.target);try{const inv=await window.DalasiAuth.inviteMember({orgId:state.org.id,email:fd.get('email'),role:fd.get('role'),employeeId:fd.get('employeeId')||null});state.inviteOpen=false;loadOrgState();toast(`Invitation prepared for ${inv.email||fd.get('email')}`);}catch(err){toast(err?.message||'Unable to create invitation');}
@@ -4030,6 +4078,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     else if(a==='toggle-workspace'){state.workspaceOpen=!state.workspaceOpen;state.profileMenuOpen=false;render()}
     else if(a==='toggle-profile-menu'){state.profileMenuOpen=!state.profileMenuOpen;state.workspaceOpen=false;state.notifOpen=false;state.quickCreateOpen=false;render()}
     else if(a==='new-company'){state.workspaceOpen=false;state.createCompanyOpen=true;render()}
+    else if(a==='dismiss-onboarding-guide'){state.justCreatedWorkspaceId=null;render()}
     else if(a==='cancel-company'){state.createCompanyOpen=false;render()}
     else if(a==='sign-out'){state.profileMenuOpen=false;await window.DalasiAuth.signOut();state.session=null;state.org=null;state.organizations=[];state.authView='signin';state.authError='';render()}
     else if(a==='open-mobile'){state.mobileOpen=true;render()}
