@@ -20,5 +20,5 @@ test('customer portal links to the main DalasiPay account registration rather th
  assert.equal(target.searchParams.get('auth'),'signup');
  assert.match(html,/This portal creates no customer accounts/);
  const mainApp=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(mainApp.includes("authView: new URLSearchParams(location.search).get('auth')==='signup'?'signup':"));
+ assert.ok(mainApp.includes("authView: initialAuthParams.get('auth')==='signup'?'signup':"));
 });
