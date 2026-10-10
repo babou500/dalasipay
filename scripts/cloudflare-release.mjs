@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { verifyPublicSources } from './cloudflare-source-check.mjs';
 import { normalizeCloudflareCredentials } from './cloudflare-credentials.mjs';
 
 const configs = ['cloudflare-admin-worker/wrangler.private.toml', 'cloudflare-admin-worker/wrangler.staging.toml', 'cloudflare-licensing-worker/wrangler.toml', 'cloudflare-main/wrangler.toml'];
@@ -56,8 +56,6 @@ if (mode === 'verify') {
   if (!main.ok) throw Error('Main application unavailable');
   const portal = await fetch('https://dalasipay-licensing-staging.baboucarrnjie212.workers.dev/subscriptions');
   if (!portal.ok) throw Error('Customer portal unavailable');
-  const response = await fetch(`https://dalasipay.bebusinesssolutionsgm.com/subscription-customer.js?release=${process.env.GITHUB_SHA ?? Date.now()}`);
-  const hash = s => createHash('sha256').update(s).digest('hex');
-  if (!response.ok || hash(await response.text()) !== hash(readFileSync('subscription-customer.js', 'utf8').replace(/\r\n/g, '\n'))) throw Error('Live customer asset differs from approved source');
+  await verifyPublicSources({baseUrl:'https://dalasipay.bebusinesssolutionsgm.com/',revision:process.env.GITHUB_SHA});
   console.log('Public availability, Access redirect, private isolation and customer source checks passed. Authenticated UI/database checks remain manual.');
 }

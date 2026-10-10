@@ -115,3 +115,14 @@ test('wrapped account and legacy API tokens remain supported', () => {
     assert.deepEqual(normalizeCloudflareCredentials({ CLOUDFLARE_API_TOKEN: wrapped, CLOUDFLARE_ACCOUNT_ID: ' \t' + 'A'.repeat(32) + '\r\n' }), { token, accountId: 'A'.repeat(32) });
   }
 });
+
+// The registration HTML must be checked, not only the subscription asset.
+import {verifyPublicSources} from '../scripts/cloudflare-source-check.mjs';
+test('release verifies exact authentication HTML and assets without writing or accepting redirects',async()=>{
+  const calls=[];
+  await verifyPublicSources({baseUrl:'https://example.test/',revision:'approved',readSource:path=>'current\r\n'+path,fetchImpl:async(url,options)=>{calls.push([url,options]);return {ok:true,text:async()=>'current\n'+(url.pathname==='/'?'index.html':url.pathname.slice(1))};}});
+  assert.deepEqual(calls.map(([url])=>url.pathname),['/','/registration-feedback.js','/subscription-customer.js']);
+  assert.ok(calls.every(([url,options])=>url.searchParams.get('release')==='approved'&&options.cache==='no-store'&&options.redirect==='error'));
+  await assert.rejects(verifyPublicSources({baseUrl:'https://example.test/',readSource:()=> 'approved',fetchImpl:async()=>({ok:true,text:async()=>'stale Account created'})}),/approved commit: index.html/);
+  await assert.rejects(verifyPublicSources({baseUrl:'https://example.test/',readSource:()=> 'approved',fetchImpl:async()=>({ok:false})}),/approved commit: index.html/);
+});

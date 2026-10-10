@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const api=require('./subscription-customer.js');
+const feedback=require('./registration-feedback.js');
 test('main subscription section renders real owned workspace, configured plans and reviewed history safely',async()=>{class Element{constructor(tag){this.tag=tag;this.children=[];this.isConnected=true;this.textContent='';}append(...children){this.children.push(...children);}replaceChildren(...children){this.children=children;}setAttribute(){}addEventListener(name,fn){(this.events??={})[name]=fn;}}const root=new Element('div');root.ownerDocument={createElement:tag=>new Element(tag)};const data={billing:false,enforcement:false,businesses:[{id:'owned',name:'<Real Business>',created_at:'2026-10-09',subscription:{plan_id:'professional',professional_preview:true,status:'professional_preview'},requests:[{id:'real-request',request_kind:'plan_change',requested_plan:'free',status:'rejected',created_at:'2026-10-09',reason:'Review plan change',review_note:'Recorded administrator reason'}]}],plans:[{plan_id:'free',label:'Configured Free',limits:{employees:6},features:['coreAccounting']}]};await api.mount(root,{workspaceId:'owned',backend:{getClient:()=>({rpc:async()=>({data})})}});const all=[];const walk=el=>{all.push(el);for(const child of el.children)walk(child);};walk(root);const texts=all.map(el=>el.textContent).join('\n');assert.match(texts,/<Real Business>/);assert.match(texts,/Unlimited Professional Preview/);assert.match(texts,/Employees: 6/);assert.match(texts,/Recorded administrator reason/);assert.ok(all.some(el=>el.tag==='option'&&el.value==='plan_change'&&el.textContent.includes('Downgrade')));assert.equal(all.filter(el=>el.tag==='form').length,1);});
 test('main session client calls only existing customer RPC; forbidden privileged actions rejected',async()=>{const calls=[];const invoke=api.service({rpc:async(...args)=>{calls.push(args);return {data:{billing:false,enforcement:false}};}});await invoke('list');await invoke('submit',{organization_id:'owned',kind:'plan_change',plan_id:'free',reason:'Owner requested downgrade'});assert.deepEqual(calls[0],['customer_subscription_portal',{p_action:'list',p_payload:{}}]);assert.equal(calls[1][1].p_payload.kind,'plan_change');await assert.rejects(invoke('review'));assert.equal(calls.length,2);});
 test('errors fail closed without raw database detail or enabling enforcement',async()=>{await assert.rejects(api.service({rpc:async()=>({error:{code:'42501',message:'private database diagnostic'}})})('list'),/workspace owner/);await assert.rejects(api.service({rpc:async()=>({data:{billing:true}})})('list'),/Unexpected/);assert.equal(api.owned({businesses:[{id:'one',name:'Real'}]},'other'),null);});
@@ -59,14 +60,13 @@ test('signup uses non-enumerating confirmation guidance for new or existing emai
   class FormDataStub {constructor(target){this.fields=target.fields;}get(key){return this.fields[key];}}
   for(const type of ['new account','existing account hidden by Supabase']){
     const state={authView:'signup',authError:'',authNotice:'',authPendingEmail:'',session:null};
-    const window={DalasiAuth:{signUp:async()=>({needsEmailConfirmation:true,email:'repeat@example.com'})}};
+    const window={DalasiAuthFeedback:feedback,DalasiAuth:{signUp:async()=>({needsEmailConfirmation:true,email:'repeat@example.com'})}};
     let rendered=0;
     const handle=makeHandler(state,window,FormDataStub,()=>{rendered++;},()=>{},null,null);
     await handle({preventDefault(){},target:{fields:{name:'Applicant',email:'REPEAT@example.com',password:'safe-example-password'}}});
     assert.equal(state.authView,'signin',type);
     assert.equal(state.authPendingEmail,'repeat@example.com',type);
-    assert.match(state.authNotice,/if .* is a new email address/i,type);
-    assert.match(state.authNotice,/already registered\?/i,type);
+    assert.equal(state.authNotice,feedback.notices.signup,type);
     assert.match(state.authNotice,/forgot password/i,type);
     assert.doesNotMatch(state.authNotice,/account created/i,type);
     assert.equal(rendered,1,type);
@@ -81,11 +81,11 @@ test('explicit duplicate signup error routes to sign-in without exposing account
   const makeHandler=new Function('state','window','FormData','render','loadOrgState','history','location',html.slice(start,end)+'return handleAuth;');
   class FormDataStub {constructor(target){this.fields=target.fields;}get(key){return this.fields[key];}}
   const state={authView:'signup',authError:'',authNotice:'',authPendingEmail:'',session:null};
-  const window={DalasiAuth:{signUp:async()=>{throw new Error('User already registered');}}};
+  const window={DalasiAuthFeedback:feedback,DalasiAuth:{signUp:async()=>{throw new Error('User already registered');}}};
   let rendered=0;
   await makeHandler(state,window,FormDataStub,()=>{rendered++;},()=>{},null,null)({preventDefault(){},target:{fields:{name:'Applicant',email:'repeat@example.com',password:'safe-example-password'}}});
   assert.equal(state.authView,'signin');
-  assert.match(state.authNotice,/may already be registered/i);
+  assert.equal(state.authNotice,feedback.notices.signup);
   assert.match(state.authNotice,/forgot password/i);
   assert.equal(state.authError,'');
   assert.equal(rendered,1);
