@@ -1,6 +1,7 @@
 name: Licensing safety checks
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches: [main]
@@ -12,7 +13,9 @@ on:
       - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
-      - '.github/workflows/licensing-checks.yml'
+      - '.github/workflows/**'
+      - 'scripts/**'
+      - 'tools/cloudflare/**'
       - 'cloudflare-licensing-worker/**'
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
@@ -32,7 +35,9 @@ on:
       - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
-      - '.github/workflows/licensing-checks.yml'
+      - '.github/workflows/**'
+      - 'scripts/**'
+      - 'tools/cloudflare/**'
       - 'cloudflare-licensing-worker/**'
       - 'supabase-licensing-provider*'
       - 'verified-licensing-endpoint*'
@@ -49,8 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Check syntax
@@ -141,3 +148,9 @@ jobs:
         env:
           PGLITE_MODULE: ${{ github.workspace }}/tests/admin-auth-runtime/node_modules/@electric-sql/pglite/dist/index.js
         run: node --test tests/admin-bootstrap.postgres.test.mjs tests/licensing-management.postgres.test.mjs
+      - name: Check release guards
+        run: node --test tests/cloudflare-release.test.mjs
+      - name: Install locked deployment tooling without credentials
+        run: npm ci --prefix tools/cloudflare --ignore-scripts --no-audit --no-fund
+      - name: Dry-run all existing Worker configurations
+        run: node scripts/cloudflare-release.mjs dry-run
