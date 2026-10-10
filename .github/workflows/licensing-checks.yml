@@ -10,6 +10,7 @@ on:
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
       - 'index.html'
+      - 'registration-feedback*'
       - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
@@ -32,6 +33,7 @@ on:
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
       - 'index.html'
+      - 'registration-feedback*'
       - 'cloudflare-main/**'
       - 'subscription-*.js'
       - 'subscription-*.mjs'
@@ -62,6 +64,9 @@ jobs:
           node-version: '22'
       - name: Check syntax
         run: |
+          node --check registration-feedback.js
+          node --check registration-feedback.test.js
+          node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
           node --check subscription-plan-view.js
@@ -104,6 +109,7 @@ jobs:
             workspace-subscription.test.js \
             subscription-plan-view.test.js \
             subscription-customer.test.js \
+            registration-feedback.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \
