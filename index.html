@@ -1927,7 +1927,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     runs: [],
     workspaceOpen: false,
     createCompanyOpen: false,
-    authView: new URLSearchParams(location.search).get('auth')==='recovery'?'recovery':'signin',
+    authView: new URLSearchParams(location.search).get('auth')==='signup'?'signup':new URLSearchParams(location.search).get('auth')==='recovery'?'recovery':'signin',
     authError: '',
     authNotice: new URLSearchParams(location.search).get('auth')==='confirmed'?'Email confirmed. You can sign in now.':'',
     authPendingEmail: '',
