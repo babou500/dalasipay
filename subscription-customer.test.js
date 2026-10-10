@@ -48,3 +48,45 @@ test('password update signs out temporary recovery session before showing normal
   assert.match(html,/else if\(a==='back-signin'\)\{state\.authView='signin';state\.authFlowActive=false;/);
   // Existing full-page script compilation test above guards against JS syntax errors.
 });
+
+
+test('signup uses non-enumerating confirmation guidance for new or existing emails',async()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const start=html.indexOf('  async function handleAuth(ev){');
+  const end=html.indexOf('  async function handleCompany(ev){',start);
+  assert.ok(start>=0&&end>start,'signup handler exists');
+  const makeHandler=new Function('state','window','FormData','render','loadOrgState','history','location',html.slice(start,end)+'return handleAuth;');
+  class FormDataStub {constructor(target){this.fields=target.fields;}get(key){return this.fields[key];}}
+  for(const type of ['new account','existing account hidden by Supabase']){
+    const state={authView:'signup',authError:'',authNotice:'',authPendingEmail:'',session:null};
+    const window={DalasiAuth:{signUp:async()=>({needsEmailConfirmation:true,email:'repeat@example.com'})}};
+    let rendered=0;
+    const handle=makeHandler(state,window,FormDataStub,()=>{rendered++;},()=>{},null,null);
+    await handle({preventDefault(){},target:{fields:{name:'Applicant',email:'REPEAT@example.com',password:'safe-example-password'}}});
+    assert.equal(state.authView,'signin',type);
+    assert.equal(state.authPendingEmail,'repeat@example.com',type);
+    assert.match(state.authNotice,/if .* is a new email address/i,type);
+    assert.match(state.authNotice,/already registered\?/i,type);
+    assert.match(state.authNotice,/forgot password/i,type);
+    assert.doesNotMatch(state.authNotice,/account created/i,type);
+    assert.equal(rendered,1,type);
+  }
+});
+
+test('explicit duplicate signup error routes to sign-in without exposing account details',async()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const start=html.indexOf('  async function handleAuth(ev){');
+  const end=html.indexOf('  async function handleCompany(ev){',start);
+  assert.ok(start>=0&&end>start);
+  const makeHandler=new Function('state','window','FormData','render','loadOrgState','history','location',html.slice(start,end)+'return handleAuth;');
+  class FormDataStub {constructor(target){this.fields=target.fields;}get(key){return this.fields[key];}}
+  const state={authView:'signup',authError:'',authNotice:'',authPendingEmail:'',session:null};
+  const window={DalasiAuth:{signUp:async()=>{throw new Error('User already registered');}}};
+  let rendered=0;
+  await makeHandler(state,window,FormDataStub,()=>{rendered++;},()=>{},null,null)({preventDefault(){},target:{fields:{name:'Applicant',email:'repeat@example.com',password:'safe-example-password'}}});
+  assert.equal(state.authView,'signin');
+  assert.match(state.authNotice,/may already be registered/i);
+  assert.match(state.authNotice,/forgot password/i);
+  assert.equal(state.authError,'');
+  assert.equal(rendered,1);
+});
