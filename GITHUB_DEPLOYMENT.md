@@ -62,3 +62,42 @@ Roll back only affected Workers; coordinate dependency compatibility. Wrangler a
 Wave-only disabled-mode release is deployed (PR #5). Fresh verification: 177 Node tests, 27 PostgreSQL tests, three release safety tests and four CLI dry runs; live customer script matches source, Access redirects anonymous users, private URLs/previews are off, service binding remains correct. All 13 subscription rows match the previous checksum; billing false; zero invoices/payments/receipts. Live commercial transfers, screenshot upload and independent Wave-history review remain deliberately unverified until explicit launch approval and a separately authorized customer account.
 
 This Actions workflow is prepared but production execution is NOT commissioned: environment reviewers, scoped environment secrets and the automatic Cloudflare Builds shutdown require owner configuration. No credentials have been created/exposed and no new production deployment is needed for this handover. Run the first dry-run dispatch and then an explicitly approved release after setup. Existing auto-build access limitation must be resolved before claiming approval-only production deployment.
+
+## Credential validation failure in release run 38059756187
+
+The run used merge commit b0a1ed6 (PR #8). Licensing checks and credential-free
+Wrangler dry runs passed. Snapshot stopped inside local credential validation,
+before Cloudflare API access, version capture or any Worker upload. The old
+combined error cannot establish whether the token, account ID, or both failed.
+GitHub does not allow reading saved secret values; do not infer them from masking.
+
+PR #8 removed whitespace before validation and shared those normalized values with
+API calls and Wrangler. It rejected a token starting with the letters `Bearer`
+even without a scheme, detected duplicate `cfut_` but not `cfat_`/legacy tokens,
+and silently joined internal whitespace in account IDs. The fix distinguishes
+missing/invalid fields and pasted schemes/duplicate tokens using static messages.
+It retains wrapped-token support and trims only outside an account ID. No values,
+fragments, lengths, hashes or API response bodies are included in these errors.
+A local format pass does not prove that a token is active or authorized.
+
+Before an owner-approved future release, review **Settings > Environments >
+cloudflare-production > Environment secrets**:
+
+- `CLOUDFLARE_API_TOKEN`: one API token secret for the existing account and Workers;
+  no `Bearer`, quotes, shell command, token name/ID or concatenated tokens. Account
+  and user API tokens are supported; a Global API Key is not a token.
+- `CLOUDFLARE_ACCOUNT_ID`: the existing Workers account's exact 32 hexadecimal
+  characters from Cloudflare, not a zone ID, URL, account name or token ID.
+
+Only replace a value if it is wrong; this investigation cannot name one secret
+as conclusively responsible. Do not paste credentials into issues or logs.
+Token scope/expiry and wrong-but-well-formed account IDs require a later approved
+read-only API check; an authorization failure alone cannot distinguish them.
+Cloudflare format reference:
+https://developers.cloudflare.com/fundamentals/api/get-started/token-formats/
+
+Do not rerun the failed workflow or deploy without owner approval. After review
+and any approved merge, use a fresh approved release for the new SHA. Preserve
+protected-environment reviewers, manual confirmation, all four Workers,
+`--keep-vars`, pre-deployment snapshot and manual rollback review. This fix has
+no customer, subscription, Supabase, billing or accounting changes.
