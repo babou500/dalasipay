@@ -12,7 +12,7 @@ test('customer portal links to the main DalasiPay account registration rather th
  const response=await handleCustomerPortal(new Request('https://portal.fixture/subscriptions'),env);
  assert.equal(response.status,200);
  const html=await response.text();
- const match=html.match(/<a href="([^"]+)"[^>]*>Create DalasiPay account<\\/a>/);
+ const match=html.match(/href="([^"]+)"[^>]*>Create DalasiPay account/);
  assert.ok(match,'The portal should offer a clear create-account link');
  const target=new URL(match[1]);
  assert.equal(target.origin,'https://dalasipay.bebusinesssolutionsgm.com');
@@ -20,5 +20,5 @@ test('customer portal links to the main DalasiPay account registration rather th
  assert.equal(target.searchParams.get('auth'),'signup');
  assert.match(html,/This portal creates no customer accounts/);
  const mainApp=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(mainApp,/authView: new URLSearchParams\\(location\\.search\\)\\.get\\('auth'\\)==='signup'\\?'signup'/);
+ assert.ok(mainApp.includes("authView: new URLSearchParams(location.search).get('auth')==='signup'?'signup':"));
 });
