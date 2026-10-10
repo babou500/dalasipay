@@ -41,18 +41,18 @@ test('Cloudflare credentials normalize accidental line breaks before both API an
   const token = 'cfut_' + 'a'.repeat(48);
   const accountId = '40e35bbd6d3097406a7c8f6e5e9bd4c8';
   const credentials = normalizeCloudflareCredentials({
-    CLOUDFLARE_API_TOKEN: '  ' + token.slice(0,25) + '\\r\\n ' + token.slice(25) + '\\n',
-    CLOUDFLARE_ACCOUNT_ID: ' ' + accountId + '\\n',
+    CLOUDFLARE_API_TOKEN: '  ' + token.slice(0,25) + '\r\n ' + token.slice(25) + '\n',
+    CLOUDFLARE_ACCOUNT_ID: ' ' + accountId + '\n',
   });
   assert.deepEqual(credentials, { token, accountId });
   const release = readFileSync(script, 'utf8');
-  assert.match(release, /process\\.env\\.CLOUDFLARE_API_TOKEN = credentials\\.token/);
-  assert.match(release, /process\\.env\\.CLOUDFLARE_ACCOUNT_ID = credentials\\.accountId/);
+  assert.match(release, /process\.env\.CLOUDFLARE_API_TOKEN = credentials\.token/);
+  assert.match(release, /process\.env\.CLOUDFLARE_ACCOUNT_ID = credentials\.accountId/);
 });
 test('Cloudflare credentials fail closed without leaking malformed or duplicated token values', () => {
   const accountId = '40e35bbd6d3097406a7c8f6e5e9bd4c8';
   const good = 'cfut_' + 'a'.repeat(48);
-  for (const token of ['', 'Bearer ' + good, good + '\\n' + good, '$(unsafe)', 'short']) {
+  for (const token of ['', 'Bearer ' + good, good + '\n' + good, '$(unsafe)', 'short']) {
     assert.throws(
       () => normalizeCloudflareCredentials({ CLOUDFLARE_API_TOKEN: token, CLOUDFLARE_ACCOUNT_ID: accountId }),
       error => !String(error).includes(good) && /Cloudflare secrets|required|Malformed Cloudflare credentials/.test(error.message)
