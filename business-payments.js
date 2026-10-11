@@ -593,7 +593,7 @@
     const adjustmentRows=[...credits.map(x=>({type:'Credit',ref:x.creditNo||x.id,amount:-Math.abs(Number(x.amount)||0),date:x.date||x.createdAt})),...debits.map(x=>({type:'Debit',ref:x.debitNo||x.id,amount:Number(x.amount)||0,date:x.date||x.createdAt}))].sort((a,z)=>String(z.date||'').localeCompare(String(a.date||'')));
     const adjustments=adjustmentRows.length?adjustmentRows.map(x=>'<div class="invoice-payment-row"><div><strong>'+esc(x.type+' · '+x.ref)+'</strong><small>'+esc(String(x.date||'').slice(0,10))+'</small></div><b>'+money2(x.amount)+'</b></div>').join(''):'<div class="empty-inline">No supplier credits or debits linked to this bill.</div>';
     const status=b.status||'Draft',taxLabel=(window.DalasiTax?.code?.(tax.taxCode)?.label||tax.taxCode||'Out of scope')+' · '+(tax.taxPricingMode==='exclusive'?'VAT exclusive':'VAT inclusive');
-    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-bill-detail"></div><aside class="record-drawer">'+
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" style="backdrop-filter:none;background:rgba(6,16,13,.15)" data-action="close-bill-detail"></div><aside class="record-drawer">'+
       '<div class="record-drawer-head"><div><div class="eyebrow">SUPPLIER BILL</div><h2>'+esc(b.invoiceNo||b.id)+'</h2><p>'+esc(b.supplier||'Supplier')+'</p></div><button class="close" data-action="close-bill-detail">×</button></div>'+
       '<div class="record-hero"><div><span>Outstanding</span><b>'+money2(balance)+'</b><small>'+money2(b.amount)+' original bill</small></div>'+pill(status,billStatusClass(status))+'</div>'+
       '<div class="record-facts">'+
@@ -1376,7 +1376,7 @@
       p.paidAt?{label:'Marked paid · '+(p.receiptNumber||'Receipt'),at:p.paidAt,by:p.updatedBy}:null,
       p.reversedAt?{label:'Payment reversed'+(p.reversalReason?' · '+p.reversalReason:''),at:p.reversedAt,by:p.reversedBy||p.updatedBy}:null
     ].filter(Boolean).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
-    return '<div class="record-drawer-wrap"><div class="modal-scrim" data-action="close-payment-detail"></div><aside class="record-drawer payment-detail-drawer">'+
+    return '<div class="record-drawer-wrap"><div class="modal-scrim" style="backdrop-filter:none;background:rgba(6,16,13,.15)" data-action="close-payment-detail"></div><aside class="record-drawer payment-detail-drawer">'+
       '<div class="record-drawer-head"><div><div class="eyebrow">BUSINESS PAYMENT</div><h2>'+esc(p.voucherNumber||p.receiptNumber||p.id)+'</h2><p>'+esc(p.payee||'Payee')+'</p></div><button class="close" data-action="close-payment-detail">×</button></div>'+
       '<div class="record-hero"><div><span>Payment amount</span><b>'+money2(p.amount)+'</b><small>'+esc(p.method||'Other')+' · '+esc(account?.name||'No account selected')+'</small></div>'+pill(status,statusClass(status))+'</div>'+
       '<div class="payment-detail-progress">'+steps.map((s,i)=>'<div class="'+(i<=idx&&status!=='Reversed'?'active':'')+'"><span>'+String(i+1)+'</span><b>'+s+'</b></div>').join('<i></i>')+'</div>'+
