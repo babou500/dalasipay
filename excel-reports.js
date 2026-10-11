@@ -87,6 +87,15 @@ async function exportRows(title,headers,data,state,kind,fileBase){
  const ws=wb.addWorksheet(safeSheetName(title),{properties:{defaultRowHeight:20},pageSetup:{orientation:headers.length>7?'landscape':'portrait',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
  addTitle(ws,title,state,kind,headers.length);
  styleTable(ws,headers,data,6);
+ if(kind==='vat-return'){
+  // VAT working paper layout from DalasiTax.exportReturn. Only assign formulas
+  // when the expected source labels match, to avoid linking unrelated figures.
+  const expected=[[19,'Total output VAT'],[24,'Total input VAT'],[26,'Net VAT payable / (credit)'],[27,'VAT payments recorded'],[28,'Outstanding VAT payable'],[29,'VAT credit position']];
+  if(expected.every(([r,label])=>String(ws.getCell('A'+r).value||'')===label)){
+   const formulas=[[19,'C13+C18'],[24,'C22+C23'],[26,'C19-C24'],[28,'MAX(0,C26-C27)'],[29,'MAX(0,-C26)']];
+   formulas.forEach(([r,formula])=>linkedFormula(ws.getCell('C'+r),formula,ws.getCell('C'+r).value));
+  }
+ }
  widths(ws,headers,data);
  ws.pageSetup.printTitlesRow='1:6';
  ws.headerFooter.oddHeader='&LDalasiPay&C'+title+'&RPage &P of &N';
