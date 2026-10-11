@@ -2869,6 +2869,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const pay=window.DalasiBusinessPayments.summary(state.businessPayments||[]);
     return `${window.DalasiCommandCenter.render(state,{pageTitle,icon,money2,esc,pill,payrollCalc,periodLabel,shortPeriod,periodControls})}
     ${firstWorkspaceGuide()}
+    ${window.DALASIPAY_CONFIG?.mode==='supabase'&&state.role==='owner'?'<section id="dashboard-subscription-summary" class="surface subscription-dashboard-card" aria-label="Current subscription plan"><p>Checking current plan…</p></section>':''}
     ${pilotReadinessCard()}
     <div class="executive-kpis"><div class="surface exec-kpi"><span>HEADCOUNT</span><b>${active}</b><small>${state.employees.length-active} non-active records</small></div><div class="surface exec-kpi"><span>GROSS PAYROLL</span><b>${money2(t.gross)}</b><small>${grossVar&&variance.hasBaseline?`${grossVar.pct>=0?'+':''}${grossVar.pct}% vs ${shortPeriod(variance.baselinePeriod)}`:'No prior archived baseline'}</small></div><div class="surface exec-kpi"><span>AVG EMPLOYER COST</span><b>${money2(avgEmployer)}</b><small>per active payroll employee</small></div><div class="surface exec-kpi"><span>PEOPLE ACTIONS</span><b>${onboarding.length+offboarding.length+expiring.length}</b><small>${onboarding.length} onboarding · ${expiring.length} expiry alerts</small></div></div>
     <div class="kpi-grid five-kpis">${kpi('bank','Net payroll',money2(t.net),`${netPct}% of gross`,'after PAYE & deductions')}${kpi('reports','PAYE',money2(t.paye),'Due by 15th','current GRA band defaults',true)}${kpi('calendar','Attendance',`${attendance.rate}%`,`${attendance.configured}/${p.rows.length} updated`,`${attendance.overtime.toFixed(1)} overtime hours`)}${kpi('shield',`${state.rules.scheme} employee contribution`,money2(t.employeeContribution),state.rules.scheme==='NPF'?rate(state.rules.npfEmployeeRate):'Employer only',state.rules.scheme==='NPF'?'of basic salary':'FPS has no employee deduction')}${kpi('employees','Onboarding',onboarding.length,onboarding.length?'Needs HR attention':'All complete','active employee workflows')}</div>
@@ -3394,6 +3395,12 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
+    const planRoot=document.getElementById('dashboard-subscription-summary');
+    if(planRoot){
+      const workspaceId=String(state.org?.id||'');
+      if(window.DalasiCustomerSubscription?.mountSummary)window.DalasiCustomerSubscription.mountSummary(planRoot,{backend:window.DalasiBackend,workspaceId,isCurrent:()=>state.page==='dashboard'&&workspaceId===String(state.org?.id||'')&&!!state.session});
+      else planRoot.textContent='Plan information unavailable. Visit Settings to review your subscription.';
+    }
     const subscriptionRoot=document.getElementById('customer-subscription-content');if(subscriptionRoot){const workspaceId=String(state.org?.id||'');if(window.DalasiCustomerSubscription?.mount)window.DalasiCustomerSubscription.mount(subscriptionRoot,{backend:window.DalasiBackend,workspaceId,isCurrent:()=>workspaceId===String(state.org?.id||'')&&!!state.session});else subscriptionRoot.textContent='Subscription information is temporarily unavailable. Your workspace remains accessible.';}
     document.querySelectorAll('[data-table-search]').forEach(input=>{
       const apply=()=>{const key=input.dataset.tableSearch||'',table=document.querySelector('[data-register-table="'+key+'"]');if(!table)return;const q=String(input.value||'').trim().toLowerCase();table.querySelectorAll('tbody tr').forEach(row=>{if(row.querySelector('.empty-inline'))return;row.hidden=!!q&&!row.textContent.toLowerCase().includes(q);});};
@@ -3747,6 +3754,11 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(target.dataset.run){state.selectedRun=state.runs.find(r=>r.id===target.dataset.run)||null;render();return;}
     const a=target.dataset.action;if(!a)return;
     if(a==='dismiss-toast'){state.toast='';clearTimeout(toast.t);render();return;}
+    if(a==='open-subscription-plans'){
+      state.page='settings';state.searchOpen=false;state.mobileOpen=false;render();
+      document.getElementById('settings-subscription-section')?.scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(a==='verify-subscription-connection'){const result=document.getElementById('subscription-connection-result');const button=target; if(button.disabled)return; button.disabled=true;if(result)result.textContent='Checking your subscription securely…';try{const requestedWorkspace=String(state.org?.id||'');const check=await window.DalasiSubscriptionVerify.verify({getSession:()=>window.DalasiBackend.auth.session(),workspaceId:requestedWorkspace});if(requestedWorkspace!==String(state.org?.id||''))return;if(result?.isConnected)result.textContent=check.message;const panel=document.getElementById('subscription-usage-results');if(panel?.isConnected)panel.innerHTML=check.ok&&check.snapshot&&window.DalasiUsagePanel?.render?window.DalasiUsagePanel.render(check.snapshot,requestedWorkspace):'';}finally{if(button.isConnected)button.disabled=false;}return;}
     if(a.startsWith('settings-jump:')){const key=a.slice('settings-jump:'.length),el=document.getElementById('settings-'+key+'-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return;}
     if(a==='toggle-quick-create'){state.quickCreateOpen=!state.quickCreateOpen;state.notifOpen=false;render();return;}
