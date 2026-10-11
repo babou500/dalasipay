@@ -12,7 +12,7 @@
   }
   function closingLines(state,year){
     year=String(year||'');
-    if(!/^\\d{4}$/.test(year))return [];
+    if(!/^\d{4}$/.test(year))return [];
     const start=year+'-01-01',end=year+'-12-31',accounts=new Map();
     const rows=window.DalasiGeneralLedger?.journals?.(state)||[];
     // Use only the financial year's original transactions. Closing and reopening journals
