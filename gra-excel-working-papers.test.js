@@ -16,6 +16,6 @@ test('tax working paper contains linked computation, adjustments, payment, recon
 });
 test('VAT workbook recalculates totals, net payable and credit',()=>{
  assert.match(excel,/kind==='vat-return'/);
- for(const formula of ['C14+C19','C23+C24','C20-C25','MAX(0,C27-C28)','MAX(0,-C27)'])assert.ok(excel.includes(formula),formula);
+ for(const formula of ['C13+C18','C22+C23','C19-C24','MAX(0,C26-C27)','MAX(0,-C26)'])assert.ok(excel.includes(formula),formula);
  assert.match(excel,/expected\.every/);
 });
