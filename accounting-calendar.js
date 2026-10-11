@@ -27,8 +27,9 @@
     const firstYear=month>=startMonth?year:year-1;
     const start=String(firstYear).padStart(4,'0')+'-'+String(startMonth).padStart(2,'0')+'-01';
     const endYear=firstYear+1;
-    const lastDay=new Date(Date.UTC(endYear,startMonth-1,0)).getUTCDate();
-    const end=String(endYear).padStart(4,'0')+'-'+String(startMonth).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+    const endMonth=startMonth-1;
+    const lastDay=new Date(Date.UTC(endYear,endMonth,0)).getUTCDate();
+    const end=String(endYear).padStart(4,'0')+'-'+String(endMonth).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
     // Calendar-year end is December of the same year, not the preceding December.
     if(startMonth===1)return Object.freeze({start,end:String(firstYear)+'-12-31',label:String(firstYear)});
     return Object.freeze({start,end,label:String(firstYear)+'/'+String(endYear)});
