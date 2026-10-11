@@ -139,3 +139,23 @@ test('the replacement import cannot bypass balance, permissions or closed-period
   assert.match(t.events.toast.at(-1),/closed accounting period/);
   assert.equal(t.state.manualJournals.length,2);
 });
+
+
+test('replacement opening journal rejects omission of a previously linked bank source',()=>{
+  const t=setup();
+  t.w.DalasiOpeningMigration.buildDraft(t.state);t.submit();
+  const first=t.state.manualJournals[0];
+  const approved={...t.ctx,approvedRequest:{id:'approval-3',reason:'Correct opening balances',approvedBy:'Owner'}};
+  assert.equal(t.w.DalasiAccounting.reverseJournal(first.id,t.state,approved),true);
+  const draft=t.w.DalasiOpeningMigration.buildDraft(t.state);
+  draft.lines=[
+    {account:'Other Current Assets',debit:1000,credit:0,memo:'Unlinked replacement'},
+    {account:'Owner / Share Capital',debit:0,credit:1000,memo:'Capital'}
+  ];
+  assert.equal(t.w.DalasiOpeningMigration.totals(draft.lines).balanced,true);
+  const before=t.state.manualJournals.length;
+  t.submit();
+  assert.equal(t.state.manualJournals.length,before);
+  assert.match(t.events.toast.at(-1),/missing an existing linked opening source/);
+  assert.equal(t.state.cashAccounts[0].openingMigrationJournalId,first.id);
+});
