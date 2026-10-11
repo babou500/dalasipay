@@ -80,7 +80,22 @@
       if(x.debit<=0&&x.credit<=0){ctx.toast('Every opening line must contain a debit or credit amount.');return;}
       const a=accountByName(state,x.account);if(!a){ctx.toast('One opening account is no longer available.');return;}x.accountCode=a.code;x.accountType=a.type;
     }
-    const now=new Date().toISOString(),id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextJournalNo(state),actor=state.session?.name||'User';
+    // Replacement must retain source links from the reversed opening migration.
+    // Otherwise old source amounts could be synthesized again in the general ledger.
+    const postedReversed=new Set((state.manualJournals||[]).filter(j=>j.openingMigration&&j.status==='Posted'&&
+      (state.manualJournals||[]).some(r=>j.reversalJournalId&&r.id===j.reversalJournalId&&r.reversalOf===j.id&&r.status==='Posted')).map(j=>j.id));
+    const sourceIncluded=(type,id)=>d.lines.some(x=>x.sourceId===id&&(
+      x.sourceType===type||(type==='fixed-asset'&&x.sourceType==='fixed-asset-dep')));
+    const omittedSources=[
+      ...(state.cashAccounts||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('cash-account',x.id)),
+      ...(state.fixedAssets||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('fixed-asset',x.id)),
+      ...(state.businessLoans||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('loan',x.id))
+    ];
+    if(omittedSources.length){ctx.toast('Replacement is missing an existing linked opening source. Include each bank, asset and loan source before posting to prevent duplicate balances.');return;}
+    const now=new Date().toISOString(),baseId='JRN-'+Date.now().toString(36).toUpperCase();
+    let id=baseId,seq=1;
+    while((state.manualJournals||[]).some(j=>j.id===id))id=baseId+'-'+String(seq++).padStart(2,'0');
+    const journalNo=nextJournalNo(state),actor=state.session?.name||'User';
     const journal={id,journalNo,date:d.date,reference:d.reference||'OPENING-TB',memo:'Opening trial balance migration',lines:d.lines.map(x=>({account:x.account,accountCode:x.accountCode,accountType:x.accountType,debit:x.debit,credit:x.credit,memo:x.memo||'Opening balance'})),debit:t.debit,credit:t.credit,status:'Posted',openingMigration:true,createdAt:now,createdBy:actor,postedAt:now,postedBy:actor,updatedAt:now};
     state.manualJournals=state.manualJournals||[];state.manualJournals.unshift(journal);
     (state.cashAccounts||[]).forEach(a=>{if(d.lines.some(x=>x.sourceType==='cash-account'&&x.sourceId===a.id))a.openingMigrationJournalId=id;});
