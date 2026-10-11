@@ -147,7 +147,7 @@ async function exportProfessionalProfitLoss(state,ctx){
   if(type==='section'){statementRow(ws,row++,label,['','','','',''],'section');return}
   if(type==='ratio'){
    const cur=val(m,key)/100,prior=val(p,key)/100,variance=cur-prior,ytd=val(y,key)/100,excelRow=row;const r=statementRow(ws,row++,label,[cur,prior,variance,cur,ytd],'key');
-   const numerator=key==='grossMargin'?16:27;
+   const numerator=key==='grossMargin'?16:28;
    linkedFormula(r.getCell(2),'IFERROR(B'+numerator+'/B13,0)',cur);
    linkedFormula(r.getCell(3),'IFERROR(C'+numerator+'/C13,0)',prior);
    linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,variance);
@@ -219,13 +219,13 @@ async function exportProfessionalBalanceSheet(state,ctx){
  let row=7;
  const section=(title,items,currentTotal,priorTotal)=>{
   statementRow(ws,row++,title,['','',''],'section');
-  items.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0;statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[Number(a.amount)||0,pv,(Number(a.amount)||0)-pv]);});
-  statementRow(ws,row++,'TOTAL '+title,[currentTotal,priorTotal,currentTotal-priorTotal],'total');
+  items.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
+  const excelRow=row;const total=statementRow(ws,row++,'TOTAL '+title,[currentTotal,priorTotal,currentTotal-priorTotal],'total');linkedFormula(total.getCell(4),'B'+excelRow+'-C'+excelRow,currentTotal-priorTotal);
  };
  section('ASSETS',current.assets,current.totalAssets,prior?.totalAssets||0);
  section('LIABILITIES',current.liabilities,current.totalLiabilities,prior?.totalLiabilities||0);
  statementRow(ws,row++,'EQUITY',['','',''],'section');
- current.equityAccounts.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0;statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[Number(a.amount)||0,pv,(Number(a.amount)||0)-pv]);});
+ current.equityAccounts.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
  statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,current.currentEarnings-(prior?.currentEarnings||0)]);
  statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,current.equity-(prior?.equity||0)],'total');
  statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,current.liabilitiesEquity-(prior?.liabilitiesEquity||0)],'total');
