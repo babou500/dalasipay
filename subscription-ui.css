@@ -68,3 +68,11 @@
 @media(max-width:600px){#settings-subscription-section .subscription-admin-preview .subscription-admin-steps{grid-template-columns:1fr}}
 
 .subscription-request-form{display:grid;gap:14px;margin:18px 0}.subscription-request-form label{display:grid;gap:7px}.subscription-request-form textarea,.subscription-request-form select{font:inherit;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text)}.subscription-request-form textarea{min-height:100px}.subscription-request-form button{justify-self:start}
+
+/* Owner dashboard: read-only server-verified subscription summary. */
+.subscription-dashboard-card{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:17px 20px;margin:0 0 18px;border:1px solid var(--border,#dfe8e4);border-radius:15px;background:var(--panel,#fff)}
+.subscription-dashboard-card .subscription-dashboard-label{display:block;font-size:10.5px;font-weight:800;letter-spacing:.07em;color:var(--muted,#64746e)}
+.subscription-dashboard-card .subscription-dashboard-title{font-size:20px;line-height:1.25;margin:4px 0 5px;color:var(--foreground,#193b2f)}
+.subscription-dashboard-card .subscription-dashboard-description{font-size:12px;line-height:1.5;color:var(--muted,#64746e);margin:0;max-width:640px}
+.subscription-dashboard-card button{margin-left:auto;white-space:nowrap}
+@media(max-width:560px){.subscription-dashboard-card{align-items:flex-start;padding:15px}.subscription-dashboard-card button{width:100%;margin-left:0}}
