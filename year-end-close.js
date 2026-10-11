@@ -10,16 +10,35 @@
     (state.manualJournals||[]).forEach(x=>{const n=String(x.journalNo||'');if(n.startsWith(prefix))max=Math.max(max,Number(n.slice(prefix.length))||0);});
     return prefix+String(max+1).padStart(5,'0');
   }
-  function closingLines(state){
-    const tb=window.DalasiGeneralLedger?.trialBalance?.(state)||{accounts:[]},lines=[];
-    (tb.accounts||[]).filter(a=>a.type==='Revenue').forEach(a=>{const amt=round(a.credit-a.debit);if(Math.abs(amt)>.004)lines.push({account:a.name,accountCode:a.code,accountType:'Revenue',debit:amt>0?amt:0,credit:amt<0?Math.abs(amt):0,memo:'Year-end close'});});
-    (tb.accounts||[]).filter(a=>a.type==='Expense').forEach(a=>{const amt=round(a.debit-a.credit);if(Math.abs(amt)>.004)lines.push({account:a.name,accountCode:a.code,accountType:'Expense',debit:amt<0?Math.abs(amt):0,credit:amt>0?amt:0,memo:'Year-end close'});});
+  function closingLines(state,year){
+    year=String(year||'');
+    if(!/^\d{4}$/.test(year))return [];
+    const start=year+'-01-01',end=year+'-12-31',accounts=new Map();
+    const rows=window.DalasiGeneralLedger?.journals?.(state)||[];
+    // Use only the financial year's original transactions. Closing and reopening journals
+    // are bookkeeping transfers, not another year's trading revenue or expense.
+    const closingIds=new Set((state.manualJournals||[]).filter(j=>j.yearEndClosing).map(j=>String(j.journalNo||j.id)));
+    rows.forEach(row=>{
+      const date=String(row.date||'').slice(0,10);
+      if(date<start||date>end||!['Revenue','Expense'].includes(row.accountType))return;
+      if(closingIds.has(String(row.journalId||'')))return;
+      const key=String(row.accountCode||'')+'|'+String(row.account||'');
+      const found=accounts.get(key)||{account:row.account,accountCode:row.accountCode,accountType:row.accountType,debit:0,credit:0};
+      found.debit=round(found.debit+Number(row.debit||0));found.credit=round(found.credit+Number(row.credit||0));
+      accounts.set(key,found);
+    });
+    const lines=[];
+    accounts.forEach(a=>{
+      const amt=round(a.accountType==='Revenue'?a.credit-a.debit:a.debit-a.credit);
+      if(Math.abs(amt)<.005)return;
+      lines.push({account:a.account,accountCode:a.accountCode,accountType:a.accountType,debit:a.accountType==='Revenue'?(amt>0?amt:0):(amt<0?Math.abs(amt):0),credit:a.accountType==='Revenue'?(amt<0?Math.abs(amt):0):(amt>0?amt:0),memo:'Year-end close'});
+    });
     const debit=round(lines.reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round(lines.reduce((a,x)=>a+(Number(x.credit)||0),0)),diff=round(debit-credit);
     if(Math.abs(diff)>.004)lines.push({account:'Retained Earnings',accountCode:'3200',accountType:'Equity',debit:diff<0?Math.abs(diff):0,credit:diff>0?diff:0,memo:'Transfer annual result to retained earnings'});
     return lines;
   }
   function postClosingJournal(state,year,closeId,user){
-    const lines=closingLines(state),debit=round(lines.reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round(lines.reduce((a,x)=>a+(Number(x.credit)||0),0));
+    const lines=closingLines(state,year),debit=round(lines.reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round(lines.reduce((a,x)=>a+(Number(x.credit)||0),0));
     if(!lines.length||Math.abs(debit-credit)>.01)return null;
     const now=new Date().toISOString(),id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextJournalNo(state);
     const j={id,journalNo,date:String(year)+'-12-31',reference:'YE-CLOSE-'+year,memo:'Year-end closing entries for '+year,lines,debit,credit,status:'Posted',yearEndClosing:true,yearEndCloseId:closeId,createdAt:now,createdBy:user,postedAt:now,postedBy:user,updatedAt:now};
@@ -107,6 +126,7 @@
       '<section class="surface year-close-card"><div class="table-tools"><div><h3>Year-end close history</h3><p>Permanent financial-year close records and snapshots</p></div></div><div class="table-scroll"><table><thead><tr><th>YEAR</th><th>CLOSED BY</th><th>CLOSED AT</th><th>REVENUE</th><th>NET PROFIT</th><th>RETAINED EARNINGS</th><th>STATUS</th><th>EXPORT</th></tr></thead><tbody>'+historyRows+'</tbody></table></div></section>';
   }
   function closeYear(year,state,ctx){
+    if(state.accountingCalendar&&state.accountingCalendar.financialYearStartMonth!==undefined&&state.accountingCalendar.financialYearStartMonth!==1){ctx.toast('Custom financial-year closing is not enabled yet. No closing journal was posted.');return;}
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can close the financial year.');return;}
     year=String(year||'');
     if(record(state,year)){ctx.toast(year+' is already closed.');return;}
@@ -137,6 +157,7 @@
     const rec=record(state,year);if(!rec){state.yearReopenYear=null;ctx.toast('This financial year is not closed.');ctx.render();return;}
     const reason=String(new FormData(ev.target).get('reason')||'').trim();if(reason.length<8){ctx.toast('Enter a clear reason for reopening the financial year.');return;}
     const user=state.session?.name||'User',rev=reverseClosingJournal(state,rec,user,reason);
+    if(!rev){ctx.toast('The original closing journal could not be found. The year remains closed; review its accounting records.');return;}
     rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=user;rec.reopenReason=reason;rec.closingReversalJournalId=rev?.id||'';rec.closingReversalJournalNo=rev?.journalNo||'';
     state.yearReopenYear=null;ctx.audit('accounting.year_reopened',{year,closeId:rec.id,reason,closingReversalJournalId:rec.closingReversalJournalId});ctx.save();ctx.toast(year+' financial year reopened and closing journal reversed');ctx.render();
   }

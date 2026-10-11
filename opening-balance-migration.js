@@ -29,9 +29,18 @@
     return state.openingMigrationDraft;
   }
   function totals(lines){const debit=round((lines||[]).reduce((a,x)=>a+(Number(x.debit)||0),0)),credit=round((lines||[]).reduce((a,x)=>a+(Number(x.credit)||0),0));return {debit,credit,difference:round(debit-credit),balanced:Math.abs(round(debit-credit))<0.01&&debit>0};}
+  // A posted opening migration stays in the audit trail after reversal.
+  // A replacement is allowed only after a matching posted reversal exists.
+  // Merely setting a reversal ID or submitting a pending approval is insufficient.
+  function activeOpeningMigration(state){
+    const rows=state.manualJournals||[];
+    return rows.find(j=>j.openingMigration&&j.status==='Posted'&&!rows.some(r=>
+      !!j.reversalJournalId&&r.id===j.reversalJournalId&&r.reversalOf===j.id&&r.status==='Posted'
+    ))||null;
+  }
   function optionHtml(state,selected=''){return '<option value="">Choose account</option>'+accounts(state).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===selected?'selected':'')+'>'+esc(a.code+' · '+a.name+(a.parentName?' · under '+a.parentName:''))+'</option>').join('');}
   function modal(state,h){
-    const {field,icon,money2}=h,d=state.openingMigrationDraft||buildDraft(state),t=totals(d.lines),existing=(state.manualJournals||[]).find(j=>j.openingMigration);
+    const {field,icon,money2}=h,d=state.openingMigrationDraft||buildDraft(state),t=totals(d.lines),existing=activeOpeningMigration(state);
     const rows=(d.lines||[]).map((x,i)=>'<div class="journal-line opening-migration-line" data-ob-line="'+i+'"><select name="obAccount">'+optionHtml(state,x.account)+'</select><input name="obMemo" value="'+esc(x.memo||'')+'" placeholder="Description"><input name="obDebit" type="number" min="0" step="0.01" value="'+(x.debit||'')+'" placeholder="Debit"><input name="obCredit" type="number" min="0" step="0.01" value="'+(x.credit||'')+'" placeholder="Credit"><button type="button" class="journal-remove" data-action="opening-migration-remove:'+i+'">×</button></div>').join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-opening-migration"></div><form id="opening-migration-form" class="modal-box wide">'+
       '<div class="modal-head"><div><div class="eyebrow">ACCOUNTING MIGRATION</div><h2>Opening Balance Migration</h2><p>Build one complete opening trial balance and post it only when total debits equal total credits.</p></div><button type="button" class="close" data-action="close-opening-migration">×</button></div>'+
@@ -60,7 +69,7 @@
   }
   function submit(ev,state,ctx){
     ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to post opening balances.');return;}
-    if((state.manualJournals||[]).some(j=>j.openingMigration)){ctx.toast('An opening migration has already been posted. Reverse it before importing another.');return;}
+    if(activeOpeningMigration(state)){ctx.toast('An opening migration has already been posted. Reverse it before importing another.');return;}
     const d=readForm(ev.target,state),t=totals(d.lines);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date)){ctx.toast('Choose a valid opening date.');return;}
     if(window.DalasiMonthClose?.isClosed(state,d.date)){ctx.toast('The opening date is in a closed accounting period. Reopen it first.');return;}
@@ -71,7 +80,22 @@
       if(x.debit<=0&&x.credit<=0){ctx.toast('Every opening line must contain a debit or credit amount.');return;}
       const a=accountByName(state,x.account);if(!a){ctx.toast('One opening account is no longer available.');return;}x.accountCode=a.code;x.accountType=a.type;
     }
-    const now=new Date().toISOString(),id='JRN-'+Date.now().toString(36).toUpperCase(),journalNo=nextJournalNo(state),actor=state.session?.name||'User';
+    // Replacement must retain source links from the reversed opening migration.
+    // Otherwise old source amounts could be synthesized again in the general ledger.
+    const postedReversed=new Set((state.manualJournals||[]).filter(j=>j.openingMigration&&j.status==='Posted'&&
+      (state.manualJournals||[]).some(r=>j.reversalJournalId&&r.id===j.reversalJournalId&&r.reversalOf===j.id&&r.status==='Posted')).map(j=>j.id));
+    const sourceIncluded=(type,id)=>d.lines.some(x=>x.sourceId===id&&(
+      x.sourceType===type||(type==='fixed-asset'&&x.sourceType==='fixed-asset-dep')));
+    const omittedSources=[
+      ...(state.cashAccounts||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('cash-account',x.id)),
+      ...(state.fixedAssets||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('fixed-asset',x.id)),
+      ...(state.businessLoans||[]).filter(x=>postedReversed.has(x.openingMigrationJournalId)&&!sourceIncluded('loan',x.id))
+    ];
+    if(omittedSources.length){ctx.toast('Replacement is missing an existing linked opening source. Include each bank, asset and loan source before posting to prevent duplicate balances.');return;}
+    const now=new Date().toISOString(),baseId='JRN-'+Date.now().toString(36).toUpperCase();
+    let id=baseId,seq=1;
+    while((state.manualJournals||[]).some(j=>j.id===id))id=baseId+'-'+String(seq++).padStart(2,'0');
+    const journalNo=nextJournalNo(state),actor=state.session?.name||'User';
     const journal={id,journalNo,date:d.date,reference:d.reference||'OPENING-TB',memo:'Opening trial balance migration',lines:d.lines.map(x=>({account:x.account,accountCode:x.accountCode,accountType:x.accountType,debit:x.debit,credit:x.credit,memo:x.memo||'Opening balance'})),debit:t.debit,credit:t.credit,status:'Posted',openingMigration:true,createdAt:now,createdBy:actor,postedAt:now,postedBy:actor,updatedAt:now};
     state.manualJournals=state.manualJournals||[];state.manualJournals.unshift(journal);
     (state.cashAccounts||[]).forEach(a=>{if(d.lines.some(x=>x.sourceType==='cash-account'&&x.sourceId===a.id))a.openingMigrationJournalId=id;});
@@ -81,5 +105,5 @@
     state.openingMigrationOpen=false;state.openingMigrationDraft=null;state.accountingTab='journals';state.journalDetailId=id;
     ctx.audit('accounting.opening_migration_posted',{journalId:id,journalNo,date:d.date,debit:t.debit,credit:t.credit,lineCount:d.lines.length});ctx.save();ctx.toast(journalNo+' opening trial balance posted');ctx.render();
   }
-  window.DalasiOpeningMigration={buildDraft,totals,modal,bind,addLine,removeLine,submit,readForm};
+  window.DalasiOpeningMigration={buildDraft,totals,activeOpeningMigration,modal,bind,addLine,removeLine,submit,readForm};
 })();
