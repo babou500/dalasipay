@@ -27,7 +27,7 @@ function setup(flow='signin'){
   };
   const attrs=new Map();
   const form={
-    fields:{email:' OWNER@example.com ',password:'strong-password',name:'Owner'},
+    fields:{email:' OWNER@example.com ',password:'strong-password',confirmPassword:'strong-password',name:'Owner'},
     querySelector(sel){return sel==='.auth-submit'?submit:sel==='#auth-progress'?progress:null;},
     closest(sel){return sel==='.auth-card'?card:null;},
     setAttribute(key,value){attrs.set(key,value);},
