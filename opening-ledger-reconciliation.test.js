@@ -18,11 +18,11 @@ test('posted opening journal replaces rather than duplicates cash opening source
  assert.equal(rows.some(x=>x.account==='Opening Balance Equity'),false);
  const tb=w.DalasiGeneralLedger.trialBalance(s),bs=w.DalasiBalanceSheet.statement(s);
  assert.equal(tb.balanced,true);assert.equal(bs.balanced,true);
- assert.equal(bs.totalAssets,1000);assert.equal(bs.totalEquity,1000);
+ assert.equal(bs.totalAssets,1000);assert.equal(bs.equity,1000);
 });
 test('without migration a source opening bank balance still creates a balanced contra',()=>{
  const w=harness(),s=base();s.cashAccounts=[{id:'B1',name:'Access Bank',type:'Bank',openingBalance:1000,openingDate:'2026-01-01'}];
  const tb=w.DalasiGeneralLedger.trialBalance(s),bs=w.DalasiBalanceSheet.statement(s);
  assert.equal(tb.balanced,true);assert.equal(bs.balanced,true);
- assert.equal(bs.totalAssets,1000);assert.equal(bs.totalEquity,1000);
+ assert.equal(bs.totalAssets,1000);assert.equal(bs.equity,1000);
 });
