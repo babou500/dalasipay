@@ -73,6 +73,7 @@ jobs:
           node --check accounting-calendar.test.js
           node --check fiscal-reporting-preview.js
           node --check fiscal-reporting-preview.test.js
+          node --check year-close-fiscal-safety.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
@@ -122,6 +123,7 @@ jobs:
             invoice-detail-view.test.js \
             accounting-calendar.test.js \
             fiscal-reporting-preview.test.js \
+            year-close-fiscal-safety.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \

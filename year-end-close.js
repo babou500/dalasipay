@@ -107,6 +107,7 @@
       '<section class="surface year-close-card"><div class="table-tools"><div><h3>Year-end close history</h3><p>Permanent financial-year close records and snapshots</p></div></div><div class="table-scroll"><table><thead><tr><th>YEAR</th><th>CLOSED BY</th><th>CLOSED AT</th><th>REVENUE</th><th>NET PROFIT</th><th>RETAINED EARNINGS</th><th>STATUS</th><th>EXPORT</th></tr></thead><tbody>'+historyRows+'</tbody></table></div></section>';
   }
   function closeYear(year,state,ctx){
+    if(state.accountingCalendar&&state.accountingCalendar.financialYearStartMonth!==undefined&&state.accountingCalendar.financialYearStartMonth!==1){ctx.toast('Custom financial-year closing is not enabled yet. No closing journal was posted.');return;}
     if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can close the financial year.');return;}
     year=String(year||'');
     if(record(state,year)){ctx.toast(year+' is already closed.');return;}
