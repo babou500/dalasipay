@@ -94,6 +94,12 @@ async function exportRows(title,headers,data,state,kind,fileBase){
  const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=(fileBase||'dalasipay-'+String(kind||'report').replace(/[^a-z0-9-]+/gi,'-').toLowerCase())+'-'+today()+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
+// ExcelJS formula cells need a cached result so the exported statement is readable
+// in Excel previewers before the spreadsheet engine recalculates the workbook.
+function linkedFormula(cell,formula,result){
+ if(!Number.isFinite(Number(result)))return;
+ cell.value={formula,result:Number(result)};
+}
 function previousMonth(period){
  const m=/^(\d{4})-(\d{2})$/.exec(String(period||''));if(!m)return '';
  let y=Number(m[1]),n=Number(m[2])-1;if(n===0){n=12;y--}return y+'-'+String(n).padStart(2,'0');
@@ -140,9 +146,18 @@ async function exportProfessionalProfitLoss(state,ctx){
   const [label,key,type='line']=entry;
   if(type==='section'){statementRow(ws,row++,label,['','','','',''],'section');return}
   if(type==='ratio'){
-   const cur=val(m,key)/100,prior=val(p,key)/100,variance=cur-prior,ytd=val(y,key)/100;const r=statementRow(ws,row++,label,[cur,prior,variance,cur,ytd],'key');for(let c=2;c<=6;c++)r.getCell(c).numFmt=PCT_FMT;return;
+   const cur=val(m,key)/100,prior=val(p,key)/100,variance=cur-prior,ytd=val(y,key)/100,excelRow=row;const r=statementRow(ws,row++,label,[cur,prior,variance,cur,ytd],'key');
+   const numerator=key==='grossMargin'?16:27;
+   linkedFormula(r.getCell(2),'IFERROR(B'+numerator+'/B13,0)',cur);
+   linkedFormula(r.getCell(3),'IFERROR(C'+numerator+'/C13,0)',prior);
+   linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,variance);
+   linkedFormula(r.getCell(5),'B'+excelRow,cur);
+   linkedFormula(r.getCell(6),'IFERROR(F'+numerator+'/F13,0)',ytd);
+   for(let c=2;c<=6;c++)r.getCell(c).numFmt=PCT_FMT;return;
   }
-  const cur=val(m,key),prior=val(p,key),variance=cur-prior,share=pct(cur),ytd=val(y,key);const r=statementRow(ws,row++,label,[cur,prior,variance,share,ytd],type);
+  const cur=val(m,key),prior=val(p,key),variance=cur-prior,share=pct(cur),ytd=val(y,key);const excelRow=row;const r=statementRow(ws,row++,label,[cur,prior,variance,share,ytd],type);
+  linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,variance);
+  linkedFormula(r.getCell(5),'IFERROR(B'+excelRow+'/B13,0)',share);
   r.getCell(5).numFmt=PCT_FMT;
  });
  ws.getColumn(1).width=38;[2,3,4,5,6].forEach(i=>ws.getColumn(i).width=17);ws.pageSetup.printTitlesRow='1:6';
