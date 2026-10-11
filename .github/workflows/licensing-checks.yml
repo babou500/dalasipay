@@ -13,6 +13,9 @@ on:
       - 'accounting-journals.js'
       - 'sales-invoices.js'
       - 'business-payments.js'
+      - 'business-reports.js'
+      - 'report-viewer-*'
+      - 'read-only-viewer-backdrops.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -46,6 +49,9 @@ on:
       - 'accounting-journals.js'
       - 'sales-invoices.js'
       - 'business-payments.js'
+      - 'business-reports.js'
+      - 'report-viewer-*'
+      - 'read-only-viewer-backdrops.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -102,6 +108,7 @@ jobs:
           node --check opening-link-audit.js
           node --check opening-link-audit.test.js
           node --check opening-ledger-reconciliation.test.js
+          node --check read-only-viewer-backdrops.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
@@ -159,6 +166,7 @@ jobs:
             year-close-lifecycle.test.js \
             opening-link-audit.test.js \
             opening-ledger-reconciliation.test.js \
+            read-only-viewer-backdrops.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
