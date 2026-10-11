@@ -12,6 +12,10 @@ on:
       - 'index.html'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
+      - 'excel-reports.js'
+      - 'corporate-tax.js'
+      - 'gra-excel-working-papers.test.js'
+      - 'excel-linked-formulas.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -48,6 +52,10 @@ on:
       - 'index.html'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
+      - 'excel-reports.js'
+      - 'corporate-tax.js'
+      - 'gra-excel-working-papers.test.js'
+      - 'excel-linked-formulas.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -109,6 +117,8 @@ jobs:
           node --check opening-link-audit.test.js
           node --check opening-ledger-reconciliation.test.js
           node --check read-only-viewer-backdrops.test.js
+          node --check excel-linked-formulas.test.js
+          node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
@@ -167,6 +177,8 @@ jobs:
             opening-link-audit.test.js \
             opening-ledger-reconciliation.test.js \
             read-only-viewer-backdrops.test.js \
+            excel-linked-formulas.test.js \
+            gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
