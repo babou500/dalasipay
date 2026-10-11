@@ -78,6 +78,7 @@ jobs:
           node --check year-close-scope-audit.test.js
           node --check year-close-period-profit.test.js
           node --check year-close-reopen-integrity.test.js
+          node --check year-close-lifecycle.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
@@ -131,6 +132,7 @@ jobs:
             year-close-scope-audit.test.js \
             year-close-period-profit.test.js \
             year-close-reopen-integrity.test.js \
+            year-close-lifecycle.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \
