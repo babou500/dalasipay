@@ -90,3 +90,80 @@ test('explicit duplicate signup error routes to sign-in without exposing account
   assert.equal(state.authError,'');
   assert.equal(rendered,1);
 });
+
+
+test('dashboard plan summary trusts only the owned server subscription and preserves Professional Preview',()=>{
+  const businesses=[
+    {id:'fresh',subscription:{plan_id:'free',status:'active',professional_preview:false}},
+    {id:'legacy',subscription:{plan_id:'professional',status:'professional_preview',professional_preview:true}},
+    {id:'team',subscription:{plan_id:'standard',status:'active',professional_preview:false}}
+  ];
+  const data={businesses,billing:false,enforcement:false};
+  assert.deepEqual(api.planSummary(data,'fresh'),{label:'Free Plan',detail:'No payment required. Billing is not active.',status:'active'});
+  assert.match(api.planSummary(data,'legacy').label,/Professional Preview/);
+  assert.equal(api.planSummary(data,'team').label,'Standard Plan');
+  assert.equal(api.planSummary(data,'another-workspace').label,'Plan unavailable');
+  assert.equal(api.planSummary({businesses:[{id:'fresh'}]},'fresh').label,'Plan unavailable');
+  assert.equal(api.planSummary({businesses:[{id:'fresh',subscription:{plan_id:'unexpected'}}]},'fresh').label,'Plan unavailable');
+});
+
+test('dashboard plan mount calls only read-only owner RPC, renders plan text safely and provides comparison navigation',async()=>{
+  class E {
+    constructor(tag){this.tag=tag;this.children=[];this.textContent='';this.isConnected=true;this.dataset={};}
+    replaceChildren(...args){this.children=args;}
+  }
+  const root=new E('section');root.ownerDocument={createElement:tag=>new E(tag)};
+  const calls=[];
+  const backend={getClient:()=>({rpc:async(...args)=>{calls.push(args);return {data:{businesses:[{id:'owned',subscription:{plan_id:'professional',status:'professional_preview',professional_preview:true}}],billing:false,enforcement:false}};}})};
+  await api.mountSummary(root,{backend,workspaceId:'owned'});
+  const texts=root.children.map(x=>x.textContent).join(' ');
+  assert.match(texts,/CURRENT PLAN/);
+  assert.match(texts,/Unlimited Professional Preview/);
+  assert.doesNotMatch(texts,/Free Plan/);
+  const compare=root.children.find(x=>x.tag==='button');
+  assert.equal(compare.textContent,'Compare plans');
+  assert.equal(compare.dataset.action,'open-subscription-plans');
+  assert.deepEqual(calls,[['customer_subscription_portal',{p_action:'list',p_payload:{}}]]);
+});
+
+test('dashboard never labels plan Free on missing record, unauthorized error or mismatched workspace',async()=>{
+  class E{constructor(tag){this.tag=tag;this.children=[];this.textContent='';this.isConnected=true;this.dataset={};}replaceChildren(...c){this.children=c;}}
+  for(const response of [
+    {data:{businesses:[{id:'another',subscription:{plan_id:'free',status:'active'}}],billing:false,enforcement:false}},
+    {data:{businesses:[{id:'owned'}],billing:false,enforcement:false}},
+    {error:{code:'42501',message:'private database diagnostics'}},
+    {data:{businesses:[{id:'owned',subscription:{plan_id:'free',status:'active'}}],billing:true,enforcement:false}}
+  ]){
+    const root=new E('section');root.ownerDocument={createElement:t=>new E(t)};
+    await api.mountSummary(root,{backend:{getClient:()=>({rpc:async()=>response})},workspaceId:'owned'});
+    const text=root.children.map(x=>x.textContent).join(' ');
+    assert.match(text,/Plan unavailable/);
+    assert.doesNotMatch(text,/Free Plan|private database diagnostics/);
+  }
+});
+
+test('dashboard discards delayed plan responses after workspace switch',async()=>{
+  let finish;
+  const pending=new Promise(resolve=>{finish=resolve;});
+  const root={isConnected:true,ownerDocument:{createElement:tag=>({tag,dataset:{},textContent:''})},replaceChildren(...children){this.children=children;}};
+  let current=true;
+  const promise=api.mountSummary(root,{workspaceId:'first',isCurrent:()=>current,backend:{getClient:()=>({rpc:async()=>pending})}});
+  current=false;
+  finish({data:{billing:false,enforcement:false,businesses:[{id:'first',subscription:{plan_id:'free',status:'active'}}]}});
+  await promise;
+  const text=root.children.map(c=>c.textContent).join(' ');
+  assert.match(text,/Checking plan/);
+  assert.doesNotMatch(text,/Free Plan/);
+});
+
+test('dashboard plan card is owner-only, points to actual subscription catalogue, and remains non-enforcing',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  assert.match(html,/state\.role==='owner'\?'<section id="dashboard-subscription-summary"/);
+  assert.match(html,/DalasiCustomerSubscription\.mountSummary\(planRoot/);
+  assert.match(html,/a==='open-subscription-plans'/);
+  assert.match(html,/getElementById\('settings-subscription-section'\)/);
+  assert.match(html,/id="customer-subscription-content"/);
+  assert.match(require('node:fs').readFileSync('subscription-ui.css','utf8'),/\.subscription-dashboard-card/);
+  const source=fs.readFileSync('subscription-customer.js','utf8');
+  assert.doesNotMatch(source,/localStorage|sessionStorage|innerHTML|service_role|access_token/);
+});

@@ -25,6 +25,38 @@
    form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;try{const screenshot=file.files[0];validateWaveScreenshot(screenshot);const saved=await api('wave_submit',{invoice_id:invoice.id,reference:reference.value,idempotency_key:crypto.randomUUID(),...(screenshot?{screenshot_type:screenshot.type}:{})});if(screenshot)await uploadWaveEvidence(client,api,saved.evidence_path,saved.payment_id,screenshot);await reload('Payment reference submitted — Pending Verification. Subscription access is unchanged.');}catch(error){msg.textContent=error.message;button.disabled=false;}});root.append(form);
   }
  }
+ // Dashboard snapshot: use the same owner-scoped, authenticated RPC as Settings.
+ // Never infer Free from a missing record, unavailable server, or plan catalogue.
+ function planSummary(data,workspaceId){
+  const business=owned(data,workspaceId),sub=business?.subscription;
+  if(!business||!sub)return {label:'Plan unavailable',detail:'Open Subscription & Plans for details.'};
+  const id=sub.plan_id;
+  const isPreview=id==='professional'&&sub.professional_preview===true&&sub.status==='professional_preview';
+  const label=isPreview?'Unlimited Professional Preview':({free:'Free Plan',standard:'Standard Plan',professional:'Professional Plan'})[id]||'Plan unavailable';
+  return {label,detail:id==='free'?'No payment required. Billing is not active.':isPreview?'Existing preview access remains unchanged. Billing is not active.':(label==='Plan unavailable'?'Open Subscription & Plans for details.':'Billing is not active.'),status:typeof sub.status==='string'?sub.status:''};
+ }
+ async function mountSummary(root,{backend,workspaceId,isCurrent=()=>true}){
+  if(!root)return;
+  const active=()=>root.isConnected&&isCurrent();
+  const node=(tag,value)=>{const el=root.ownerDocument.createElement(tag);if(value!==undefined)el.textContent=String(value);return el;};
+  const heading=node('span','CURRENT PLAN');heading.className='subscription-dashboard-label';
+  const title=node('h3','Checking plan…');title.className='subscription-dashboard-title';
+  const detail=node('p','Your plan is checked securely for this workspace.');detail.className='subscription-dashboard-description';
+  const compare=node('button','Compare plans');compare.type='button';compare.className='secondary small';compare.dataset.action='open-subscription-plans';
+  root.replaceChildren(heading,title,detail,compare);
+  try{
+   const client=backend.getClient()||await backend.connect();
+   const data=await service(client)('list');
+   if(!active())return;
+   const summary=planSummary(data,workspaceId);
+   title.textContent=summary.label;
+   detail.textContent=summary.detail+(summary.status?' Status: '+summary.status.replaceAll('_',' ')+'.':'');
+  }catch{
+   if(!active())return;
+   title.textContent='Plan unavailable';
+   detail.textContent='Plan information could not be retrieved. Open Subscription & Plans to check again.';
+  }
+ }
  async function mount(root,{backend,workspaceId,isCurrent=()=>true}){
   if(!root)return;const active=()=>root.isConnected&&isCurrent();
   const node=(tag,text)=>{const el=root.ownerDocument.createElement(tag);if(text!==undefined)el.textContent=String(text??'Not recorded');return el;};
@@ -55,5 +87,5 @@
    await load();
   }catch(error){if(active())status.textContent=error.message;}
  }
- return Object.freeze({service,owned,mount,annualPrice,validateWaveScreenshot,uploadWaveEvidence});
+ return Object.freeze({service,owned,mount,mountSummary,planSummary,annualPrice,validateWaveScreenshot,uploadWaveEvidence});
 });
