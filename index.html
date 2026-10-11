@@ -105,7 +105,13 @@
 .auth-next-step p{color:#52665f;font-size:11.5px;line-height:1.5;margin:5px 0 10px}
 .auth-next-actions{display:flex;gap:7px;flex-wrap:wrap}
 .auth-next-actions button{padding:7px 11px;background:#fff;color:#096c52;border:1px solid #acd1c4;border-radius:7px;font-size:11.5px;font-weight:750;cursor:pointer}
-.auth-next-actions button:hover,.auth-next-actions button:focus-visible{background:#e1f3ec;outline-offset:2px}.auth-notice svg{flex:none}.backend-check button{margin-left:auto}.backend-status .inline-buttons{margin-left:auto;flex-wrap:wrap}.sync-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:5px 8px;border-radius:999px;background:var(--panel);border:1px solid var(--border)}
+.auth-next-actions button:hover,.auth-next-actions button:focus-visible{background:#e1f3ec;outline-offset:2px}
+.auth-submit[disabled]{cursor:wait;opacity:.85}
+.auth-spinner{width:16px;height:16px;display:inline-block;flex:none;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:auth-spin .7s linear infinite}
+.auth-submit .auth-spinner{vertical-align:middle;margin-right:9px}
+@keyframes auth-spin{to{transform:rotate(360deg)}}
+.auth-progress:not([hidden]){margin:9px 0 0;font-size:12px;line-height:1.5;color:var(--primary);text-align:center}
+@media(prefers-reduced-motion:reduce){.auth-spinner{animation:none;border-right-color:currentColor;border-style:dashed}}.auth-notice svg{flex:none}.backend-check button{margin-left:auto}.backend-status .inline-buttons{margin-left:auto;flex-wrap:wrap}.sync-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;padding:5px 8px;border-radius:999px;background:var(--panel);border:1px solid var(--border)}
 
 /* v0.15 live pilot readiness */
 .pilot-readiness{padding:22px;margin:18px 0;overflow:hidden}
@@ -1961,6 +1967,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     authError: invalidRecoveryLink?'This password-reset link is invalid or has expired. Request a fresh recovery email.':'',
     authNotice: new URLSearchParams(location.search).get('auth')==='confirmed'?'If you followed a valid confirmation link, you can now sign in. Otherwise, request a new confirmation email.':'',
     authPendingEmail: '',
+    authSubmitting: false,
     payrollStep: 3,
     online: navigator.onLine,
     filter: '',
@@ -2770,12 +2777,12 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(confirmation){eyebrow='EMAIL CONFIRMATION';title='Request confirmation';intro='Enter your email to request a confirmation link, if still needed.'}
     if(recovery){eyebrow='SECURE YOUR ACCOUNT';title='Choose a new password';intro='Create a new password to regain access to your DalasiPay workspace.'}
     const form=confirmation
-      ? `${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}<button class="primary auth-submit">Request confirmation ${icon('arrow',14)}</button>`
+      ? `${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}<button class="primary auth-submit" type="submit">Request confirmation ${icon('arrow',14)}</button>`
       : forgot
-      ? `${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}<button class="primary auth-submit">Send recovery email ${icon('arrow',14)}</button>`
+      ? `${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}<button class="primary auth-submit" type="submit">Send recovery email ${icon('arrow',14)}</button>`
       : recovery
-        ? `${field('New password','<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">')}${field('Confirm password','<input name="confirmPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="Repeat new password">')}<button class="primary auth-submit">Update password ${icon('arrow',14)}</button>`
-        : `${signup?field('Full name','<input name="name" autocomplete="name" required placeholder="Your name">'):''}${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}${field('Password',`<input name="password" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="8" placeholder="At least 8 characters">`)}<button class="primary auth-submit">${signup?'Create account':'Sign in'} ${icon('arrow',14)}</button>`;
+        ? `${field('New password','<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">')}${field('Confirm password','<input name="confirmPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="Repeat new password">')}<button class="primary auth-submit" type="submit">Update password ${icon('arrow',14)}</button>`
+        : `${signup?field('Full name','<input name="name" autocomplete="name" required placeholder="Your name">'):''}${field('Email',`<input name="email" type="email" autocomplete="email" required value="${esc(state.authPendingEmail||'')}" placeholder="you@company.com">`)}${field('Password',`<input name="password" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="8" placeholder="At least 8 characters">`)}<button class="primary auth-submit" type="submit">${signup?'Create account':'Sign in'} ${icon('arrow',14)}</button>`;
     const links=recovery
       ? '<p class="auth-switch"><button data-action="back-signin">Back to sign in</button></p>'
       : forgot||confirmation
@@ -2787,7 +2794,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
           <section class="auth-next-step"><b>New to DalasiPay?</b><p>If a confirmation email was sent, check your inbox and spam folder. You can request another confirmation link if needed.</p><div class="auth-next-actions"><button type="button" data-action="resend-confirmation">Request confirmation</button></div></section>
         </div>`
       : state.authNotice?`<div class="auth-notice" role="status">${esc(state.authNotice)}</div>`:'';
-    return `<div class="auth-shell auth-shell-professional"><div class="auth-brand-panel"><div class="auth-brand"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-copy"><span class="eyebrow">BUSINESS ACCOUNTING · PAYMENTS · PAYROLL</span><h1>Run your business finances from one trusted workspace.</h1><p>Manage sales, expenses, banking, tax, accounting and payroll with clear controls and reliable records.</p><div class="auth-capabilities"><div><span>${icon('reports',16)}</span><b>Accounting</b><small>Ledgers, journals and financial statements</small></div><div><span>${icon('bank',16)}</span><b>Cash & payments</b><small>Receivables, payables and bank controls</small></div><div><span>${icon('shield',16)}</span><b>Compliance</b><small>VAT, tax workflows and audit history</small></div><div><span>${icon('payroll',16)}</span><b>Payroll</b><small>People, approvals and statutory controls</small></div></div></div><div class="auth-brand-footer"><span>Built for businesses in The Gambia</span><small>Powered by BE Business Solutions</small></div></div><div class="auth-card-wrap"><div class="auth-card"><div class="auth-logo-mobile"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-card-heading"><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${esc(intro)}</p></div>${signupOutcomeHtml}${state.authError?`<div class="auth-error" role="alert">${icon('alert',15)} ${esc(state.authError)}</div>`:''}<form id="auth-form">${form}</form>${!production&&!forgot&&!confirmation&&!recovery?`<div class="auth-divider"><span>or</span></div><button class="secondary demo-login" data-action="demo-login">Open demo workspace</button>`:''}${links}<div class="auth-security">${icon('lock',14)}<span><b>Secure sign-in</b><small>Your workspace access is protected and private.</small></span></div><div class="auth-legal">DalasiPay · BE Business Solutions</div></div></div></div>`;
+    return `<div class="auth-shell auth-shell-professional"><div class="auth-brand-panel"><div class="auth-brand"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-copy"><span class="eyebrow">BUSINESS ACCOUNTING · PAYMENTS · PAYROLL</span><h1>Run your business finances from one trusted workspace.</h1><p>Manage sales, expenses, banking, tax, accounting and payroll with clear controls and reliable records.</p><div class="auth-capabilities"><div><span>${icon('reports',16)}</span><b>Accounting</b><small>Ledgers, journals and financial statements</small></div><div><span>${icon('bank',16)}</span><b>Cash & payments</b><small>Receivables, payables and bank controls</small></div><div><span>${icon('shield',16)}</span><b>Compliance</b><small>VAT, tax workflows and audit history</small></div><div><span>${icon('payroll',16)}</span><b>Payroll</b><small>People, approvals and statutory controls</small></div></div></div><div class="auth-brand-footer"><span>Built for businesses in The Gambia</span><small>Powered by BE Business Solutions</small></div></div><div class="auth-card-wrap"><div class="auth-card"><div class="auth-logo-mobile"><span class="brand-icon brand-mark"><img src="./dalasipay-mark.svg" alt="DalasiPay"></span><b>Dalasi<span>Pay</span></b></div><div class="auth-card-heading"><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${esc(intro)}</p></div>${signupOutcomeHtml}${state.authError?`<div class="auth-error" role="alert">${icon('alert',15)} ${esc(state.authError)}</div>`:''}<form id="auth-form">${form}<p class="auth-progress" id="auth-progress" role="status" aria-live="polite" hidden></p></form>${!production&&!forgot&&!confirmation&&!recovery?`<div class="auth-divider"><span>or</span></div><button class="secondary demo-login" data-action="demo-login">Open demo workspace</button>`:''}${links}<div class="auth-security">${icon('lock',14)}<span><b>Secure sign-in</b><small>Your workspace access is protected and private.</small></span></div><div class="auth-legal">DalasiPay · BE Business Solutions</div></div></div></div>`;
   }
   function onboardingScreen(extra=false){
     const production=!!window.DalasiProduction?.configured?.();
@@ -3519,8 +3526,23 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     document.querySelectorAll('[data-member-role]').forEach(el=>el.addEventListener('change',async ev=>{try{await window.DalasiAuth.updateMemberRole(state.org.id,ev.target.dataset.memberRole,ev.target.value);loadOrgState();toast('Workspace role updated');}catch(err){toast(err?.message||'Unable to update role');render();}}));
   }
   async function handleAuth(ev){
-    ev.preventDefault(); state.authError='';state.authNotice=''; const fd=new FormData(ev.target);
-    const flow=state.authView;
+    ev.preventDefault();
+    if(state.authSubmitting)return;
+    const form=ev.target,fd=new FormData(form),flow=state.authView;
+    const messages={signin:'Signing in…',signup:'Processing registration…',forgot:'Requesting password reset…',confirmation:'Requesting confirmation…',recovery:'Updating password…'};
+    const message=messages[flow]||'Please wait…';
+    const card=form?.closest?.('.auth-card');
+    const controls=Array.from(card?.querySelectorAll?.('button, input, select, textarea')||[]);
+    const initialDisabled=controls.map(el=>el.disabled);
+    const submit=form?.querySelector?.('.auth-submit');
+    const initialSubmitHtml=submit?.innerHTML;
+    const progress=form?.querySelector?.('#auth-progress');
+    state.authSubmitting=true;state.authError='';state.authNotice='';
+    controls.forEach(el=>{el.disabled=true;});
+    if(submit){submit.disabled=true;submit.innerHTML='<span class="auth-spinner" aria-hidden="true"></span>'+message;}
+    if(progress){progress.hidden=false;progress.textContent=message+' Please wait.';}
+    form?.setAttribute?.('aria-busy','true');
+    card?.querySelectorAll?.('.auth-notice, .auth-error, .auth-next-steps')?.forEach(el=>{el.hidden=true;});
     try{
       if(state.authView==='confirmation'){
         const email=String(fd.get('email')||'').trim().toLowerCase();state.authPendingEmail=email;
@@ -3553,6 +3575,12 @@ input,select,textarea{font-size:12.5px;min-height:44px}
         if(flow==='signup'&&feedback.notice){state.authView='signin';state.session=null;}
       }else state.authError=err?.message||'Unable to complete authentication.';
       render();
+    }finally{
+      state.authSubmitting=false;
+      form?.removeAttribute?.('aria-busy');
+      controls.forEach((el,i)=>{el.disabled=initialDisabled[i];});
+      if(submit)submit.innerHTML=initialSubmitHtml;
+      if(progress){progress.hidden=true;progress.textContent='';}
     }
   }
 
