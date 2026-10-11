@@ -68,6 +68,7 @@ jobs:
           node --check registration-feedback.test.js
           node --check auth-progress.test.js
           node --check onboarding-customer.test.js
+          node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
@@ -114,6 +115,7 @@ jobs:
             registration-feedback.test.js \
             auth-progress.test.js \
             onboarding-customer.test.js \
+            opening-balance-migration.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \
