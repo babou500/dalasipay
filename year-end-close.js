@@ -157,6 +157,7 @@
     const rec=record(state,year);if(!rec){state.yearReopenYear=null;ctx.toast('This financial year is not closed.');ctx.render();return;}
     const reason=String(new FormData(ev.target).get('reason')||'').trim();if(reason.length<8){ctx.toast('Enter a clear reason for reopening the financial year.');return;}
     const user=state.session?.name||'User',rev=reverseClosingJournal(state,rec,user,reason);
+    if(!rev){ctx.toast('The original closing journal could not be found. The year remains closed; review its accounting records.');return;}
     rec.status='Reopened';rec.reopenedAt=new Date().toISOString();rec.reopenedBy=user;rec.reopenReason=reason;rec.closingReversalJournalId=rev?.id||'';rec.closingReversalJournalNo=rev?.journalNo||'';
     state.yearReopenYear=null;ctx.audit('accounting.year_reopened',{year,closeId:rec.id,reason,closingReversalJournalId:rec.closingReversalJournalId});ctx.save();ctx.toast(year+' financial year reopened and closing journal reversed');ctx.render();
   }
