@@ -234,6 +234,75 @@ async function exportProfessionalBalanceSheet(state,ctx){
  const note=row+1;ws.mergeCells(note,1,note,4);ws.getCell(note,1).value='Comparative Balance Sheet. Prior period is calculated from General Ledger postings through '+(prev?periodEnd(prev):'the prior reporting date')+'.';ws.getCell(note,1).font={name:'Aptos',size:9,italic:true,color:{argb:MUTED}};
  await saveWorkbook(wb,'dalasipay-balance-sheet-'+period,ctx);
 }
+
+async function exportProfessionalCorporateTax(year,state,ctx){
+ if(!window.ExcelJS)throw new Error('Excel export engine is still loading. Refresh and try again.');
+ const api=window.DalasiCorporateTax;if(!api?.computation||!api?.glReconciliation)throw new Error('Corporate tax calculations are unavailable.');
+ const c=api.computation(state,year),gl=api.glReconciliation(state,year),rec=api.filingRecord(state,year);
+ const adjustments=(state.corporateTaxAdjustments||[]).filter(x=>String(x.year)===String(year));
+ const payments=(state.corporateTaxPayments||[]).filter(x=>String(x.year)===String(year));
+ const {wb,ws}=statementWorkbook('GRA Corporate Tax Working Paper',state,'corporate-tax',3);
+ const detailSheet=(name,headers,items)=>{
+  const sheet=wb.addWorksheet(name,{properties:{defaultRowHeight:20}});
+  addTitle(sheet,name,state,'corporate-tax',headers.length);
+  styleTable(sheet,headers,items,6);widths(sheet,headers,items);
+  sheet.getColumn(1).width=Math.max(18,sheet.getColumn(1).width||0);
+  return sheet;
+ };
+ const adj=detailSheet('Tax Adjustments',['Year','Type','Description','Amount'],adjustments.map(x=>[String(x.year),x.kind,x.description,Number(x.amount)||0]));
+ const pay=detailSheet('Tax Payments',['Year','Quarter','Date','Amount','Reference'],payments.map(x=>[String(x.year),x.quarter||'Final',x.date,Number(x.amount)||0,x.reference||'']));
+ const adjEnd=Math.max(7,6+adjustments.length),payEnd=Math.max(7,6+payments.length);
+ const quotedAdj="'Tax Adjustments'!",quotedPay="'Tax Payments'!";
+ ws.getColumn(1).width=42;ws.getColumn(2).width=23;ws.getColumn(3).width=24;
+ statementHeader(ws,6,['Corporate income tax computation', 'GMD','Basis / checks']);
+ const lines=[
+  ['Turnover',c.turnover],['Accounting profit',c.accountingProfit],
+  ['Add-backs',c.addbacks,`SUMIF(${quotedAdj}B7:B${adjEnd},"Add-back",${quotedAdj}D7:D${adjEnd})`],
+  ['Allowable deductions',c.deductions,`SUMIF(${quotedAdj}B7:B${adjEnd},"Deduction",${quotedAdj}D7:D${adjEnd})`],
+  ['Capital allowance',c.capitalAllowance,`SUMIF(${quotedAdj}B7:B${adjEnd},"Capital allowance",${quotedAdj}D7:D${adjEnd})`],
+  ['Losses brought forward',c.losses,`SUMIF(${quotedAdj}B7:B${adjEnd},"Loss brought forward",${quotedAdj}D7:D${adjEnd})`],
+  ['Chargeable income',c.chargeable,'MAX(0,B8+B9-B10-B11-B12)'],
+  ['27% chargeable-income tax',c.profitTax,'ROUND(B13*27%,2)'],
+  [(c.audited?'1%':'2%')+' turnover minimum tax',c.turnoverTax,'ROUND(B7*'+(c.audited?'1%':'2%')+',2)'],
+  ['Corporation tax liability',c.grossTax,'MAX(B14,B15)'],
+  ['Withholding tax credits',c.wht,`SUMIF(${quotedAdj}B7:B${adjEnd},"Withholding tax credit",${quotedAdj}D7:D${adjEnd})`],
+  ['Foreign tax credits',c.foreign,`SUMIF(${quotedAdj}B7:B${adjEnd},"Foreign tax credit",${quotedAdj}D7:D${adjEnd})`],
+  ['Instalments paid',c.paid,`SUM(${quotedPay}D7:D${payEnd})`],
+  ['Final tax payable',c.netDue,'MAX(0,B16-B17-B18-B19)'],
+  ['Tax credit position',c.credit,'MAX(0,B17+B18+B19-B16)']
+ ];
+ lines.forEach((x,i)=>{const row=7+i,r=statementRow(ws,row,x[0],[x[1],i===0?'Source: annual turnover':i===1?'Source: annual profit':'Linked calculation'],[13,16,20,21].includes(row)?'total':'line');if(x[2])linkedFormula(r.getCell(2),x[2],x[1]);});
+ const recon=detailSheet('GL Reconciliation',['Control','Amount','Explanation'],[
+  ['GL tax expense',gl.expense,'Annual posted GL tax expense'],
+  ['Tax computation liability',c.grossTax,'Linked to computation'],
+  ['Provision difference',gl.provisionDifference,'Gross liability minus GL expense'],
+  ['Opening corporate tax payable',gl.openingPayable,'GL opening balance'],
+  ['Corporate tax payments in year',gl.taxPaymentsInYear,'Payments dated within the year'],
+  ['Expected payable movement',gl.expectedMovement,'GL expense less in-year payments'],
+  ['Actual payable movement',gl.currentMovement,'GL closing less opening'],
+  ['Control account difference',gl.controlDifference,'Actual less expected movement'],
+  ['Closing corporate tax payable',gl.closingPayable,'GL closing balance'],
+  ['Reconciliation status',gl.reconciled?'Reconciled':'Action required','Review before GRA submission']
+ ]);
+ linkedFormula(recon.getCell('B8'),"'GRA Corporate Tax Working Paper'!B16",c.grossTax);
+ linkedFormula(recon.getCell('B9'),'B8-B7',gl.provisionDifference);
+ linkedFormula(recon.getCell('B12'),'B7-B11',gl.expectedMovement);
+ linkedFormula(recon.getCell('B14'),'B13-B12',gl.controlDifference);
+ const review=detailSheet('Filing Evidence',['Field','Recorded detail'],[
+  ['Tax year',String(year)],['Return status',rec.status||'Draft'],
+  ['Due date',(Number(year)+1)+'-03-31'],
+  ['Accounts basis',c.audited?'Audited':'Unaudited'],
+  ['Prepared by',rec.preparedBy||''],['Prepared at',rec.preparedAt||''],
+  ['Reviewed by',rec.reviewedBy||''],['Reviewed at',rec.reviewedAt||''],
+  ['Ready by',rec.readyBy||''],['Ready at',rec.readyAt||''],
+  ['Filed by',rec.filedBy||''],['Filed at',rec.filedAt||''],
+  ['GRA acknowledgement',rec.acknowledgementId||''],['Filing note',rec.filingNote||'']
+ ]);
+ ws.getCell('C22').value='Working paper only · verify prevailing GRA rules, deductions and filing requirements before submission.';
+ ws.getCell('C22').alignment={wrapText:true};ws.getRow(22).height=40;
+ wb.calcProperties.fullCalcOnLoad=true;
+ await saveWorkbook(wb,'dalasipay-gra-corporate-tax-working-paper-'+year,ctx);
+}
 function wrapContext(ctx,title,state,kind){
  if(ctx?.__dalasiExcelContext)return ctx;
  const wrapped=Object.create(ctx||null);Object.assign(wrapped,ctx||{});
@@ -281,5 +350,5 @@ function installBusinessReports(){
 }
 function installAll(){installModuleExports();installBusinessReports()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installAll);else installAll();
-window.DalasiExcelReports={parseCsv,exportRows,exportProfessionalProfitLoss,exportProfessionalBalanceSheet,exportProfessionalTrialBalance,exportProfessionalLedger,balanceAsOf,wrapContext,companyName,reportPeriod,installBusinessReports,installModuleExports,version:'1.4.0'};
+window.DalasiExcelReports={exportCorporateTax:exportProfessionalCorporateTax,parseCsv,exportRows,exportProfessionalProfitLoss,exportProfessionalBalanceSheet,exportProfessionalTrialBalance,exportProfessionalLedger,balanceAsOf,wrapContext,companyName,reportPeriod,installBusinessReports,installModuleExports,version:'1.4.0'};
 })();
