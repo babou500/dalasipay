@@ -110,7 +110,7 @@ test('approved posted reversal permits a corrected migration while retaining the
   assert.equal(statement.totalAssets,1000);
   assert.equal(statement.equity,1000);
   assert.equal(statement.difference,0);
-  assert.equal(t.events.saves,2,'no extra persistence beyond two successful migration posts');
+  assert.equal(t.events.saves,3,'both migration posts and the approved reversal are persisted');
 });
 
 test('the replacement import cannot bypass balance, permissions or closed-period checks',()=>{
