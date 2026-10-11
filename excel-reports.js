@@ -90,9 +90,9 @@ async function exportRows(title,headers,data,state,kind,fileBase){
  if(kind==='vat-return'){
   // VAT working paper layout from DalasiTax.exportReturn. Only assign formulas
   // when the expected source labels match, to avoid linking unrelated figures.
-  const expected=[[19,'Total output VAT'],[24,'Total input VAT'],[26,'Net VAT payable / (credit)'],[27,'VAT payments recorded'],[28,'Outstanding VAT payable'],[29,'VAT credit position']];
+  const expected=[[20,'Total output VAT'],[25,'Total input VAT'],[27,'Net VAT payable / (credit)'],[28,'VAT payments recorded'],[29,'Outstanding VAT payable'],[30,'VAT credit position']];
   if(expected.every(([r,label])=>String(ws.getCell('A'+r).value||'')===label)){
-   const formulas=[[19,'C13+C18'],[24,'C22+C23'],[26,'C19-C24'],[28,'MAX(0,C26-C27)'],[29,'MAX(0,-C26)']];
+   const formulas=[[20,'C14+C19'],[25,'C23+C24'],[27,'C20-C25'],[29,'MAX(0,C27-C28)'],[30,'MAX(0,-C27)']];
    formulas.forEach(([r,formula])=>linkedFormula(ws.getCell('C'+r),formula,ws.getCell('C'+r).value));
   }
  }
