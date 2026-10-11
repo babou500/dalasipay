@@ -76,6 +76,7 @@ jobs:
           node --check year-close-fiscal-safety.test.js
           node --check year-close-scope-audit.js
           node --check year-close-scope-audit.test.js
+          node --check year-close-period-profit.test.js
           node --check scripts/cloudflare-source-check.mjs
           node --check licensing-policy.js
           node --check workspace-subscription.js
@@ -127,6 +128,7 @@ jobs:
             fiscal-reporting-preview.test.js \
             year-close-fiscal-safety.test.js \
             year-close-scope-audit.test.js \
+            year-close-period-profit.test.js \
             subscription-usage.test.js \
             subscription-verify.test.js \
             subscription-usage-panel.test.js \
