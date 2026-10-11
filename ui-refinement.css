@@ -3073,3 +3073,131 @@ body{background:
     grid-template-columns:1fr;
   }
 }
+
+/* Invoice-only readability repair (October 2026).
+ * The shared record drawer is a flex column; without non-shrinking children,
+ * long invoice sections collapse behind overflow:hidden on shorter screens.
+ * Keep the full record scrollable and preserve the original financial values. */
+.record-drawer.invoice-detail-drawer{
+  width:min(860px,100vw);
+  max-width:100vw;
+  height:100dvh;
+  max-height:100dvh;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  display:flex;
+  flex-direction:column;
+  scrollbar-gutter:stable;
+}
+.invoice-detail-drawer > *{flex:0 0 auto}
+.invoice-detail-drawer .record-drawer-head{
+  min-height:0;
+  padding:22px 28px;
+  align-items:center;
+  background:var(--panel);
+}
+.invoice-detail-drawer .record-drawer-head h2{
+  margin:5px 0 6px;
+  font-size:clamp(22px,2.6vw,29px);
+  line-height:1.25;
+  overflow-wrap:anywhere;
+}
+.invoice-detail-drawer .record-drawer-head p{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.invoice-detail-drawer .record-drawer-head .close{flex:0 0 auto;min-width:40px;min-height:40px}
+.invoice-detail-drawer .invoice-source-trail{
+  margin:0;
+  padding:14px 28px;
+  gap:9px;
+  font-size:13px;
+  border-bottom:1px solid var(--border);
+}
+.invoice-detail-drawer .invoice-source-trail button{font-size:13px}
+.invoice-detail-drawer .record-hero{margin:22px 28px 0;padding:20px 22px}
+.invoice-detail-drawer .record-hero span{font-size:11px}
+.invoice-detail-drawer .record-hero b{font-size:clamp(27px,3vw,34px);line-height:1.2}
+.invoice-detail-drawer .record-hero small{font-size:13px;line-height:1.5}
+.invoice-detail-drawer .invoice-collection-progress{margin:14px 28px 0;padding:17px 20px}
+.invoice-detail-drawer .invoice-progress-label{font-size:13px}
+.invoice-detail-drawer .invoice-progress-label b{font-size:14px}
+.invoice-detail-drawer .invoice-progress-amounts{font-size:12px}
+.invoice-detail-drawer .record-facts{
+  margin:18px 28px 0;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-content:start;
+  flex-shrink:0;
+}
+.invoice-detail-drawer .record-facts>div{min-height:78px;padding:15px 18px;justify-content:center}
+.invoice-detail-drawer .record-facts span{font-size:11px;line-height:1.4;letter-spacing:.035em}
+.invoice-detail-drawer .record-facts b{
+  margin-top:7px;
+  font-size:14px;
+  line-height:1.5;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+}
+.invoice-detail-drawer .record-section{
+  margin:18px 28px 0;
+  flex-shrink:0;
+  min-height:max-content;
+}
+.invoice-detail-drawer .record-section-head{min-height:57px;padding:15px 18px}
+.invoice-detail-drawer .record-section-head b{font-size:15px;line-height:1.4}
+.invoice-detail-drawer .record-section-head>span{font-size:12px}
+.invoice-detail-drawer .record-line,
+.invoice-detail-drawer .invoice-payment-row{
+  padding:14px 18px;
+  min-height:65px;
+  gap:15px;
+  grid-template-columns:minmax(0,1fr) auto auto;
+}
+.invoice-detail-drawer .invoice-payment-row{grid-template-columns:minmax(0,1fr) auto}
+.invoice-detail-drawer .record-line b,
+.invoice-detail-drawer .invoice-payment-row strong{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.invoice-detail-drawer .record-line small,
+.invoice-detail-drawer .invoice-payment-row small{font-size:12px;line-height:1.5}
+.invoice-detail-drawer .record-line>span,
+.invoice-detail-drawer .record-line>strong,
+.invoice-detail-drawer .invoice-payment-row>b{font-size:13px}
+.invoice-detail-drawer .record-timeline>div{min-height:66px;padding:14px 18px 14px 39px}
+.invoice-detail-drawer .record-timeline>div>i{left:18px;top:22px}
+.invoice-detail-drawer .record-timeline>div:not(:last-child):after{left:21px;top:32px}
+.invoice-detail-drawer .record-timeline b{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.invoice-detail-drawer .record-timeline small{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.invoice-detail-drawer .record-drawer-actions{
+  position:sticky;
+  bottom:0;
+  z-index:6;
+  margin-top:22px;
+  padding:16px 28px calc(16px + env(safe-area-inset-bottom));
+  background:var(--panel);
+  box-shadow:0 -10px 26px rgba(7,35,28,.07);
+}
+.invoice-detail-drawer .record-drawer-actions button{min-height:43px;font-size:13px}
+@media(max-width:760px){
+  .record-drawer.invoice-detail-drawer{width:100vw;scrollbar-gutter:auto}
+  .invoice-detail-drawer .record-drawer-head{padding:18px}
+  .invoice-detail-drawer .invoice-source-trail{padding:12px 18px}
+  .invoice-detail-drawer .record-hero{margin:16px 18px 0}
+  .invoice-detail-drawer .invoice-collection-progress{margin:13px 18px 0}
+  .invoice-detail-drawer .record-facts,.invoice-detail-drawer .record-section{margin:16px 18px 0}
+  .invoice-detail-drawer .record-drawer-actions{padding:13px 18px calc(13px + env(safe-area-inset-bottom))}
+}
+@media(max-width:560px){
+  .invoice-detail-drawer .record-facts{grid-template-columns:1fr}
+  .invoice-detail-drawer .record-facts>div{min-height:67px}
+  .invoice-detail-drawer .record-line{grid-template-columns:minmax(0,1fr) auto}
+  .invoice-detail-drawer .record-line>span{display:block;grid-column:1;grid-row:2}
+  .invoice-detail-drawer .record-line>strong{grid-column:2;grid-row:1 / span 2}
+  .invoice-detail-drawer .record-hero{align-items:flex-start}
+  .invoice-detail-drawer .record-drawer-actions{display:grid;grid-template-columns:1fr}
+  .invoice-detail-drawer .record-drawer-actions>*{width:100%}
+}
+@media(max-width:420px){
+  .invoice-detail-drawer .record-hero{flex-wrap:wrap}
+  .invoice-detail-drawer .record-section-head{align-items:flex-start}
+  .invoice-detail-drawer .invoice-progress-label,
+  .invoice-detail-drawer .invoice-progress-amounts{flex-wrap:wrap}
+}
