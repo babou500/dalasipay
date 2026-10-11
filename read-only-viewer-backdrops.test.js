@@ -17,7 +17,7 @@ test('read-only viewers use light non-blurred backdrops, preserving click-to-clo
   const tag=source.match(new RegExp('<div class="modal-scrim"[^>]*data-action="'+action+'"[^>]*>'));
   assert.ok(tag, file+' missing overlay for '+action);
   assert.match(tag[0],/backdrop-filter:none/,file+' unexpectedly blurs background');
-  assert.match(tag[0],/background:rgba\\(6,16,13,\\.15\\)/,file+' shade unexpectedly changed');
+  assert.ok(tag[0].includes('background:rgba(6,16,13,.15)'),file+' shade unexpectedly changed');
  }
 });
 test('editing and approval dialogs still use default modal overlay',()=>{
