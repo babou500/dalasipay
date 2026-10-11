@@ -226,10 +226,10 @@ async function exportProfessionalBalanceSheet(state,ctx){
  section('LIABILITIES',current.liabilities,current.totalLiabilities,prior?.totalLiabilities||0);
  statementRow(ws,row++,'EQUITY',['','',''],'section');
  current.equityAccounts.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
- statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,current.currentEarnings-(prior?.currentEarnings||0)]);
- statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,current.equity-(prior?.equity||0)],'total');
- statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,current.liabilitiesEquity-(prior?.liabilitiesEquity||0)],'total');
- const diff=Number(current.totalAssets||0)-Number(current.liabilitiesEquity||0),prDiff=(prior?.totalAssets||0)-(prior?.liabilitiesEquity||0);const check=statementRow(ws,row++,'BALANCE CHECK',[diff,prDiff,diff-prDiff],Math.abs(diff)<.01?'key':'total');if(Math.abs(diff)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
+ {const er=row,delta=current.currentEarnings-(prior?.currentEarnings||0),r=statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,delta]);linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
+ {const er=row,delta=current.equity-(prior?.equity||0),r=statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
+ {const er=row,delta=current.liabilitiesEquity-(prior?.liabilitiesEquity||0),r=statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
+ const diff=Number(current.totalAssets||0)-Number(current.liabilitiesEquity||0),prDiff=(prior?.totalAssets||0)-(prior?.liabilitiesEquity||0);const er=row,check=statementRow(ws,row++,'BALANCE CHECK',[diff,prDiff,diff-prDiff],Math.abs(diff)<.01?'key':'total');linkedFormula(check.getCell(4),'B'+er+'-C'+er,diff-prDiff);if(Math.abs(diff)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
  ws.getColumn(1).width=43;[2,3,4].forEach(i=>ws.getColumn(i).width=19);ws.pageSetup.printTitlesRow='1:6';
  const note=row+1;ws.mergeCells(note,1,note,4);ws.getCell(note,1).value='Comparative Balance Sheet. Prior period is calculated from General Ledger postings through '+(prev?periodEnd(prev):'the prior reporting date')+'.';ws.getCell(note,1).font={name:'Aptos',size:9,italic:true,color:{argb:MUTED}};
  await saveWorkbook(wb,'dalasipay-balance-sheet-'+period,ctx);
