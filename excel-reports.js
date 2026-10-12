@@ -270,10 +270,20 @@ async function exportProfessionalBalanceSheet(state,ctx){
  section('ASSETS',current.assets,current.totalAssets,prior?.totalAssets||0);
  section('LIABILITIES',current.liabilities,current.totalLiabilities,prior?.totalLiabilities||0);
  statementRow(ws,row++,'EQUITY',['','',''],'section');
+ const equityFirstRow=row;
  current.equityAccounts.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
  {const er=row,delta=current.currentEarnings-(prior?.currentEarnings||0),r=statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,delta]);linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
- {const er=row,delta=current.equity-(prior?.equity||0),r=statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
- {const er=row,delta=current.liabilitiesEquity-(prior?.liabilitiesEquity||0),r=statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
+ {const er=row,delta=current.equity-(prior?.equity||0),r=statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,delta],'total');
+  // Current-year earnings is already included immediately above the equity total.
+  linkedFormula(r.getCell(2),'SUM(B'+equityFirstRow+':B'+(er-1)+')',current.equity);
+  linkedFormula(r.getCell(3),'SUM(C'+equityFirstRow+':C'+(er-1)+')',prior?.equity||0);
+  linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
+ {const er=row,delta=current.liabilitiesEquity-(prior?.liabilitiesEquity||0),r=statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,delta],'total');
+  const liabilitiesRow=Array.from({length:er-6},(_,i)=>i+7).find(n=>ws.getCell('A'+n).value==='TOTAL LIABILITIES');
+  const equityRow=er-1;
+  if(liabilitiesRow){linkedFormula(r.getCell(2),'B'+liabilitiesRow+'+B'+equityRow,current.liabilitiesEquity);
+   linkedFormula(r.getCell(3),'C'+liabilitiesRow+'+C'+equityRow,prior?.liabilitiesEquity||0);}
+  linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
  const diff=Number(current.totalAssets||0)-Number(current.liabilitiesEquity||0),prDiff=(prior?.totalAssets||0)-(prior?.liabilitiesEquity||0);const er=row,check=statementRow(ws,row++,'BALANCE CHECK',[diff,prDiff,diff-prDiff],Math.abs(diff)<.01?'key':'total');
  const locate=label=>{for(let r=7;r<er;r++)if(ws.getCell('A'+r).value===label)return r;return 0};
  const assetsRow=locate('TOTAL ASSETS'),liabilitiesEquityRow=locate('LIABILITIES + EQUITY');
