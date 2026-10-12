@@ -1451,7 +1451,7 @@ window.DALASIPAY_SEED = [
     return {
       salary: Number(latest?.salary ?? employee.salary) || 0,
       allowance: Number(latest?.allowance ?? employee.allowance) || 0,
-      allowanceItems: Array.isArray(latest?.allowanceItems)?latest.allowanceItems:(Array.isArray(employee.allowanceItems)?employee.allowanceItems:((Number(latest?.allowance ?? employee.allowance)||0)>0?[{label:'Other allowance (legacy)',amount:Number(latest?.allowance ?? employee.allowance)}]:[]))
+      allowanceItems: Array.isArray(latest?.allowanceItems)?latest.allowanceItems:(latest?((Number(latest.allowance)||0)>0?[{label:'Other allowance (legacy)',amount:Number(latest.allowance)}]:[]):(Array.isArray(employee.allowanceItems)?employee.allowanceItems:((Number(employee.allowance)||0)>0?[{label:'Other allowance (legacy)',amount:Number(employee.allowance)}]:[])))
     };
   }
 
