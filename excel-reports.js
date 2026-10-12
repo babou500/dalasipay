@@ -203,10 +203,14 @@ async function exportProfessionalTrialBalance(state,ctx){
  groups.forEach(type=>{
   const items=(t.accounts||[]).filter(a=>a.type===type);if(!items.length)return;
   statementRow(ws,row++,type.toUpperCase(),['','','','',''],'section');
-  items.forEach(a=>{const r=statementRow(ws,row++,String(a.code||''),[String(a.name||''),type,Number(a.debit)||0,Number(a.credit)||0,Number(a.balance)||0]);r.getCell(2).alignment={horizontal:'left'};r.getCell(3).alignment={horizontal:'left'};for(let c=4;c<=6;c++)r.getCell(c).numFmt=MONEY_FMT;});
+  items.forEach(a=>{const excelRow=row,r=statementRow(ws,row++,String(a.code||''),[String(a.name||''),type,Number(a.debit)||0,Number(a.credit)||0,Number(a.balance)||0]);r.getCell(2).alignment={horizontal:'left'};r.getCell(3).alignment={horizontal:'left'};for(let c=4;c<=6;c++)r.getCell(c).numFmt=MONEY_FMT;linkedFormula(r.getCell(6),'D'+excelRow+'-E'+excelRow,Number(a.balance)||0);});
  });
- statementRow(ws,row++,'TOTAL',['','',t.debit,t.credit,t.difference],'total');
- const check=statementRow(ws,row++,'TRIAL BALANCE CHECK',['','',t.debit,t.credit,t.difference],Math.abs(t.difference||0)<.01?'key':'total');if(Math.abs(t.difference||0)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
+ const totalRow=row,total=statementRow(ws,row++,'TOTAL',['','',t.debit,t.credit,t.difference],'total');
+ for(const col of ['D','E'])linkedFormula(total.getCell(col),`SUM(${col}7:${col}${totalRow-1})`,col==='D'?t.debit:t.credit);
+ linkedFormula(total.getCell('F'),'D'+totalRow+'-E'+totalRow,t.difference);
+ const check=statementRow(ws,row++,'TRIAL BALANCE CHECK',['','',t.debit,t.credit,t.difference],Math.abs(t.difference||0)<.01?'key':'total');
+ for(const col of ['D','E','F'])linkedFormula(check.getCell(col),col+totalRow,col==='D'?t.debit:col==='E'?t.credit:t.difference);
+ if(Math.abs(t.difference||0)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
  ws.getColumn(1).width=13;ws.getColumn(2).width=40;ws.getColumn(3).width=15;[4,5,6].forEach(i=>ws.getColumn(i).width=18);ws.pageSetup.printTitlesRow='1:6';
  const note=row+1;ws.mergeCells(note,1,note,6);ws.getCell(note,1).value='Generated from posted double-entry transactions. Difference should be zero before period close.';ws.getCell(note,1).font={name:'Aptos',size:9,italic:true,color:{argb:MUTED}};
  await saveWorkbook(wb,'dalasipay-trial-balance',ctx);
