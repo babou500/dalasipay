@@ -120,6 +120,22 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='trial-balance'&&window.DalasiGeneralLedger?.trialBalance){
+      const t=window.DalasiGeneralLedger.trialBalance(state);
+      const rows=t.accounts.map(a=>[
+        esc(a.code),esc(a.name),esc(a.type),
+        a.balance>0?money2(a.balance):'',
+        a.balance<0?money2(-a.balance):''
+      ]);
+      const netDebit=t.accounts.reduce((sum,a)=>sum+Math.max(0,Number(a.balance)||0),0);
+      const netCredit=t.accounts.reduce((sum,a)=>sum+Math.max(0,-Number(a.balance)||0),0);
+      const difference=Math.round((netDebit-netCredit)*100)/100;
+      const reconciled=Math.abs(difference)<0.01;
+      rows.push(['','TOTAL','',money2(netDebit),money2(netCredit)]);
+      return '<div class="report-preview-kpis"><div><span>Debit balances</span><b>'+money2(netDebit)+'</b></div><div><span>Credit balances</span><b>'+money2(netCredit)+'</b></div><div><span>Difference</span><b>'+money2(Math.abs(difference))+'</b></div><div><span>Balance check</span><b>'+(reconciled?'Balanced':'Out of balance')+'</b></div></div>'
+        +'<p class="report-preview-note">Account closing balances from the live general ledger. '+(reconciled?'Debit and credit balances agree.':'Review journals and opening entries before relying on this report.')+'</p>'
+        +previewTable(['Code','Account','Type','Debit (D)','Credit (D)'],rows,esc);
+    }
     if(kind==='profit-loss'&&window.DalasiProfitLoss)return window.DalasiProfitLoss.panel(state,h);
     if(kind==='balance-sheet'&&window.DalasiBalanceSheet)return window.DalasiBalanceSheet.panel(state,h);
     if(kind==='equity-statement'&&window.DalasiEquityStatement)return window.DalasiEquityStatement.render(state,h);
