@@ -23,7 +23,6 @@ DO $$BEGIN
  IF (SELECT count(*) FROM public.helpdesk_tickets)<>1 THEN RAISE EXCEPTION 'owner cannot read own ticket'; END IF;
 END$$;
 -- Failed inserts are isolated in savepoints to keep assertions transaction-safe.
-SAVEPOINT cross_workspace;
 DO $$BEGIN
  BEGIN
   INSERT INTO public.helpdesk_tickets (organization_id,created_by,category,subject,details) VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','11111111-1111-4111-8111-111111111111','Technical problem','Invalid org','Expected RLS denial');
@@ -31,7 +30,6 @@ DO $$BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
 END$$;
-RELEASE SAVEPOINT cross_workspace;
 SET request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
 DO $$BEGIN
  IF (SELECT count(*) FROM public.helpdesk_tickets)<>0 THEN RAISE EXCEPTION 'other user can read tickets'; END IF;
