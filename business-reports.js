@@ -120,6 +120,24 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if((kind==='month-end-close'||kind==='year-end-close')){
+      const isYear=kind==='year-end-close';
+      const period=String(state.currentPeriod||'');
+      const key=isYear?period.slice(0,4):period;
+      const engine=isYear?window.DalasiYearClose:window.DalasiMonthClose;
+      if(engine?.readiness&&key){
+        const closed=engine.record?.(state,key);
+        const result=engine.readiness(state,key);
+        if(result){
+          const checks=result.checks||[],blocking=checks.filter(x=>x.blocking!==false);
+          const passed=blocking.filter(x=>x.done).length;
+          const rows=checks.map(x=>[esc(x.label||''),x.done?'Ready':'Needs attention',x.blocking===false?'Advisory':'Required',esc(x.detail||'')]);
+          return '<div class="report-preview-kpis"><div><span>Period</span><b>'+esc(key)+'</b></div><div><span>Close status</span><b>'+(closed?'Closed':result.ready?'Ready to close':'Not ready')+'</b></div><div><span>Required checks passed</span><b>'+passed+' / '+blocking.length+'</b></div></div>'
+            +'<p class="report-preview-note">Read-only closing controls. Review and approve closing actions in the accounting module.</p>'
+            +previewTable(['Control','Status','Requirement','Details'],rows,esc);
+        }
+      }
+    }
     if((kind==='project-profitability'||kind==='cost-centre-performance')&&window.DalasiDimensions?.dimensionRows){
       const type=kind==='project-profitability'?'project':'costCentre';
       const selectedPeriod=String(state.dimensionsPeriod||state.currentPeriod||'');
