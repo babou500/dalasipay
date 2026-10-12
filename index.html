@@ -3014,7 +3014,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
   function allowanceEditor(items=[]){
     const rows=items.length?items:[{label:'Transport allowance',amount:''},{label:'Telephone allowance',amount:''}];
-    return '<div class="employee-allowance-editor"><div class="employee-allowance-list">'+rows.map(a=>'<div class="employee-allowance-row"><label>Allowance name<input name="allowanceLabel" maxlength="60" placeholder="e.g. Transport allowance" value="'+esc(a.label)+'"></label><label>Monthly amount (D)<input name="allowanceAmount" type="number" min="0" step="0.01" value="'+esc(a.amount??'')+'"></label><button class="secondary employee-allowance-remove" type="button" aria-label="Remove allowance">Remove</button></div>').join('')+'</div><button class="secondary employee-allowance-add" type="button">+ Add another allowance</button><p class="employee-form-note">Name each allowance separately. Every amount appears on the payslip and contributes to gross pay.</p></div>';
+    return '<div class="employee-allowance-editor"><div class="employee-allowance-list">'+rows.map(a=>'<div class="employee-allowance-row"><label>Allowance name<input name="allowanceLabel" maxlength="60" placeholder="e.g. Transport allowance" value="'+esc(a.label)+'"></label><label>Monthly amount (D)<input name="allowanceAmount" type="number" min="0" step="0.01" value="'+esc(a.amount??'')+'"></label><button class="secondary employee-allowance-remove" type="button" aria-label="Remove allowance">Remove</button></div>').join('')+'</div><button class="secondary employee-allowance-add" type="button">+ Add another allowance</button><p class="employee-allowance-total" aria-live="polite">Total monthly allowances: <strong>D0.00</strong></p><p class="employee-form-note">Name each allowance separately. Every amount appears on the payslip and contributes to gross pay.</p></div>';
   }
   function readAllowanceEditor(form){
     const rows=[...form.querySelectorAll('.employee-allowance-row')],items=[];
@@ -3446,6 +3446,16 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
+    document.querySelectorAll('.employee-allowance-editor').forEach(editor=>{
+      const updateTotal=()=>{
+        const total=[...editor.querySelectorAll('[name="allowanceAmount"]')].reduce((sum,el)=>sum+(Number(el.value)||0),0);
+        const label=editor.querySelector('.employee-allowance-total strong');
+        if(label)label.textContent='D'+Math.max(0,total).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+      };
+      editor.addEventListener('input',updateTotal);
+      editor.addEventListener('click',()=>queueMicrotask(updateTotal));
+      updateTotal();
+    });
     const ticketForm=document.getElementById('dalasipay-ticket-form');
     const ticketHistory=document.getElementById('dalasipay-ticket-history');
     const ticketFeedback=document.getElementById('dalasipay-ticket-feedback');
