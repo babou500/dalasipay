@@ -38,6 +38,7 @@ on:
       - 'recurring-cashforecast-onscreen.test.js'
       - 'dimension-reports-onscreen.test.js'
       - 'period-close-onscreen.test.js'
+      - 'report-payment-fields.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -108,6 +109,7 @@ on:
       - 'recurring-cashforecast-onscreen.test.js'
       - 'dimension-reports-onscreen.test.js'
       - 'period-close-onscreen.test.js'
+      - 'report-payment-fields.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -201,6 +203,7 @@ jobs:
           node --check recurring-cashforecast-onscreen.test.js
           node --check dimension-reports-onscreen.test.js
           node --check period-close-onscreen.test.js
+          node --check report-payment-fields.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
           node --check helpdesk-ticket-foundation.test.js
@@ -302,6 +305,7 @@ jobs:
             recurring-cashforecast-onscreen.test.js \
             dimension-reports-onscreen.test.js \
             period-close-onscreen.test.js \
+            report-payment-fields.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
