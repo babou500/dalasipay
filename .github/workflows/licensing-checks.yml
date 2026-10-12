@@ -134,6 +134,8 @@ jobs:
           node --check helpdesk-ticket-foundation.test.js
           node --check helpdesk-ticket-validation.mjs
           node --check helpdesk-ticket-validation.test.mjs
+          node --check cloudflare-licensing-worker/helpdesk-api.mjs
+          node --check cloudflare-licensing-worker/helpdesk-api.test.mjs
           node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
@@ -199,6 +201,7 @@ jobs:
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
             helpdesk-ticket-validation.test.mjs \
+            cloudflare-licensing-worker/helpdesk-api.test.mjs \
             gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
