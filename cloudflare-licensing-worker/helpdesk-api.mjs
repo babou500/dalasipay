@@ -12,8 +12,8 @@ export async function handleHelpdeskRequest(request,env,fetchImpl=fetch){
  if(!bearer?.startsWith('Bearer ')||bearer.length>16000)return reply(401,{ok:false});
  let input;
  try{const body=await request.text();if(body.length>7000)return reply(413,{ok:false});input=JSON.parse(body);}catch{return reply(400,{ok:false});}
- if(input?.action!=='create')return reply(400,{ok:false});
- let ticket;try{ticket=prepareTicket(input.ticket);}catch{return reply(400,{ok:false});}
+ if(!['create','list'].includes(input?.action))return reply(400,{ok:false});
+ let ticket;if(input.action==='create'){try{ticket=prepareTicket(input.ticket);}catch{return reply(400,{ok:false});}}}
  const headers={apikey:key,authorization:bearer,'cache-control':'no-store'};
  try{
   const result=await fetchImpl(BASE+'/auth/v1/user',{headers,redirect:'manual',signal:AbortSignal.timeout(10000)});
@@ -21,6 +21,16 @@ export async function handleHelpdeskRequest(request,env,fetchImpl=fetch){
   if(!result.ok)return reply(503,{ok:false});
   const user=await result.json();
   if(typeof user?.id!=='string'||!user.email_confirmed_at)return reply(403,{ok:false});
+  if(input.action==='list'){
+   const params=new URLSearchParams({select:'id,organization_id,category,subject,status,created_at,updated_at',created_by:'eq.'+user.id,order:'created_at.desc',limit:'50'});
+   const read=await fetchImpl(BASE+'/rest/v1/helpdesk_tickets?'+params,{headers,redirect:'manual',signal:AbortSignal.timeout(10000)});
+   if(read.status===401||read.status===403)return reply(403,{ok:false});
+   if(!read.ok)return reply(503,{ok:false});
+   const tickets=await read.json();
+   if(!Array.isArray(tickets))return reply(503,{ok:false});
+   // Database RLS is authoritative; the identity filter provides defense in depth.
+   return reply(200,{ok:true,tickets:tickets.map(t=>({reference:ticketReference(t.id),category:t.category,subject:t.subject,status:t.status,created_at:t.created_at,updated_at:t.updated_at}))});
+  }
   const created=await fetchImpl(BASE+'/rest/v1/helpdesk_tickets?select=id,status,created_at',{
    method:'POST',headers:{...headers,'content-type':'application/json',prefer:'return=representation'},
    body:JSON.stringify({...ticket,created_by:user.id}),redirect:'manual',signal:AbortSignal.timeout(10000)
