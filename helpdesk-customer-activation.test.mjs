@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const app=fs.readFileSync('index.html','utf8'),worker=fs.readFileSync('cloudflare-licensing-worker/index.mjs','utf8');
+test('tracked ticket UI is gated and email help remains available',()=>{assert.match(app,/DALASIPAY_HELPDESK_TICKETS_ENABLED===true/);assert.match(app,/dalasipay-ticket-form/);assert.match(app,/action:'list'/);assert.match(app,/action:'create'/);assert.match(app,/mailto:info@bebusinesssolutionsgm.com/);});
+test('ticket requests require the authenticated session and same-origin HTTPS',()=>{assert.match(app,/auth\.session/);assert.match(app,/session\.access_token/);assert.match(app,/parsed\.origin!==window\.location\.origin/);assert.match(app,/parsed\.protocol!=='https:'/);});
+test('server endpoint remains unavailable without explicit enable flag',()=>{assert.match(worker,/DALASIPAY_HELPDESK_TICKETS_ENABLED!=='true'/);assert.match(worker,/status:404/);assert.match(worker,/handleHelpdeskRequest\(request,env\)/);});
