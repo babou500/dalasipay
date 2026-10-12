@@ -120,6 +120,16 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='product-margin'&&window.DalasiInventory?.productMargins){
+      const selectedPeriod=String(state.inventoryPeriod||state.currentPeriod||'');
+      const products=window.DalasiInventory.productMargins(state,selectedPeriod);
+      const revenue=products.reduce((sum,p)=>sum+(Number(p.revenue)||0),0);
+      const cogs=products.reduce((sum,p)=>sum+(Number(p.cogs)||0),0);
+      const rows=products.map(p=>[esc(p.code||''),esc(p.name||''),String(p.qty||0),money2(p.revenue||0),money2(p.cogs||0),money2(p.grossProfit||0),String(p.margin||0)+'%']);
+      return '<div class="report-preview-kpis"><div><span>Revenue</span><b>'+money2(revenue)+'</b></div><div><span>Cost of goods sold</span><b>'+money2(cogs)+'</b></div><div><span>Gross profit</span><b>'+money2(revenue-cogs)+'</b></div><div><span>Gross margin</span><b>'+(revenue?((revenue-cogs)/revenue*100).toFixed(2):'0.00')+'%</b></div></div>'
+        +'<p class="report-preview-note">Product sales margin for '+esc(selectedPeriod)+'. Uses recorded sales and inventory costing.</p>'
+        +previewTable(['Code','Product','Quantity sold','Revenue (D)','COGS (D)','Gross profit (D)','Margin'],rows,esc);
+    }
     if(kind==='credit-control'&&window.DalasiCreditControl?.customerRows){
       const summary=window.DalasiCreditControl.summary(state);
       const customers=window.DalasiCreditControl.customerRows(state);
