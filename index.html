@@ -2343,7 +2343,10 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     if(calc.customDeduction)deductions.push(['Other deduction','- '+money2(calc.customDeduction)]);
     deductions.push(['Total deductions','- '+money2(calc.totalDeductions),true]);
 
-    const cardTop=608,rowH=23,headerH=31;
+    // Keep the summary, year-to-date block and footer clear on dense payslips.
+    // The row count covers each named allowance plus all optional earnings.
+    const cardTop=608,headerH=31,maxRows=Math.max(earnings.length,deductions.length);
+    const rowH=Math.max(14,Math.min(23,Math.floor((cardTop-headerH-310)/maxRows)));
     const drawCard=(x,w,title,items)=>{
       const h=headerH+items.length*rowH,y=cardTop-h;
       rect(x,y,w,h,white,line,.6);
