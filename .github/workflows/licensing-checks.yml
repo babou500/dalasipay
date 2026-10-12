@@ -27,6 +27,7 @@ on:
       - 'trial-balance-excel-formulas.test.js'
       - 'trial-balance-onscreen.test.js'
       - 'general-ledger-onscreen.test.js'
+      - 'bank-reconciliations-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -86,6 +87,7 @@ on:
       - 'trial-balance-excel-formulas.test.js'
       - 'trial-balance-onscreen.test.js'
       - 'general-ledger-onscreen.test.js'
+      - 'bank-reconciliations-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -168,6 +170,7 @@ jobs:
           node --check trial-balance-excel-formulas.test.js
           node --check trial-balance-onscreen.test.js
           node --check general-ledger-onscreen.test.js
+          node --check bank-reconciliations-onscreen.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
           node --check helpdesk-ticket-foundation.test.js
@@ -258,6 +261,7 @@ jobs:
             trial-balance-excel-formulas.test.js \
             trial-balance-onscreen.test.js \
             general-ledger-onscreen.test.js \
+            bank-reconciliations-onscreen.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
