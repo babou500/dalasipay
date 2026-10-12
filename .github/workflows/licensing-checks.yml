@@ -10,6 +10,7 @@ on:
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
       - 'index.html'
+      - 'employee-wizard.test.js'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
       - 'excel-reports.js'
@@ -59,6 +60,7 @@ on:
       - 'licensing-*.mjs'
       - 'workspace-subscription*'
       - 'index.html'
+      - 'employee-wizard.test.js'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
       - 'excel-reports.js'
@@ -120,6 +122,7 @@ jobs:
           node --check registration-feedback.test.js
           node --check auth-progress.test.js
           node --check onboarding-customer.test.js
+          node --check employee-wizard.test.js
           node --check invoice-detail-view.test.js
           node --check accounting-calendar.js
           node --check accounting-calendar.test.js
@@ -203,6 +206,7 @@ jobs:
             registration-feedback.test.js \
             auth-progress.test.js \
             onboarding-customer.test.js \
+            employee-wizard.test.js \
             invoice-detail-view.test.js \
             accounting-calendar.test.js \
             fiscal-reporting-preview.test.js \

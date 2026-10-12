@@ -3101,20 +3101,20 @@ input,select,textarea{font-size:12.5px;min-height:44px}
 
   function info(label,value,warn=false){return `<div class="info"><span>${label}</span><b class="${warn?'warn-text':''}">${esc(value)}</b></div>`}
   function addEmployeeModal(){
-    return `<div class="center-modal employee-form-modal"><div class="modal-scrim" data-action="close-add"></div><form id="add-employee-form" class="modal-box xwide employee-master-form">
+    return `<div class="center-modal employee-form-modal"><div class="modal-scrim" data-action="close-add"></div><form id="add-employee-form" class="modal-box xwide employee-master-form employee-wizard" novalidate>
       <div class="modal-head employee-form-head"><div><div class="eyebrow">NEW EMPLOYEE</div><h2>Add employee</h2><p>Create the employee master record, payroll setup and onboarding profile in one place.</p></div><button type="button" class="close" data-action="close-add">×</button></div>
-      <div class="employee-form-body">
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('user',16)}</span><div><h3>Personal & contact details</h3><p>Core employee identity and communication information.</p></div></div><div class="form-grid">${field('Full name','<input name="name" required placeholder="e.g. Fatou Jallow">')}${field('Email','<input name="email" type="email" required placeholder="name@company.com">')}${field('WhatsApp / phone','<input name="phone" placeholder="+220 ..." required>')}</div></section>
+      <nav class="employee-wizard-progress" aria-label="Employee setup steps"><span>1 Personal</span><span>2 Employment</span><span>3 Pay</span><span>4 Statutory</span><span>5 Payment</span></nav><p class="employee-wizard-count" aria-live="polite">Step 1 of 5</p><div class="employee-form-body">
+        <section class="employee-form-section" data-wizard-panel="0"><div class="employee-form-section-head"><span>${icon('user',16)}</span><div><h3>Personal & contact details</h3><p>Core employee identity and communication information.</p></div></div><div class="form-grid">${field('Full name','<input name="name" required placeholder="e.g. Fatou Jallow">')}${field('Email','<input name="email" type="email" required placeholder="name@company.com">')}${field('WhatsApp / phone','<input name="phone" placeholder="+220 ..." required>')}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('employees',16)}</span><div><h3>Employment & organisation</h3><p>Position, department, grade and contract setup.</p></div></div><div class="form-grid">${field('Job title','<input name="role" required placeholder="e.g. Finance Officer">')}${field('Department',`<select name="department">${departmentOptions()}</select>`)}${field('Job grade',`<select name="jobGrade">${gradeOptions()}</select>`)}${field('Employment type','<select name="employmentType"><option>Permanent</option><option>Fixed term</option><option>Temporary</option><option>Intern</option></select>')}${field('Contract end date','<input name="contractEnd" type="date">')}${field('Status','<select name="status"><option>Active</option><option>On leave</option></select>')}</div></section>
+        <section class="employee-form-section" data-wizard-panel="1" hidden><div class="employee-form-section-head"><span>${icon('employees',16)}</span><div><h3>Employment & organisation</h3><p>Position, department, grade and contract setup.</p></div></div><div class="form-grid">${field('Job title','<input name="role" required placeholder="e.g. Finance Officer">')}${field('Department',`<select name="department">${departmentOptions()}</select>`)}${field('Job grade',`<select name="jobGrade">${gradeOptions()}</select>`)}${field('Employment type','<select name="employmentType"><option>Permanent</option><option>Fixed term</option><option>Temporary</option><option>Intern</option></select>')}${field('Contract end date','<input name="contractEnd" type="date">')}${field('Status','<select name="status"><option>Active</option><option>On leave</option></select>')}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Compensation</h3><p>Starting salary and recurring fixed allowance used by payroll.</p></div></div><div class="form-grid">${field('Basic salary (D)','<input name="salary" required type="number" min="0" step="0.01">')}${field('Fixed allowance (D)','<input name="allowance" type="number" min="0" step="0.01" value="0">')}</div><div class="employee-form-note">Job-grade salary bands are advisory. DalasiPay will flag an out-of-band salary for review but will not change the amount automatically.</div></section>
+        <section class="employee-form-section" data-wizard-panel="2" hidden><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Compensation</h3><p>Starting salary and recurring fixed allowance used by payroll.</p></div></div><div class="form-grid">${field('Basic salary (D)','<input name="salary" required type="number" min="0" step="0.01">')}${field('Fixed allowance (D)','<input name="allowance" type="number" min="0" step="0.01" value="0">')}</div><div class="employee-form-note">Job-grade salary bands are advisory. DalasiPay will flag an out-of-band salary for review but will not change the amount automatically.</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('shield',16)}</span><div><h3>Statutory details</h3><p>Identifiers used for payroll administration and compliance records.</p></div></div><div class="form-grid">${field('TIN','<input name="tin" placeholder="Tax identification number">')}${field('SSHFC number','<input name="sshfc" placeholder="SSHFC membership number">')}</div></section>
+        <section class="employee-form-section" data-wizard-panel="3" hidden><div class="employee-form-section-head"><span>${icon('shield',16)}</span><div><h3>Statutory details</h3><p>Identifiers used for payroll administration and compliance records.</p></div></div><div class="form-grid">${field('TIN','<input name="tin" placeholder="Tax identification number">')}${field('SSHFC number','<input name="sshfc" placeholder="SSHFC membership number">')}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Payment & payslip delivery</h3><p>Where salary is paid and how payslips should be delivered.</p></div></div><div class="form-grid">${field('Bank / mobile money','<input name="bank" placeholder="Bank name, account or mobile-money details">')}${field('Payslip preference','<select name="delivery"><option>Email</option><option>WhatsApp</option><option>Both</option><option>Print only</option></select>')}</div></section>
+        <section class="employee-form-section" data-wizard-panel="4" hidden><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Payment & payslip delivery</h3><p>Where salary is paid and how payslips should be delivered.</p></div></div><div class="form-grid">${field('Bank / mobile money','<input name="bank" placeholder="Bank name, account or mobile-money details">')}${field('Payslip preference','<select name="delivery"><option>Email</option><option>WhatsApp</option><option>Both</option><option>Print only</option></select>')}</div></section>
       </div>
-      <div class="employee-form-footer"><div class="employee-form-assurance">${icon('check',15)} <span>An onboarding checklist will be created automatically after the employee is saved.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-add">Cancel</button><button class="primary">${icon('plus',14)} Add employee</button></div></div>
+      <div class="employee-form-footer"><div class="employee-form-assurance">${icon('check',15)} <span>An onboarding checklist will be created automatically after the employee is saved.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-add">Cancel</button><button type="button" class="secondary" id="employee-wizard-back" hidden>Back</button><button type="button" class="primary" id="employee-wizard-next">Next</button><button type="submit" class="primary" id="employee-wizard-submit" hidden>${icon('plus',14)} Add employee</button></div></div>
     </form></div>`;
   }
 
@@ -3581,7 +3581,36 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const pas=document.getElementById('payroll-account-select');if(pas)pas.addEventListener('change',e=>{const b=batchForPeriod();if(b){b.accountId=e.target.value||null;save();toast('Payroll payment account selected')}});
     const gs=document.getElementById('global-search');if(gs){setTimeout(()=>gs.focus(),0);gs.addEventListener('input',e=>updateSearchResults(e.target.value));}
     const rls=document.getElementById('report-library-search');if(rls){rls.addEventListener('input',e=>{const q=String(e.target.value||'').trim().toLowerCase(),cards=[...document.querySelectorAll('[data-report-card]')];let visible=0;cards.forEach(card=>{const show=!q||String(card.dataset.reportSearch||'').includes(q);card.hidden=!show;if(show)visible++;});const empty=document.getElementById('report-library-empty');if(empty)empty.hidden=visible>0;});}
-    const form=document.getElementById('add-employee-form');if(form)form.addEventListener('submit',addEmployee);
+    const form=document.getElementById('add-employee-form');
+    if(form){
+      const panels=[...form.querySelectorAll('[data-wizard-panel]')];
+      const steps=[...form.querySelectorAll('.employee-wizard-progress span')];
+      const counter=form.querySelector('.employee-wizard-count');
+      const back=form.querySelector('#employee-wizard-back'),next=form.querySelector('#employee-wizard-next'),submit=form.querySelector('#employee-wizard-submit');
+      let current=0;
+      const displayStep=index=>{
+        current=index;
+        panels.forEach((panel,i)=>{panel.hidden=i!==index;});
+        steps.forEach((step,i)=>{step.classList.toggle('is-active',i===index);step.classList.toggle('is-complete',i<index);});
+        counter.textContent='Step '+(index+1)+' of '+panels.length;
+        back.hidden=index===0;next.hidden=index===panels.length-1;submit.hidden=index!==panels.length-1;
+      };
+      const validateStep=index=>{
+        for(const input of panels[index].querySelectorAll('input,select,textarea')){
+          if(input.willValidate&&!input.checkValidity()){input.reportValidity();input.focus();return false;}
+        }
+        return true;
+      };
+      back.addEventListener('click',()=>displayStep(Math.max(0,current-1)));
+      next.addEventListener('click',()=>{if(validateStep(current))displayStep(Math.min(panels.length-1,current+1));});
+      form.addEventListener('submit',event=>{
+        for(let i=0;i<panels.length;i++){if(i!==current)panels[i].hidden=false;}
+        const invalid=[...form.querySelectorAll('input,select,textarea')].find(input=>input.willValidate&&!input.checkValidity());
+        if(invalid){event.preventDefault();const i=panels.findIndex(panel=>panel.contains(invalid));displayStep(i>=0?i:0);invalid.reportValidity();invalid.focus();return;}
+        addEmployee(event);
+      });
+      displayStep(0);
+    }
     const ef=document.getElementById('edit-employee-form');if(ef)ef.addEventListener('submit',saveEmployeeEdit);
     const dfm=document.getElementById('debt-form');if(dfm)dfm.addEventListener('submit',addDebt);
     const pif=document.getElementById('payroll-input-form');if(pif)pif.addEventListener('submit',savePayrollInputs);
