@@ -49,6 +49,7 @@ on:
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
       - 'HELPDESK_ACTIVATION_VERIFICATION.md'
+      - 'tests/helpdesk-postgres-rls.sql'
       - 'tests/platform-admin-lookup-proposal*'
   pull_request:
     paths:
@@ -93,6 +94,7 @@ on:
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
       - 'HELPDESK_ACTIVATION_VERIFICATION.md'
+      - 'tests/helpdesk-postgres-rls.sql'
 
 permissions:
   contents: read

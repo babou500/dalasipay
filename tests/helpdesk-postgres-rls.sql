@@ -30,6 +30,28 @@ DO $$BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
 END$$;
+-- Deny impersonation and customer-supplied ticket state.
+DO $$BEGIN
+ BEGIN
+  INSERT INTO public.helpdesk_tickets (organization_id,created_by,category,subject,details) VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222','Technical problem','Forged author','Must reject impersonation');
+  RAISE EXCEPTION 'forged author insert unexpectedly accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+END$$;
+DO $$BEGIN
+ BEGIN
+  INSERT INTO public.helpdesk_tickets (organization_id,created_by,category,subject,details,status) VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','Technical problem','Forged status','Must reject forged status','resolved');
+  RAISE EXCEPTION 'forged ticket status unexpectedly accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+END$$;
+DO $$BEGIN
+ BEGIN
+  UPDATE public.helpdesk_tickets SET status='resolved';
+  RAISE EXCEPTION 'customer update unexpectedly accepted';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+END$$;
 SET request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
 DO $$BEGIN
  IF (SELECT count(*) FROM public.helpdesk_tickets)<>0 THEN RAISE EXCEPTION 'other user can read tickets'; END IF;
