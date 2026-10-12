@@ -3426,7 +3426,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       const details=String(data.get('details')||'').trim().slice(0,4000);
       const reply=String(data.get('replyEmail')||'').trim().slice(0,200);
       if(!subject||!details||!reply)return;
-      const body=['Category: '+category,'Workspace: '+String(state.company||''),'Reply email: '+reply,'','Issue details:',details,'','Please reply to the email address above.'].join('\\n');
+      const body=['Category: '+category,'Workspace: '+String(state.company||''),'Reply email: '+reply,'','Issue details:',details,'','Please reply to the email address above.'].join('\n');
       window.location.href='mailto:info@bebusinesssolutionsgm.com?subject='+encodeURIComponent('[DalasiPay Help] '+subject)+'&body='+encodeURIComponent(body);
     });
 
