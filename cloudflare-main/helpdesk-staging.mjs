@@ -8,6 +8,11 @@ export default {
    if(request.headers.get('origin')!==url.origin)return new Response('Forbidden',{status:403,headers:{'cache-control':'no-store'}});
    return env.HELPDESK_SERVICE.fetch(request);
   }
+  if(url.pathname==='/helpdesk/client-config.js'){
+   const enabled=env?.DALASIPAY_HELPDESK_TICKETS_ENABLED==='true'&&!!env?.HELPDESK_SERVICE;
+   const script='window.DALASIPAY_HELPDESK_TICKETS_ENABLED='+JSON.stringify(enabled)+';window.DALASIPAY_HELPDESK_API_URL='+JSON.stringify('/helpdesk/api')+';';
+   return new Response(script,{headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+  }
   return env.ASSETS.fetch(request);
  }
 };
