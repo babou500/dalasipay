@@ -27,3 +27,11 @@ test('VAT source headers consume the first CSV row before worksheet data starts 
  let last=-1;for(const label of expectedOrder){const next=source.indexOf("'"+label+"'",last+1);assert.ok(next>last,'VAT source row missing/out of order: '+label);last=next;}
  assert.match(excel,/const expected=\[\[19,'Total output VAT'\],\[24,'Total input VAT'\],\[26,'Net VAT payable \/ \(credit\)'\]/);
 });
+
+test('GRA VAT export presents three financial columns and prints all VAT calculations',()=>{
+ assert.match(excel,/const displayHeaders=vatWorkingPaper\?\['GRA VAT working paper','Taxable value \(GMD\)','VAT \(GMD\)'\]:headers/);
+ assert.match(excel,/addTitle\(ws,title,state,kind,displayHeaders\.length\)/);
+ assert.match(excel,/styleTable\(ws,displayHeaders,data,6\)/);
+ assert.match(excel,/ws\.getColumn\(3\)\.numFmt=MONEY_FMT/);
+ assert.match(excel,/ws\.pageSetup\.printArea='A1:C'\+\(6\+data\.length\)/);
+});
