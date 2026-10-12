@@ -1,0 +1,3 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const src=fs.readFileSync('index.html','utf8');
+test('employee allowance forms display automatically calculated monthly subtotal',()=>{assert.match(src,/employee-allowance-total/);assert.match(src,/editor\.addEventListener\('input',updateTotal\)/);assert.match(src,/editor\.addEventListener\('click',\(\)=>queueMicrotask\(updateTotal\)\)/);assert.match(src,/querySelectorAll\('\[name="allowanceAmount"\]'\)/);});
+test('approved payroll employee calculations use locked snapshot',()=>{assert.match(src,/function employeeCalc\(e\)\{const r=lockedRun\(\)\?\.rows\?\.find/);assert.match(src,/return r\|\|window\.DalasiPayroll\.calculateEmployee/);});
