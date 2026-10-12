@@ -146,6 +146,7 @@ jobs:
           node --check cloudflare-licensing-worker/helpdesk-api.mjs
           node --check cloudflare-licensing-worker/helpdesk-api.test.mjs
           node --check cloudflare-main/helpdesk-staging.test.mjs
+          node --check cloudflare-main/helpdesk-staging-client-config.test.mjs
           node --check cloudflare-licensing-worker/helpdesk-route-gate.test.mjs
           node --check cloudflare-licensing-worker/helpdesk-staging-config.test.mjs
           node --check gra-excel-working-papers.test.js
@@ -222,6 +223,7 @@ jobs:
             helpdesk-customer-activation.test.mjs \
             cloudflare-licensing-worker/helpdesk-api.test.mjs \
             cloudflare-main/helpdesk-staging.test.mjs \
+            cloudflare-main/helpdesk-staging-client-config.test.mjs \
             cloudflare-licensing-worker/helpdesk-route-gate.test.mjs \
             cloudflare-licensing-worker/helpdesk-staging-config.test.mjs \
             cloudflare-admin-worker/helpdesk-inbox-preview.test.mjs \
