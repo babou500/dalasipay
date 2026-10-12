@@ -120,6 +120,13 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='general-ledger'&&window.DalasiGeneralLedger?.ledgerRows){
+      const lines=window.DalasiGeneralLedger.ledgerRows(state);
+      const debits=lines.reduce((sum,line)=>sum+(Number(line.debit)||0),0);
+      const credits=lines.reduce((sum,line)=>sum+(Number(line.credit)||0),0);
+      const rows=lines.map(line=>[esc(line.date||''),esc(line.journalId||''),esc(line.accountCode||''),esc(line.account||''),esc(line.reference||''),money2(line.debit||0),money2(line.credit||0)]);
+      return '<div class="report-preview-kpis"><div><span>Journal lines</span><b>'+lines.length+'</b></div><div><span>Total debit movements</span><b>'+money2(debits)+'</b></div><div><span>Total credit movements</span><b>'+money2(credits)+'</b></div><div><span>Difference</span><b>'+money2(Math.abs(debits-credits))+'</b></div></div>'+previewTable(['Date','Journal','Code','Account','Reference','Debit (D)','Credit (D)'],rows,esc);
+    }
     if(kind==='trial-balance'&&window.DalasiGeneralLedger?.trialBalance){
       const t=window.DalasiGeneralLedger.trialBalance(state);
       const rows=t.accounts.map(a=>[
