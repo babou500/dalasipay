@@ -3001,21 +3001,21 @@ input,select,textarea{font-size:12.5px;min-height:44px}
 
   function editEmployeeModal(e){
     const band=salaryBand(e),grade=gradeForEmployee(e);
-    return `<div class="center-modal employee-form-modal"><div class="modal-scrim" data-action="close-edit"></div><form id="edit-employee-form" class="modal-box xwide employee-master-form">
+    return `<div class="center-modal employee-form-modal"><div class="modal-scrim" data-action="close-edit"></div><form id="edit-employee-form" class="modal-box xwide employee-master-form employee-wizard" novalidate>
       <div class="modal-head employee-form-head"><div><div class="eyebrow">EMPLOYEE MASTER RECORD</div><h2>Edit ${esc(e.name)}</h2><p>${grade?`${esc(grade.id)} · ${esc(grade.name)} salary band`:'Update employment, compensation and payroll-linked details.'}</p></div><button type="button" class="close" data-action="close-edit">×</button></div>
       ${!band.ok?`<div class="warn-box compact employee-form-warning">${icon('alert',16)}<div><b>Salary is outside ${esc(grade?.id||'the assigned')} band</b><p>Current ${money2(e.salary)} · expected ${money2(grade?.min||0)}${grade?.max==null?'+':' – '+money2(grade.max)}. This is an advisory control only.</p></div></div>`:''}
-      <div class="employee-form-body">
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('user',16)}</span><div><h3>Personal & contact details</h3><p>Employee identity and contact information.</p></div></div><div class="form-grid">${field('Full name',`<input name="name" required value="${esc(e.name)}">`)}${field('Email',`<input name="email" type="email" value="${esc(e.email||'')}">`)}${field('WhatsApp / phone',`<input name="phone" value="${esc(e.phone||'')}">`)}</div></section>
+      <nav class="employee-wizard-progress" aria-label="Edit employee steps"><span>1 Personal</span><span>2 Employment</span><span>3 Pay</span><span>4 Statutory</span><span>5 Payment</span></nav><p class="employee-wizard-count" aria-live="polite">Step 1 of 5</p><div class="employee-form-body">
+        <section class="employee-form-section" data-wizard-panel="0"><div class="employee-form-section-head"><span>${icon('user',16)}</span><div><h3>Personal & contact details</h3><p>Employee identity and contact information.</p></div></div><div class="form-grid">${field('Full name',`<input name="name" required value="${esc(e.name)}">`)}${field('Email',`<input name="email" type="email" value="${esc(e.email||'')}">`)}${field('WhatsApp / phone',`<input name="phone" value="${esc(e.phone||'')}">`)}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('employees',16)}</span><div><h3>Employment & organisation</h3><p>Position, structure, contract and employment status.</p></div></div><div class="form-grid">${field('Job title',`<input name="role" required value="${esc(e.role)}">`)}${field('Department',`<select name="department">${departmentOptions(e.department)}</select>`)}${field('Job grade',`<select name="jobGrade">${gradeOptions(e.jobGrade)}</select>`)}${field('Employment type',`<select name="employmentType">${['Permanent','Fixed term','Temporary','Intern'].map(x=>`<option ${x===(e.employmentType||'Permanent')?'selected':''}>${x}</option>`).join('')}</select>`)}${field('Contract end date',`<input name="contractEnd" type="date" value="${esc(e.contract?.endDate||'')}">`)}${field('Status',`<select name="status">${['Active','On leave'].map(x=>`<option ${x===e.status?'selected':''}>${x}</option>`).join('')}</select>`)}</div><div class="employee-form-note">Use the controlled offboarding workflow when an employee is leaving so exit history and final-settlement controls remain intact.</div></section>
+        <section class="employee-form-section" data-wizard-panel="1" hidden><div class="employee-form-section-head"><span>${icon('employees',16)}</span><div><h3>Employment & organisation</h3><p>Position, structure, contract and employment status.</p></div></div><div class="form-grid">${field('Job title',`<input name="role" required value="${esc(e.role)}">`)}${field('Department',`<select name="department">${departmentOptions(e.department)}</select>`)}${field('Job grade',`<select name="jobGrade">${gradeOptions(e.jobGrade)}</select>`)}${field('Employment type',`<select name="employmentType">${['Permanent','Fixed term','Temporary','Intern'].map(x=>`<option ${x===(e.employmentType||'Permanent')?'selected':''}>${x}</option>`).join('')}</select>`)}${field('Contract end date',`<input name="contractEnd" type="date" value="${esc(e.contract?.endDate||'')}">`)}${field('Status',`<select name="status">${['Active','On leave'].map(x=>`<option ${x===e.status?'selected':''}>${x}</option>`).join('')}</select>`)}</div><div class="employee-form-note">Use the controlled offboarding workflow when an employee is leaving so exit history and final-settlement controls remain intact.</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Compensation</h3><p>Salary changes create compensation history while approved payroll snapshots remain frozen.</p></div></div><div class="form-grid">${field('Basic salary (D)',`<input name="salary" type="number" min="0" step="0.01" value="${e.salary||0}">`)}${field('Fixed allowance (D)',`<input name="allowance" type="number" min="0" step="0.01" value="${e.allowance||0}">`)}${field('Effective payroll period',`<select name="effectivePeriod">${state.periods.slice().sort((a,b)=>a.id.localeCompare(b.id)).map(p=>`<option value="${p.id}" ${p.id===state.currentPeriod?'selected':''}>${esc(p.label||periodLabel(p.id))}</option>`).join('')}</select>`)}${field('Reason for compensation change','<input name="reason" placeholder="e.g. Annual salary review">')}</div></section>
+        <section class="employee-form-section" data-wizard-panel="2" hidden><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Compensation</h3><p>Salary changes create compensation history while approved payroll snapshots remain frozen.</p></div></div><div class="form-grid">${field('Basic salary (D)',`<input name="salary" type="number" min="0" step="0.01" value="${e.salary||0}">`)}${field('Fixed allowance (D)',`<input name="allowance" type="number" min="0" step="0.01" value="${e.allowance||0}">`)}${field('Effective payroll period',`<select name="effectivePeriod">${state.periods.slice().sort((a,b)=>a.id.localeCompare(b.id)).map(p=>`<option value="${p.id}" ${p.id===state.currentPeriod?'selected':''}>${esc(p.label||periodLabel(p.id))}</option>`).join('')}</select>`)}${field('Reason for compensation change','<input name="reason" placeholder="e.g. Annual salary review">')}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('shield',16)}</span><div><h3>Statutory details</h3><p>Payroll and compliance identifiers.</p></div></div><div class="form-grid">${field('TIN',`<input name="tin" value="${esc(e.tin||'')}">`)}${field('SSHFC number',`<input name="sshfc" value="${esc(e.sshfc||'')}">`)}</div></section>
+        <section class="employee-form-section" data-wizard-panel="3" hidden><div class="employee-form-section-head"><span>${icon('shield',16)}</span><div><h3>Statutory details</h3><p>Payroll and compliance identifiers.</p></div></div><div class="form-grid">${field('TIN',`<input name="tin" value="${esc(e.tin||'')}">`)}${field('SSHFC number',`<input name="sshfc" value="${esc(e.sshfc||'')}">`)}</div></section>
 
-        <section class="employee-form-section"><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Payment & payslip delivery</h3><p>Salary payment information and employee delivery preference.</p></div></div><div class="form-grid">${field('Bank / mobile money',`<input name="bank" value="${esc(e.bank||'')}">`)}${field('Payslip preference',`<select name="delivery">${['Email','WhatsApp','Both','Print only'].map(x=>`<option ${x===e.delivery?'selected':''}>${x}</option>`).join('')}</select>`)}</div></section>
+        <section class="employee-form-section" data-wizard-panel="4" hidden><div class="employee-form-section-head"><span>${icon('payroll',16)}</span><div><h3>Payment & payslip delivery</h3><p>Salary payment information and employee delivery preference.</p></div></div><div class="form-grid">${field('Bank / mobile money',`<input name="bank" value="${esc(e.bank||'')}">`)}${field('Payslip preference',`<select name="delivery">${['Email','WhatsApp','Both','Print only'].map(x=>`<option ${x===e.delivery?'selected':''}>${x}</option>`).join('')}</select>`)}</div></section>
       </div>
-      <div class="employee-form-footer"><div class="employee-form-assurance">${icon('shield',15)} <span>Changes are saved to the employee master record. Approved payroll archives are not rewritten.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-edit">Cancel</button><button class="primary">${icon('save',14)} Save employee</button></div></div>
+      <div class="employee-form-footer"><div class="employee-form-assurance">${icon('shield',15)} <span>Changes are saved to the employee master record. Approved payroll archives are not rewritten.</span></div><div class="modal-actions"><button type="button" class="secondary" data-action="close-edit">Cancel</button><button type="button" class="secondary" id="employee-edit-wizard-back" hidden>Back</button><button type="button" class="primary" id="employee-edit-wizard-next">Next</button><button type="submit" class="primary" id="employee-edit-wizard-submit" hidden>${icon('save',14)} Save employee</button></div></div>
     </form></div>`;
   }
 
@@ -3611,7 +3611,33 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       });
       displayStep(0);
     }
-    const ef=document.getElementById('edit-employee-form');if(ef)ef.addEventListener('submit',saveEmployeeEdit);
+    const ef=document.getElementById('edit-employee-form');
+    if(ef){
+      const panels=[...ef.querySelectorAll('[data-wizard-panel]')],steps=[...ef.querySelectorAll('.employee-wizard-progress span')];
+      const counter=ef.querySelector('.employee-wizard-count');
+      const back=ef.querySelector('#employee-edit-wizard-back'),next=ef.querySelector('#employee-edit-wizard-next'),submit=ef.querySelector('#employee-edit-wizard-submit');
+      let current=0;
+      const show=index=>{
+        current=index;panels.forEach((p,i)=>{p.hidden=i!==index;});
+        steps.forEach((p,i)=>{p.classList.toggle('is-active',i===index);p.classList.toggle('is-complete',i<index);});
+        counter.textContent='Step '+(index+1)+' of '+panels.length;
+        back.hidden=index===0;next.hidden=index===panels.length-1;submit.hidden=index!==panels.length-1;
+      };
+      const valid=index=>{
+        for(const control of panels[index].querySelectorAll('input,select,textarea')){
+          if(control.willValidate&&!control.checkValidity()){control.reportValidity();control.focus();return false;}
+        }
+        return true;
+      };
+      back.addEventListener('click',()=>show(Math.max(0,current-1)));
+      next.addEventListener('click',()=>{if(valid(current))show(Math.min(panels.length-1,current+1));});
+      ef.addEventListener('submit',event=>{
+        const invalidPanel=panels.findIndex(p=>[...p.querySelectorAll('input,select,textarea')].some(c=>c.willValidate&&!c.checkValidity()));
+        if(invalidPanel>=0){event.preventDefault();show(invalidPanel);const invalid=[...panels[invalidPanel].querySelectorAll('input,select,textarea')].find(c=>c.willValidate&&!c.checkValidity());invalid?.reportValidity();invalid?.focus();return;}
+        saveEmployeeEdit(event);
+      });
+      show(0);
+    }
     const dfm=document.getElementById('debt-form');if(dfm)dfm.addEventListener('submit',addDebt);
     const pif=document.getElementById('payroll-input-form');if(pif)pif.addEventListener('submit',savePayrollInputs);
     const lf=document.getElementById('leave-form');if(lf)lf.addEventListener('submit',addLeave);
