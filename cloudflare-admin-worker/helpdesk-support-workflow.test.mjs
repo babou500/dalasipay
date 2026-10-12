@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {prepareStatusChange,supportEmailDraft} from './helpdesk-support-workflow.mjs';
+const ticketId='123e4567-e89b-12d3-a456-426614174000';
+test('status transitions require a valid path and nonempty review note',()=>{const change=prepareStatusChange({ticketId,currentStatus:'open',nextStatus:'in_progress',reviewNote:'Investigating report'});assert.equal(change.nextStatus,'in_progress');assert.equal(Object.isFrozen(change),true);assert.throws(()=>prepareStatusChange({ticketId,currentStatus:'open',nextStatus:'resolved',reviewNote:'Skipping investigation'}));assert.throws(()=>prepareStatusChange({ticketId,currentStatus:'open',nextStatus:'in_progress',reviewNote:'x'}));});
+test('support updates remain unsent drafts with verified company contact details',()=>{const d=supportEmailDraft({reference:'DP-123E4567',subject:'Balance sheet issue',status:'waiting_for_customer',summary:'Please send only the report period and error message.'});assert.match(d.body,/info@bebusinesssolutionsgm.com/);assert.match(d.body,/\+220 83 3159875/);assert.match(d.subject,/DP-123E4567/);assert.equal(d.sent,undefined);assert.throws(()=>supportEmailDraft({reference:'invalid',subject:'Balance sheet issue',status:'open',summary:'Sufficient customer update here'}));});
