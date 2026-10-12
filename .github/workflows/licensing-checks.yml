@@ -48,6 +48,7 @@ on:
       - 'tests/admin-auth-runtime/**'
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
+      - 'HELPDESK_ACTIVATION_VERIFICATION.md'
       - 'tests/platform-admin-lookup-proposal*'
   pull_request:
     paths:
@@ -91,6 +92,7 @@ on:
       - 'cloudflare-admin-worker/**'
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
+      - 'HELPDESK_ACTIVATION_VERIFICATION.md'
 
 permissions:
   contents: read
