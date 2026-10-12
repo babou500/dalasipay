@@ -120,6 +120,17 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='credit-control'&&window.DalasiCreditControl?.customerRows){
+      const summary=window.DalasiCreditControl.summary(state);
+      const customers=window.DalasiCreditControl.customerRows(state);
+      const rows=customers.map(x=>[
+        esc(x.customer?.name||'Unassigned customer'),money2(x.total||0),
+        money2(x.overdue||0),money2(x.limit||0),
+        money2(x.exceeded||0),esc(x.risk||''),esc(x.customer?.creditStatus||'Open')
+      ]);
+      return '<div class="report-preview-kpis"><div><span>Outstanding receivables</span><b>'+money2(summary.ar.total||0)+'</b></div><div><span>Overdue receivables</span><b>'+money2(summary.ar.overdue||0)+'</b></div><div><span>High-risk customers</span><b>'+summary.highRisk+'</b></div><div><span>Accounts on hold</span><b>'+summary.onHold+'</b></div></div>'
+        +previewTable(['Customer','Outstanding (D)','Overdue (D)','Credit limit (D)','Over limit (D)','Risk','Credit status'],rows,esc);
+    }
     if(kind==='loan-register'&&window.DalasiLoans?.summary){
       const summary=window.DalasiLoans.summary(state),loans=state.businessLoans||[];
       const rows=loans.map(l=>[esc(l.lender||l.name||''),esc(l.reference||l.id||''),money2(l.principal||0),money2(window.DalasiLoans.outstandingPrincipal(state,l)),money2(window.DalasiLoans.accruedInterestPayable(state,l)),esc(window.DalasiLoans.status(state,l))]);
