@@ -19,6 +19,7 @@ on:
       - 'trial-balance-excel-formulas.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
+      - 'helpdesk-ticket-foundation.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -62,6 +63,7 @@ on:
       - 'trial-balance-excel-formulas.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
+      - 'helpdesk-ticket-foundation.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -127,6 +129,7 @@ jobs:
           node --check trial-balance-excel-formulas.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
+          node --check helpdesk-ticket-foundation.test.js
           node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
@@ -190,6 +193,7 @@ jobs:
             trial-balance-excel-formulas.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
+            helpdesk-ticket-foundation.test.js \
             gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
