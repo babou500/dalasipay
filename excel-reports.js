@@ -223,7 +223,26 @@ async function exportProfessionalLedger(state,ctx){
  const summary=wb.addWorksheet('Ledger Summary',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
  addTitle(summary,'General Ledger',state,'general-ledger',5);statementHeader(summary,6,['Account','Debits','Credits','Closing balance','Side']);
  let sr=7;
- [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,list])=>{const debit=list.reduce((n,x)=>n+(Number(x.debit)||0),0),credit=list.reduce((n,x)=>n+(Number(x.credit)||0),0),balance=Math.round((debit-credit)*100)/100;statementRow(summary,sr++,name,[debit,credit,Math.abs(balance),balance>=0?'Dr':'Cr']);});
+ [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,list])=>{
+  const debit=list.reduce((n,x)=>n+(Number(x.debit)||0),0),credit=list.reduce((n,x)=>n+(Number(x.credit)||0),0),balance=Math.round((debit-credit)*100)/100;
+  const excelRow=sr,r=statementRow(summary,sr++,name,[debit,credit,Math.abs(balance),balance>=0?'Dr':'Cr']);
+  // Exact code and name from exported ledger rows are used as SUMIFS criteria.
+  // This keeps account totals auditable against the Detail sheet.
+  const code=String(list[0]?.accountCode||''),account=String(list[0]?.account||''),last=Math.max(7,6+rows.length);
+  const criteria=JSON.stringify(code)+",'Ledger Detail'!F7:F"+last+","+JSON.stringify(account);
+  linkedFormula(r.getCell(2),"SUMIFS('Ledger Detail'!H7:H"+last+",'Ledger Detail'!E7:E"+last+","+criteria+")",debit);
+  linkedFormula(r.getCell(3),"SUMIFS('Ledger Detail'!I7:I"+last+",'Ledger Detail'!E7:E"+last+","+criteria+")",credit);
+  linkedFormula(r.getCell(4),'ABS(B'+excelRow+'-C'+excelRow+')',Math.abs(balance));
+  r.getCell(5).value={formula:'IF(B'+excelRow+'>=C'+excelRow+',"Dr","Cr")',result:balance>=0?'Dr':'Cr'};
+ });
+ const summaryTotalRow=sr,summaryTotal=statementRow(summary,sr++,'TOTAL',[0,0,0,''],'total');
+ const totalDebits=[...grouped.values()].reduce((sum,list)=>sum+list.reduce((a,x)=>a+(Number(x.debit)||0),0),0);
+ const totalCredits=[...grouped.values()].reduce((sum,list)=>sum+list.reduce((a,x)=>a+(Number(x.credit)||0),0),0);
+ linkedFormula(summaryTotal.getCell(2),'SUM(B7:B'+(summaryTotalRow-1)+')',totalDebits);
+ linkedFormula(summaryTotal.getCell(3),'SUM(C7:C'+(summaryTotalRow-1)+')',totalCredits);
+ const summaryCheck=statementRow(summary,sr++,'DEBIT / CREDIT CHECK',[0,0,totalDebits-totalCredits,''],'key');
+ linkedFormula(summaryCheck.getCell(4),'B'+summaryTotalRow+'-C'+summaryTotalRow,totalDebits-totalCredits);
+ wb.calcProperties.fullCalcOnLoad=true;
  summary.getColumn(1).width=42;[2,3,4].forEach(i=>summary.getColumn(i).width=18);summary.getColumn(5).width=10;
  const detail=wb.addWorksheet('Ledger Detail',{pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
  addTitle(detail,'General Ledger Detail',state,'general-ledger',11);statementHeader(detail,6,['Date','Journal','Reference','Source','Account Code','Account','Memo','Debit','Credit','Running Balance','Side']);
