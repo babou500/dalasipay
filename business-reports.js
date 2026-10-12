@@ -127,7 +127,7 @@
     }
     if(kind==='inventory-movements'&&window.DalasiInventory?.movements){
       const items=(state.inventoryMovements||[]).slice().sort((a,b)=>String(b.movementDate||b.createdAt||'').localeCompare(String(a.movementDate||a.createdAt||'')));
-      const names=new Map((state.catalogItems||[]).map(p=>[String(p.id),p.name||p.code||'']));
+      const names=new Map((state.salesCatalog||[]).map(p=>[String(p.id),p.name||p.code||'']));
       const rows=items.map(m=>[esc(m.movementDate||String(m.createdAt||'').slice(0,10)),esc(names.get(String(m.catalogId))||m.catalogId||''),esc(m.type||''),esc(m.reference||''),String(Number(m.quantity)||0),money2(m.costAmount||0)]);
       return '<div class="report-preview-kpis"><div><span>Stock movements</span><b>'+items.length+'</b></div><div><span>Items affected</span><b>'+new Set(items.map(m=>m.catalogId).filter(Boolean)).size+'</b></div></div>'+previewTable(['Date','Product','Movement type','Reference','Quantity change','Cost amount (D)'],rows,esc);
     }
