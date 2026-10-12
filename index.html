@@ -2327,6 +2327,8 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     smallLabel(438,663,'Payment'); text(438,647,8.8,pdfClip(e.bank||'Not recorded',22),true);
 
     const earnings=[['Basic salary',money2(calc.basic)],...(calc.allowanceItems?.length?calc.allowanceItems:(calc.allowance?[{label:'Other allowance (legacy)',amount:calc.allowance}]:[])).map(a=>[a.label,money2(a.amount)])];
+    if(calc.allowance)earnings.push(['Total allowances',money2(calc.allowance)]);
+    if(calc.recurringEarnings)earnings.push(['Recurring earnings',money2(calc.recurringEarnings)]);
     if(calc.overtime)earnings.push(['Overtime',money2(calc.overtime)]);
     if(calc.bonus)earnings.push(['Bonus',money2(calc.bonus)]);
     if(calc.commission)earnings.push(['Commission',money2(calc.commission)]);
