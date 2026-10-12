@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tests/licensing-postgres-atomic.sql'
+      - 'tests/helpdesk-postgres-rls.sql'
       - 'tests/licensing-postgres-concurrency.sh'
       - 'tests/licensing-postgres-admin-lookup.sql'
       - 'tests/licensing-postgres-access-identity.sql'
@@ -49,3 +50,34 @@ jobs:
 
       - name: Test exact Cloudflare identity to approved operator mapping
         run: psql -v ON_ERROR_STOP=1 -f tests/licensing-postgres-access-identity.sql
+
+  helpdesk-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: helpdesk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: test_only_password
+      PGDATABASE: helpdesk_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Verify disposable database and validate Help Desk RLS
+        run: |
+          test "$PGDATABASE" = helpdesk_test
+          psql -v ON_ERROR_STOP=1 -f tests/helpdesk-postgres-rls.sql
