@@ -10,6 +10,10 @@ on:
       - 'tests/licensing-postgres-admin-lookup.sql'
       - 'tests/licensing-postgres-access-identity.sql'
       - '.github/workflows/licensing-postgres.yml'
+  pull_request:
+    paths:
+      - 'tests/helpdesk-postgres-rls.sql'
+      - '.github/workflows/licensing-postgres.yml'
 permissions:
   contents: read
 jobs:
