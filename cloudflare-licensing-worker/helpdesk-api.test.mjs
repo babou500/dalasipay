@@ -8,3 +8,20 @@ function req(data,origin='https://support.example',authorization='Bearer sample-
 test('rejects cross-origin and malformed submissions without network requests',async()=>{let called=0;const fetcher=async()=>{called++;throw Error('Should not run');};assert.equal((await handleHelpdeskRequest(req({action:'create',ticket},'https://evil.example'),env,fetcher)).status,403);assert.equal((await handleHelpdeskRequest(req({action:'create',ticket:{...ticket,subject:'x'}}),env,fetcher)).status,400);assert.equal(called,0);});
 test('does not trust client-provided identity or status',async()=>{const calls=[];const fetcher=async (url,options)=>{calls.push({url,options});if(url.endsWith('/auth/v1/user'))return new Response(JSON.stringify({id:'123e4567-e89b-12d3-a456-426614174001',email_confirmed_at:'2026-01-01'}),{status:200});return new Response(JSON.stringify([{id:'123e4567-e89b-12d3-a456-426614174002',status:'open',created_at:'2026-01-01'}]),{status:201});};const response=await handleHelpdeskRequest(req({action:'create',ticket:{...ticket,created_by:'attacker',status:'resolved'}}),env,fetcher);assert.equal(response.status,201);assert.equal(calls.length,2);const data=JSON.parse(calls[1].options.body);assert.equal(data.created_by,'123e4567-e89b-12d3-a456-426614174001');assert.equal(data.status,undefined);assert.equal((await response.json()).ticket.reference,'DP-123E4567');});
 test('rejects missing authentication',async()=>{const response=await handleHelpdeskRequest(req({action:'create',ticket},'https://support.example','No token'),env,async()=>{throw Error('No network expected')});assert.equal(response.status,401);});
+
+test('ticket list is identity-filtered, limited and omits private details',async()=>{
+ const calls=[];
+ const fetcher=async(url,options)=>{
+  calls.push({url,options});
+  if(url.endsWith('/auth/v1/user'))return new Response(JSON.stringify({id:'123e4567-e89b-12d3-a456-426614174001',email_confirmed_at:'2026-01-01'}),{status:200});
+  return new Response(JSON.stringify([{id:'123e4567-e89b-12d3-a456-426614174002',organization_id:ticket.organization_id,subject:'Report error',category:'Technical problem',status:'open',details:'Sensitive details',created_at:'2026-01-01'}]),{status:200});
+ };
+ const response=await handleHelpdeskRequest(req({action:'list',created_by:'someone-else'}),env,fetcher);
+ assert.equal(response.status,200);
+ assert.ok(calls[1].url.includes('created_by=eq.123e4567-e89b-12d3-a456-426614174001'));
+ assert.ok(calls[1].url.includes('limit=50'));
+ const data=await response.json();assert.equal(data.tickets.length,1);
+ assert.equal(data.tickets[0].reference,'DP-123E4567');
+ assert.equal(data.tickets[0].details,undefined);
+ assert.equal(data.tickets[0].organization_id,undefined);
+});
