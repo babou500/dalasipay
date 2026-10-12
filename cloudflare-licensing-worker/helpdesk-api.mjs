@@ -13,7 +13,7 @@ export async function handleHelpdeskRequest(request,env,fetchImpl=fetch){
  let input;
  try{const body=await request.text();if(body.length>7000)return reply(413,{ok:false});input=JSON.parse(body);}catch{return reply(400,{ok:false});}
  if(!['create','list'].includes(input?.action))return reply(400,{ok:false});
- let ticket;if(input.action==='create'){try{ticket=prepareTicket(input.ticket);}catch{return reply(400,{ok:false});}}}
+ let ticket;if(input.action==='create'){try{ticket=prepareTicket(input.ticket);}catch{return reply(400,{ok:false});}}
  const headers={apikey:key,authorization:bearer,'cache-control':'no-store'};
  try{
   const result=await fetchImpl(BASE+'/auth/v1/user',{headers,redirect:'manual',signal:AbortSignal.timeout(10000)});
