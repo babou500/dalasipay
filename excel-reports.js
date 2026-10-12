@@ -84,9 +84,11 @@ function widths(ws,headers,data){
 async function exportRows(title,headers,data,state,kind,fileBase){
  if(!window.ExcelJS){throw new Error('Excel export engine is still loading. Refresh the page and try again.')}
  const wb=new ExcelJS.Workbook();wb.creator='DalasiPay';wb.lastModifiedBy='DalasiPay';wb.created=new Date();wb.modified=new Date();wb.company='BE Business Solutions';wb.subject=title;wb.title=title;
- const ws=wb.addWorksheet(safeSheetName(title),{properties:{defaultRowHeight:20},pageSetup:{orientation:headers.length>7?'landscape':'portrait',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
- addTitle(ws,title,state,kind,headers.length);
- styleTable(ws,headers,data,6);
+ const vatWorkingPaper=kind==='vat-return';
+ const displayHeaders=vatWorkingPaper?['GRA VAT working paper','Taxable value (GMD)','VAT (GMD)']:headers;
+ const ws=wb.addWorksheet(safeSheetName(title),{properties:{defaultRowHeight:20},pageSetup:{orientation:displayHeaders.length>7?'landscape':'portrait',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
+ addTitle(ws,title,state,kind,displayHeaders.length);
+ styleTable(ws,displayHeaders,data,6);
  if(kind==='vat-return'){
   // VAT working paper layout from DalasiTax.exportReturn. Only assign formulas
   // when the expected source labels match, to avoid linking unrelated figures.
@@ -96,7 +98,15 @@ async function exportRows(title,headers,data,state,kind,fileBase){
    formulas.forEach(([r,formula])=>linkedFormula(ws.getCell('C'+r),formula,ws.getCell('C'+r).value));
   }
  }
- widths(ws,headers,data);
+ widths(ws,displayHeaders,data);
+ if(vatWorkingPaper){
+  ws.getColumn(1).width=Math.max(ws.getColumn(1).width||0,36);
+  ws.getColumn(2).width=Math.max(ws.getColumn(2).width||0,23);
+  ws.getColumn(3).width=Math.max(ws.getColumn(3).width||0,21);
+  ws.getColumn(2).numFmt=MONEY_FMT;
+  ws.getColumn(3).numFmt=MONEY_FMT;
+  ws.pageSetup.printArea='A1:C'+(6+data.length);
+ }
  ws.pageSetup.printTitlesRow='1:6';
  ws.headerFooter.oddHeader='&LDalasiPay&C'+title+'&RPage &P of &N';
  ws.headerFooter.oddFooter='&L'+companyName(state)+'&CConfidential business report&RGenerated '+today();
