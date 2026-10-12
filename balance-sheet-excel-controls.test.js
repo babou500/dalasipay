@@ -16,3 +16,12 @@ test('Balance Sheet check references totals and liabilities plus equity dynamica
  assert.ok(body.includes("'C'+assetsRow+'-C'+liabilitiesEquityRow"));
  assert.match(body,/linkedFormula\(check\.getCell\(4\),'B'\+er\+'-C'\+er,diff-prDiff\)/);
 });
+
+test('Balance Sheet equity and liabilities plus equity are formula-linked',()=>{
+ assert.ok(body.includes('const equityFirstRow=row'));
+ assert.ok(body.includes("'SUM(B'+equityFirstRow+':B'+(er-1)+')'"));
+ assert.ok(body.includes("'SUM(C'+equityFirstRow+':C'+(er-1)+')'"));
+ assert.ok(body.includes("'TOTAL LIABILITIES'"));
+ assert.ok(body.includes("'B'+liabilitiesRow+'+B'+equityRow"));
+ assert.ok(body.includes("'C'+liabilitiesRow+'+C'+equityRow"));
+});
