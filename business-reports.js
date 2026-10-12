@@ -120,6 +120,20 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(['customer-debit-notes','customer-credit-notes','supplier-debit-notes','supplier-credit-notes'].includes(kind)){
+      const source=({'customer-debit-notes':'customerDebitNotes','customer-credit-notes':'customerCreditNotes','supplier-debit-notes':'supplierDebitNotes','supplier-credit-notes':'supplierCreditNotes'})[kind];
+      const notes=(state[source]||[]).slice().sort((a,b)=>String(b.date||b.issueDate||b.createdAt||'').localeCompare(String(a.date||a.issueDate||a.createdAt||'')));
+      const rows=notes.map(n=>[
+        esc(n.date||n.issueDate||String(n.createdAt||'').slice(0,10)),
+        esc(n.debitNo||n.creditNo||n.noteNo||n.id||''),
+        esc(n.customerName||n.supplierName||''),
+        esc(n.invoiceNo||n.billNo||n.reference||''),
+        money2(n.amount||0),esc(n.status||'Issued')
+      ]);
+      const issued=notes.filter(n=>n.status!=='Void');
+      return '<div class="report-preview-kpis"><div><span>Notes issued</span><b>'+issued.length+'</b></div><div><span>Active note amounts</span><b>'+money2(issued.reduce((sum,n)=>sum+(Number(n.amount)||0),0))+'</b></div><div><span>Voided notes</span><b>'+(notes.length-issued.length)+'</b></div></div>'
+        +previewTable(['Date','Note reference','Customer / supplier','Linked document','Amount (D)','Status'],rows,esc);
+    }
     if(kind==='revenue-register'){
       const records=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.issueDate||'').localeCompare(String(a.issueDate||'')));
       const rows=records.map(x=>[esc(x.issueDate||''),esc(x.invoiceNo||x.invoiceNumber||x.id||''),esc(x.customerName||''),money2(x.amount||0),esc(x.status||'')]);
