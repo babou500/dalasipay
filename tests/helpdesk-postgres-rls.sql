@@ -1,6 +1,5 @@
 \set ON_ERROR_STOP on
 -- Disposable PostgreSQL database only. Never run against production.
-BEGIN;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE ROLE authenticated;
 CREATE ROLE anon;
@@ -38,4 +37,4 @@ DO $$BEGIN
  IF (SELECT count(*) FROM public.helpdesk_tickets)<>0 THEN RAISE EXCEPTION 'other user can read tickets'; END IF;
 END$$;
 RESET ROLE;
-ROLLBACK;
+-- This entire test runs against an isolated disposable PostgreSQL service.
