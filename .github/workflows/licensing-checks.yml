@@ -50,6 +50,7 @@ on:
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
       - 'HELPDESK_ACTIVATION_VERIFICATION.md'
+      - 'HELPDESK_ROUTING_ACTIVATION.md'
       - 'tests/helpdesk-postgres-rls.sql'
       - 'tests/platform-admin-lookup-proposal*'
   pull_request:
@@ -96,6 +97,7 @@ on:
       - 'tests/licensing-management.postgres.test.mjs'
       - 'supabase/migrations/**'
       - 'HELPDESK_ACTIVATION_VERIFICATION.md'
+      - 'HELPDESK_ROUTING_ACTIVATION.md'
       - 'tests/helpdesk-postgres-rls.sql'
 
 permissions:
@@ -143,6 +145,7 @@ jobs:
           node --check helpdesk-customer-activation.test.mjs
           node --check cloudflare-licensing-worker/helpdesk-api.mjs
           node --check cloudflare-licensing-worker/helpdesk-api.test.mjs
+          node --check cloudflare-licensing-worker/helpdesk-route-gate.test.mjs
           node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
@@ -216,6 +219,7 @@ jobs:
             helpdesk-ticket-validation.test.mjs \
             helpdesk-customer-activation.test.mjs \
             cloudflare-licensing-worker/helpdesk-api.test.mjs \
+            cloudflare-licensing-worker/helpdesk-route-gate.test.mjs \
             cloudflare-admin-worker/helpdesk-inbox-preview.test.mjs \
             cloudflare-admin-worker/helpdesk-support-workflow.test.mjs \
             cloudflare-admin-worker/helpdesk-audit-events.test.mjs \
