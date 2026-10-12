@@ -3226,3 +3226,10 @@ body{background:
 
 /* Employee record drawer: soften dimming without blurring the page behind it. */
 .modal-wrap.employee-record-modal > .modal-scrim{background:rgba(8,24,20,.26)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+/* Edit Employee wizard: keep advisory warnings legible without crowding the form. */
+.employee-form-modal:has(#edit-employee-form) .employee-form-warning{margin:10px 30px 4px;padding:12px 16px;flex-shrink:0;border-radius:10px}
+.employee-form-modal:has(#edit-employee-form) .employee-form-warning p{margin:4px 0 0;line-height:1.45}
+.employee-form-modal #edit-employee-form .employee-form-section{min-height:0;height:auto;overflow:visible}
+.employee-form-modal #edit-employee-form .employee-form-body{scrollbar-gutter:stable}
+@media(max-width:650px){.employee-form-modal:has(#edit-employee-form) .employee-form-warning{margin:8px 16px 3px}}
