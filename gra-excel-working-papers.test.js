@@ -35,3 +35,10 @@ test('GRA VAT export presents three financial columns and prints all VAT calcula
  assert.match(excel,/ws\.getColumn\(3\)\.numFmt=MONEY_FMT/);
  assert.match(excel,/ws\.pageSetup\.printArea='A1:C'\+\(6\+data\.length\)/);
 });
+
+test('GRA ledger movement and reconciliation state remain linked within Excel',()=>{
+ assert.match(excel,/linkedFormula\(recon\.getCell\('B13'\),'B15-B10',gl\.currentMovement\)/);
+ assert.match(excel,/linkedFormula\(recon\.getCell\('B14'\),'B13-B12',gl\.controlDifference\)/);
+ assert.ok(excel.includes('ABS(B9)<=0.01,ABS(B14)<=0.01'));
+ assert.ok(excel.includes('filing status remains authoritative in DalasiPay'));
+});

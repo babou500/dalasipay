@@ -306,7 +306,10 @@ async function exportProfessionalCorporateTax(year,state,ctx){
  linkedFormula(recon.getCell('B8'),"'GRA Corporate Tax Working Paper'!B16",c.grossTax);
  linkedFormula(recon.getCell('B9'),'B8-B7',gl.provisionDifference);
  linkedFormula(recon.getCell('B12'),'B7-B11',gl.expectedMovement);
+ linkedFormula(recon.getCell('B13'),'B15-B10',gl.currentMovement);
  linkedFormula(recon.getCell('B14'),'B13-B12',gl.controlDifference);
+ // These are spreadsheet-side controls only; filing status remains authoritative in DalasiPay.
+ recon.getCell('B16').value={formula:'IF(AND(ABS(B9)<=0.01,ABS(B14)<=0.01),"Reconciled","Action required")',result:gl.reconciled?'Reconciled':'Action required'};
  const review=detailSheet('Filing Evidence',['Field','Recorded detail'],[
   ['Tax year',String(year)],['Return status',rec.status||'Draft'],
   ['Due date',(Number(year)+1)+'-03-31'],
