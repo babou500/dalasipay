@@ -120,6 +120,22 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='revenue-register'){
+      const records=(state.customerInvoices||[]).slice().sort((a,b)=>String(b.issueDate||'').localeCompare(String(a.issueDate||'')));
+      const rows=records.map(x=>[esc(x.issueDate||''),esc(x.invoiceNo||x.invoiceNumber||x.id||''),esc(x.customerName||''),money2(x.amount||0),esc(x.status||'')]);
+      return '<div class="report-preview-kpis"><div><span>Invoices</span><b>'+records.length+'</b></div><div><span>Gross invoice amounts</span><b>'+money2(records.reduce((n,x)=>n+(Number(x.amount)||0),0))+'</b></div></div>'+previewTable(['Date','Invoice','Customer','Amount (D)','Status'],rows,esc);
+    }
+    if(kind==='incoming-payments'){
+      const records=(state.incomingPayments||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+      const rows=records.map(x=>[esc(x.date||''),esc(x.reference||x.receiptNo||x.id||''),esc(x.customerName||''),esc(x.method||x.paymentMethod||''),money2(x.amount||0)]);
+      return '<div class="report-preview-kpis"><div><span>Receipts</span><b>'+records.length+'</b></div><div><span>Recorded receipts</span><b>'+money2(records.reduce((n,x)=>n+(Number(x.amount)||0),0))+'</b></div></div>'+previewTable(['Date','Reference','Customer','Method','Amount (D)'],rows,esc);
+    }
+    if(kind==='outgoing-payments'){
+      const records=(state.businessPayments||[]).slice().sort((a,b)=>String(b.paymentDate||b.date||'').localeCompare(String(a.paymentDate||a.date||'')));
+      const rows=records.map(x=>[esc(x.paymentDate||x.date||''),esc(x.reference||x.paymentNo||x.id||''),esc(x.supplierName||''),esc(x.status||''),money2(x.amount||0)]);
+      const paid=records.filter(x=>x.status==='Paid');
+      return '<div class="report-preview-kpis"><div><span>Payments recorded</span><b>'+records.length+'</b></div><div><span>Paid transactions</span><b>'+paid.length+'</b></div><div><span>Amount paid</span><b>'+money2(paid.reduce((n,x)=>n+(Number(x.amount)||0),0))+'</b></div></div>'+previewTable(['Date','Reference','Supplier','Status','Amount (D)'],rows,esc);
+    }
     if(kind==='budget-vs-actual'&&window.DalasiBudgets?.summary){
       const budgetPeriod=String(state.currentPeriod||'2026-10');
       const year=String(state.budgetYear||budgetPeriod).slice(0,4);
