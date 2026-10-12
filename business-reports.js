@@ -120,6 +120,18 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='recurring-commitments'&&window.DalasiBusinessPayments?.recurringSummary){
+      const summary=window.DalasiBusinessPayments.recurringSummary(state),items=(state.recurringBusinessPayments||[]);
+      const rows=items.map(x=>[esc(x.name||x.payee||''),esc(x.frequency||''),esc(x.nextDueDate||''),money2(x.amount||0),esc(x.status||'Active')]);
+      return '<div class="report-preview-kpis"><div><span>Recurring schedules</span><b>'+summary.count+'</b></div><div><span>Active schedules</span><b>'+summary.active+'</b></div><div><span>Monthly equivalent</span><b>'+money2(summary.monthly)+'</b></div><div><span>Due within 30 days</span><b>'+money2(summary.next30)+'</b></div></div>'+previewTable(['Commitment','Frequency','Next due','Amount (D)','Status'],rows,esc);
+    }
+    if(kind==='cash-forecast'&&window.DalasiCashFlow?.forecast){
+      const f=window.DalasiCashFlow.forecast(state,{payrollCalc:h.payrollCalc},90);
+      const rows=f.days.map(d=>[esc(d.date),money2(d.in),money2(d.out),money2(d.balance)]);
+      return '<div class="report-preview-kpis"><div><span>Opening cash</span><b>'+money2(f.start)+'</b></div><div><span>Forecast inflows</span><b>'+money2(f.inflows)+'</b></div><div><span>Forecast outflows</span><b>'+money2(f.outflows)+'</b></div><div><span>Projected closing cash</span><b>'+money2(f.closing)+'</b></div></div>'
+        +'<p class="report-preview-note">90-day cash projection based on existing forecast assumptions.'+(f.firstDeficit?' First projected deficit: '+esc(f.firstDeficit)+'.':'')+'</p>'
+        +previewTable(['Date','Projected inflow (D)','Projected outflow (D)','Projected balance (D)'],rows,esc);
+    }
     if(['customer-debit-notes','customer-credit-notes','supplier-debit-notes','supplier-credit-notes'].includes(kind)){
       const source=({'customer-debit-notes':'customerDebitNotes','customer-credit-notes':'customerCreditNotes','supplier-debit-notes':'supplierDebitNotes','supplier-credit-notes':'supplierCreditNotes'})[kind];
       const notes=(state[source]||[]).slice().sort((a,b)=>String(b.date||b.issueDate||b.createdAt||'').localeCompare(String(a.date||a.issueDate||a.createdAt||'')));
