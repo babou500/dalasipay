@@ -3233,3 +3233,12 @@ body{background:
 .employee-form-modal #edit-employee-form .employee-form-section{min-height:0;height:auto;overflow:visible}
 .employee-form-modal #edit-employee-form .employee-form-body{scrollbar-gutter:stable}
 @media(max-width:650px){.employee-form-modal:has(#edit-employee-form) .employee-form-warning{margin:8px 16px 3px}}
+
+.employee-allowance-editor{margin-top:16px;padding:14px;border:1px solid var(--border,#dbe7e1);border-radius:11px;background:var(--panel,#fff)}
+.employee-allowance-list{display:grid;gap:9px}
+.employee-allowance-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) auto;gap:10px;align-items:end}
+.employee-allowance-row label{font-size:12px;display:grid;gap:5px}
+.employee-allowance-row input{width:100%;min-width:0}
+.employee-allowance-add{margin-top:12px}
+.employee-allowance-remove{min-height:39px}
+@media(max-width:650px){.employee-allowance-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.employee-allowance-remove{grid-column:1/-1;justify-self:start}}
