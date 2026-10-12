@@ -121,8 +121,9 @@
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
     if(kind==='budget-vs-actual'&&window.DalasiBudgets?.summary){
-      const budgetPeriod=String(state.budgetPeriod||state.currentPeriod||'2026-10');
-      const year=Number(state.budgetYear||budgetPeriod.slice(0,4)),month=budgetPeriod.slice(5,7)||'10';
+      const budgetPeriod=String(state.currentPeriod||'2026-10');
+      const year=String(state.budgetYear||budgetPeriod).slice(0,4);
+      const month=String(state.budgetMonth||budgetPeriod).slice(5,7)||String(state.budgetMonth||budgetPeriod).slice(0,2);
       const report=window.DalasiBudgets.summary(state,year,month);
       const rows=report.monthly.filter(x=>!x.isFuture).map(x=>[
         esc(x.label||x.month),money2(x.budgetRevenue),money2(x.actualRevenue),
