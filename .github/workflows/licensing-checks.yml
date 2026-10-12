@@ -33,6 +33,7 @@ on:
       - 'credit-control-onscreen.test.js'
       - 'budget-report-onscreen.test.js'
       - 'product-margin-onscreen.test.js'
+      - 'sales-payment-report-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -98,6 +99,7 @@ on:
       - 'credit-control-onscreen.test.js'
       - 'budget-report-onscreen.test.js'
       - 'product-margin-onscreen.test.js'
+      - 'sales-payment-report-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -186,6 +188,7 @@ jobs:
           node --check credit-control-onscreen.test.js
           node --check budget-report-onscreen.test.js
           node --check product-margin-onscreen.test.js
+          node --check sales-payment-report-onscreen.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
           node --check helpdesk-ticket-foundation.test.js
@@ -282,6 +285,7 @@ jobs:
             credit-control-onscreen.test.js \
             budget-report-onscreen.test.js \
             product-margin-onscreen.test.js \
+            sales-payment-report-onscreen.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
