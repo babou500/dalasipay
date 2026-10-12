@@ -120,6 +120,19 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='bank-reconciliations'&&window.DalasiBankReconciliation?.history){
+      const history=window.DalasiBankReconciliation.history(state);
+      const rows=history.map(r=>[
+        esc(r.statementDate||''),esc(r.accountName||''),money2(r.statementBalance||0),
+        money2(r.bookBalance||0),money2(r.outstandingNet||0),
+        esc(r.clearedCount??0),esc(r.createdBy||'')
+      ]);
+      const total=history.length;
+      const exceptions=history.filter(r=>Math.abs(Number(r.difference)||0)>=0.01).length;
+      return '<div class="report-preview-kpis"><div><span>Finalized reconciliations</span><b>'+total+'</b></div><div><span>Accounts covered</span><b>'+new Set(history.map(r=>r.accountId).filter(Boolean)).size+'</b></div><div><span>Reconciliation exceptions</span><b>'+exceptions+'</b></div></div>'
+        +'<p class="report-preview-note">Finalized bank and mobile money statements. Draft reconciliations are not included.</p>'
+        +previewTable(['Statement date','Account','Statement balance (D)','Book balance (D)','Outstanding net (D)','Cleared items','Prepared by'],rows,esc);
+    }
     if(kind==='trial-balance'&&window.DalasiGeneralLedger?.trialBalance){
       const t=window.DalasiGeneralLedger.trialBalance(state);
       const rows=t.accounts.map(a=>[
