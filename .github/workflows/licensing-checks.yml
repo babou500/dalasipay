@@ -16,6 +16,7 @@ on:
       - 'payslip-allowance-reconciliation.test.js'
       - 'payslip-dense-layout.test.js'
       - 'employee-allowance-live-total.test.js'
+      - 'employee-allowance-suggestions.test.js'
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
@@ -73,6 +74,7 @@ on:
       - 'payslip-allowance-reconciliation.test.js'
       - 'payslip-dense-layout.test.js'
       - 'employee-allowance-live-total.test.js'
+      - 'employee-allowance-suggestions.test.js'
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
       - 'sales-invoices.js'
@@ -142,6 +144,7 @@ jobs:
           node --check payslip-allowance-reconciliation.test.js
           node --check payslip-dense-layout.test.js
           node --check employee-allowance-live-total.test.js
+          node --check employee-allowance-suggestions.test.js
           node --check employee-drawer-backdrop.test.js
           node --check invoice-detail-view.test.js
           node --check accounting-calendar.js
@@ -234,6 +237,7 @@ jobs:
             payslip-allowance-reconciliation.test.js \
             payslip-dense-layout.test.js \
             employee-allowance-live-total.test.js \
+            employee-allowance-suggestions.test.js \
             employee-drawer-backdrop.test.js \
             invoice-detail-view.test.js \
             accounting-calendar.test.js \
