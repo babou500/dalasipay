@@ -120,6 +120,19 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='budget-vs-actual'&&window.DalasiBudgets?.summary){
+      const budgetPeriod=String(state.budgetPeriod||state.currentPeriod||'2026-10');
+      const year=Number(state.budgetYear||budgetPeriod.slice(0,4)),month=budgetPeriod.slice(5,7)||'10';
+      const report=window.DalasiBudgets.summary(state,year,month);
+      const rows=report.monthly.filter(x=>!x.isFuture).map(x=>[
+        esc(x.label||x.month),money2(x.budgetRevenue),money2(x.actualRevenue),
+        money2(x.budgetExpense),money2(x.actualExpense),money2(x.budgetProfit),
+        money2(x.actualProfit),money2((Number(x.actualProfit)||0)-(Number(x.budgetProfit)||0))
+      ]);
+      return '<div class="report-preview-kpis"><div><span>YTD budget revenue</span><b>'+money2(report.ytdBudgetRevenue)+'</b></div><div><span>YTD actual revenue</span><b>'+money2(report.ytdActualRevenue)+'</b></div><div><span>YTD budget profit</span><b>'+money2(report.ytdBudgetProfit)+'</b></div><div><span>YTD actual profit</span><b>'+money2(report.ytdActualProfit)+'</b></div></div>'
+        +'<p class="report-preview-note">Budget versus actual results for '+esc(year)+', through '+esc(month)+'. Calculated using existing approved budget and financial statement logic.</p>'
+        +previewTable(['Month','Budget revenue','Actual revenue','Budget expense','Actual expense','Budget profit','Actual profit','Profit variance'],rows,esc);
+    }
     if(kind==='credit-control'&&window.DalasiCreditControl?.customerRows){
       const summary=window.DalasiCreditControl.summary(state);
       const customers=window.DalasiCreditControl.customerRows(state);
