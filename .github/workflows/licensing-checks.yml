@@ -161,6 +161,8 @@ jobs:
           node --check verified-licensing-endpoint.mjs
           node --check platform-admin-session.mjs
           node --check tests/platform-admin-lookup-proposal.test.mjs
+          node --check cloudflare-admin-worker/helpdesk-inbox-preview.mjs
+          node --check cloudflare-admin-worker/helpdesk-inbox-preview.test.mjs
           node --check cloudflare-admin-worker/index.mjs
           node --check cloudflare-admin-worker/dashboard-preview.mjs
           node --check cloudflare-admin-worker/protected-dashboard.mjs
@@ -202,6 +204,7 @@ jobs:
             helpdesk-ticket-foundation.test.js \
             helpdesk-ticket-validation.test.mjs \
             cloudflare-licensing-worker/helpdesk-api.test.mjs \
+            cloudflare-admin-worker/helpdesk-inbox-preview.test.mjs \
             gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
