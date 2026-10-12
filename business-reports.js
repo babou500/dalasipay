@@ -120,6 +120,15 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if((kind==='project-profitability'||kind==='cost-centre-performance')&&window.DalasiDimensions?.dimensionRows){
+      const type=kind==='project-profitability'?'project':'costCentre';
+      const selectedPeriod=String(state.dimensionsPeriod||state.currentPeriod||'');
+      const results=window.DalasiDimensions.dimensionRows(state,type,selectedPeriod);
+      const rows=results.map(x=>[esc(x.id||''),esc(x.name||''),money2(x.revenue||0),money2(x.cogs||0),money2(x.operating||0),money2(x.payroll||0),money2(x.profit||0),String(x.margin||0)+'%',money2(x.commitments||0)]);
+      return '<div class="report-preview-kpis"><div><span>Records</span><b>'+results.length+'</b></div><div><span>Revenue</span><b>'+money2(results.reduce((a,x)=>a+(Number(x.revenue)||0),0))+'</b></div><div><span>Profit</span><b>'+money2(results.reduce((a,x)=>a+(Number(x.profit)||0),0))+'</b></div></div>'
+        +'<p class="report-preview-note">Results for '+esc(selectedPeriod)+' using existing project and cost-centre allocations.</p>'
+        +previewTable(['Code','Name','Revenue (D)','COGS (D)','Operating (D)','Payroll (D)','Profit (D)','Margin','Open commitments (D)'],rows,esc);
+    }
     if(kind==='recurring-commitments'&&window.DalasiBusinessPayments?.recurringSummary){
       const summary=window.DalasiBusinessPayments.recurringSummary(state),items=(state.recurringBusinessPayments||[]);
       const rows=items.map(x=>[esc(x.name||x.payee||''),esc(x.frequency||''),esc(x.nextDueDate||''),money2(x.amount||0),esc(x.status||'Active')]);
