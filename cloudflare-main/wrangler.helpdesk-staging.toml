@@ -1,0 +1,15 @@
+# Staging only. Not included in scripts/cloudflare-release.mjs production releases.
+name = "dalasipay-helpdesk-web-staging"
+main = "helpdesk-staging.mjs"
+compatibility_date = "2026-10-08"
+workers_dev = true
+preview_urls = false
+[vars]
+DALASIPAY_HELPDESK_TICKETS_ENABLED = "false"
+[assets]
+directory = "../.wrangler/main-assets"
+binding = "ASSETS"
+run_worker_first = ["/helpdesk/api"]
+[[services]]
+binding = "HELPDESK_SERVICE"
+service = "dalasipay-licensing-staging"
