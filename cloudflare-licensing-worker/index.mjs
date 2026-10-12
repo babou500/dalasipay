@@ -1,3 +1,4 @@
+import {handleHelpdeskRequest} from './helpdesk-api.mjs';
 import {handleCustomerPortal} from './customer-portal.mjs';
 // Dedicated, opt-in licensing observer Worker. Not a part of the existing site.
 import { createVerifiedLicensingEndpoint } from '../verified-licensing-endpoint.mjs';
@@ -26,6 +27,11 @@ function supabaseClient(baseUrl, key, authToken){
 }
 export default {
  async fetch(request,env){
+  // Deny ticket access unless explicitly enabled after staging RLS verification.
+  if(new URL(request.url).pathname==='/helpdesk/api'){
+   if(env?.DALASIPAY_HELPDESK_TICKETS_ENABLED!=='true')return new Response('Not available',{status:404,headers:{'cache-control':'no-store'}});
+   return handleHelpdeskRequest(request,env);
+  }
   const portal=await handleCustomerPortal(request,env);if(portal)return portal;
   const url=new URL(request.url);
   // No cross-origin browser access. Do not configure CORS for this endpoint.

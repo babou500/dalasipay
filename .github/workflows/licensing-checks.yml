@@ -21,6 +21,7 @@ on:
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
       - 'helpdesk-ticket-validation*'
+      - 'helpdesk-customer-activation.test.mjs'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -68,6 +69,7 @@ on:
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
       - 'helpdesk-ticket-validation*'
+      - 'helpdesk-customer-activation.test.mjs'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -138,6 +140,7 @@ jobs:
           node --check helpdesk-ticket-foundation.test.js
           node --check helpdesk-ticket-validation.mjs
           node --check helpdesk-ticket-validation.test.mjs
+          node --check helpdesk-customer-activation.test.mjs
           node --check cloudflare-licensing-worker/helpdesk-api.mjs
           node --check cloudflare-licensing-worker/helpdesk-api.test.mjs
           node --check gra-excel-working-papers.test.js
@@ -211,6 +214,7 @@ jobs:
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
             helpdesk-ticket-validation.test.mjs \
+            helpdesk-customer-activation.test.mjs \
             cloudflare-licensing-worker/helpdesk-api.test.mjs \
             cloudflare-admin-worker/helpdesk-inbox-preview.test.mjs \
             cloudflare-admin-worker/helpdesk-support-workflow.test.mjs \

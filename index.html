@@ -3404,6 +3404,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       <p style="font-size:13px;color:var(--muted)">Please do not include passwords, private financial records, bank details or personal identification numbers.</p>
       <button type="submit" class="primary">Open email draft</button></form>
       <div style="margin-top:20px"><b>Contact us directly</b><p><a href="mailto:info@bebusinesssolutionsgm.com">info@bebusinesssolutionsgm.com</a> · <a href="tel:+220833159875">+220 83 3159875</a></p></div>
+      ${window.DALASIPAY_HELPDESK_TICKETS_ENABLED===true&&typeof window.DALASIPAY_HELPDESK_API_URL==='string'?`<section class="surface" style="padding:24px;margin-top:16px"><h3>Tracked support tickets</h3><p>Submit an issue and follow its progress without leaving DalasiPay.</p><form id="dalasipay-ticket-form" style="display:grid;gap:12px"><label>Category<select name="category" required><option>Technical problem</option><option>Accounting or reports</option><option>Invoices and payments</option><option>Payroll</option><option>Tax and GRA</option><option>Subscription or login</option><option>Other question</option></select></label><label>Subject<input name="subject" minlength="5" maxlength="120" required></label><label>Problem description<textarea name="details" minlength="10" maxlength="4000" required></textarea></label><button class="primary" type="submit">Submit support ticket</button></form><p id="dalasipay-ticket-feedback" role="status" aria-live="polite"></p><h3>My tickets</h3><button class="secondary" type="button" id="dalasipay-refresh-tickets">Refresh tickets</button><div id="dalasipay-ticket-history" aria-live="polite">Use Refresh tickets to load your recent requests.</div></section>`:''}
       </section></div>`;
   }
   function renderPage(){const pages={dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,corrections:correctionsPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage,helpdesk:helpDeskPage};const fn=pages[state.page]||dashboard;try{return fn()}catch(err){console.error('DalasiPay page render failed',state.page,err);const message=esc(err?.message||'Unknown rendering error');return '<section class="surface" style="padding:24px;max-width:760px;margin:20px auto"><div class="eyebrow">RECOVERY MODE</div><h2 style="margin:6px 0 8px">DalasiPay could not open this page</h2><p style="color:var(--muted);line-height:1.55">Your workspace data is still present. A page component failed while rendering, so DalasiPay stopped that component instead of showing a blank screen.</p><div class="warn-box compact"><div><b>Technical detail</b><p>'+message+'</p></div></div><div class="inline-buttons" style="margin-top:14px"><button class="primary" data-page="dashboard">Go to dashboard</button><button class="secondary" data-page="settings">Open settings</button></div></section>';}}
@@ -3416,6 +3417,48 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
+    const ticketForm=document.getElementById('dalasipay-ticket-form');
+    const ticketHistory=document.getElementById('dalasipay-ticket-history');
+    const ticketFeedback=document.getElementById('dalasipay-ticket-feedback');
+    const ticketAPI=async input=>{
+      const endpoint=window.DALASIPAY_HELPDESK_API_URL;
+      if(window.DALASIPAY_HELPDESK_TICKETS_ENABLED!==true||typeof endpoint!=='string')throw new Error('Ticket service unavailable');
+      const parsed=new URL(endpoint,window.location.href);
+      if(parsed.protocol!=='https:'||parsed.origin!==window.location.origin)throw new Error('Ticket service configuration is invalid');
+      const session=await window.DalasiBackend?.auth?.session?.();
+      if(!session?.access_token)throw new Error('Please sign in again before submitting or viewing tickets');
+      const res=await fetch(parsed.href,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+session.access_token},body:JSON.stringify(input)});
+      const data=await res.json().catch(()=>null);
+      if(!res.ok||!data?.ok)throw new Error('Help Desk could not complete this request. Try again or use email support.');
+      return data;
+    };
+    const refreshTickets=async()=>{
+      if(!ticketHistory)return;
+      ticketHistory.textContent='Loading your tickets…';
+      try{
+        const data=await ticketAPI({action:'list'});
+        ticketHistory.replaceChildren();
+        if(!data.tickets?.length){ticketHistory.textContent='No tracked tickets yet.';return;}
+        for(const item of data.tickets){
+          const p=document.createElement('p');
+          p.textContent=String(item.reference||'')+' · '+String(item.subject||'')+' · '+String(item.status||'')+' · '+String(item.created_at||'').slice(0,10);
+          ticketHistory.appendChild(p);
+        }
+      }catch(err){ticketHistory.textContent=err.message||'Unable to load tickets';}
+    };
+    document.getElementById('dalasipay-refresh-tickets')?.addEventListener('click',refreshTickets);
+    if(ticketForm)ticketForm.addEventListener('submit',async e=>{
+      e.preventDefault();if(!ticketForm.reportValidity())return;
+      const btn=ticketForm.querySelector('button[type="submit"]');btn.disabled=true;
+      ticketFeedback.textContent='Submitting ticket…';
+      try{
+        const fields=new FormData(ticketForm);
+        const result=await ticketAPI({action:'create',ticket:{organization_id:String(state.org?.id||''),category:String(fields.get('category')||''),subject:String(fields.get('subject')||''),details:String(fields.get('details')||'')}});
+        ticketFeedback.textContent='Ticket submitted: '+result.ticket.reference;
+        ticketForm.reset();await refreshTickets();
+      }catch(err){ticketFeedback.textContent=err.message||'Submission failed; please use email support.';}
+      finally{btn.disabled=false;}
+    });
     const helpForm=document.getElementById('dalasipay-helpdesk-form');
     if(helpForm)helpForm.addEventListener('submit',e=>{
       e.preventDefault();
