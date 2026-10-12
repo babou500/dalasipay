@@ -120,6 +120,16 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='cash-bank-register'&&window.DalasiCashBank?.accountById){
+      const items=(state.cashTransactions||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+      const rows=items.map(t=>{const account=window.DalasiCashBank.accountById(state,t.accountId);return [esc(t.date||''),esc(account?.name||''),esc(t.type||''),esc(t.reference||''),esc(t.description||''),Number(t.amount)>=0?money2(t.amount):'',Number(t.amount)<0?money2(-t.amount):''];});
+      return '<div class="report-preview-kpis"><div><span>Transactions</span><b>'+items.length+'</b></div><div><span>Money in</span><b>'+money2(items.reduce((n,t)=>n+Math.max(0,Number(t.amount)||0),0))+'</b></div><div><span>Money out</span><b>'+money2(items.reduce((n,t)=>n+Math.max(0,-Number(t.amount)||0),0))+'</b></div></div>'+previewTable(['Date','Account','Type','Reference','Description','Money in (D)','Money out (D)'],rows,esc);
+    }
+    if(kind==='fixed-assets'&&window.DalasiFixedAssets?.netBookValue){
+      const assets=state.fixedAssets||[];
+      const rows=assets.map(a=>[esc(a.assetNo||''),esc(a.name||''),esc(a.category||''),esc(a.acquisitionDate||''),money2(a.cost||0),money2(a.status==='Disposed'?0:window.DalasiFixedAssets.netBookValue(state,a)),esc(a.status||'Active')]);
+      return '<div class="report-preview-kpis"><div><span>Registered assets</span><b>'+assets.length+'</b></div><div><span>Original cost</span><b>'+money2(assets.reduce((n,a)=>n+(Number(a.cost)||0),0))+'</b></div><div><span>Active net book value</span><b>'+money2(assets.reduce((n,a)=>n+(a.status==='Disposed'?0:Number(window.DalasiFixedAssets.netBookValue(state,a))||0),0))+'</b></div></div>'+previewTable(['Asset No.','Asset','Category','Acquired','Cost (D)','Net book value (D)','Status'],rows,esc);
+    }
     if(kind==='general-ledger'&&window.DalasiGeneralLedger?.ledgerRows){
       const lines=window.DalasiGeneralLedger.ledgerRows(state);
       const debits=lines.reduce((sum,line)=>sum+(Number(line.debit)||0),0);
