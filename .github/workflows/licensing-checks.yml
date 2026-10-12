@@ -29,6 +29,7 @@ on:
       - 'general-ledger-onscreen.test.js'
       - 'bank-reconciliations-onscreen.test.js'
       - 'register-reports-onscreen.test.js'
+      - 'loan-inventory-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -90,6 +91,7 @@ on:
       - 'general-ledger-onscreen.test.js'
       - 'bank-reconciliations-onscreen.test.js'
       - 'register-reports-onscreen.test.js'
+      - 'loan-inventory-onscreen.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -174,6 +176,7 @@ jobs:
           node --check general-ledger-onscreen.test.js
           node --check bank-reconciliations-onscreen.test.js
           node --check register-reports-onscreen.test.js
+          node --check loan-inventory-onscreen.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
           node --check helpdesk-ticket-foundation.test.js
@@ -266,6 +269,7 @@ jobs:
             general-ledger-onscreen.test.js \
             bank-reconciliations-onscreen.test.js \
             register-reports-onscreen.test.js \
+            loan-inventory-onscreen.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \
