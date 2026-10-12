@@ -2823,7 +2823,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
       ['Sales & customers',[['customers','Customers','employees'],['invoices','Sales','file'],['credit','Credit Control','shield'],['statements','Statements','reports'],['returns','Credits & Returns','file'],['debits','Debit Notes','file']]],
       ['Purchases & cash',[['suppliers','Suppliers','building'],['expenses','Expenses & Purchases','file'],['payments','Payments','bank'],['cashbank','Cash & Bank','bank']]],
       ['Accounting',[['accounting','Accounting','reports'],['corrections','Reversals & Corrections','alert'],['cashflow','Cash Flow','chart'],['tax','Tax & GRA','shield'],['budgets','Budgets','calendar'],['projects','Projects & Costs','building'],['loans','Loans & Debt','bank'],['assets','Assets','building'],['inventory','Inventory','box'],['reports','Reports','reports']]],
-      ['System',[['settings','Settings','settings']]]
+      ['System',[['helpdesk','Help Desk','info'],['settings','Settings','settings']]]
     ];
     const nav = navGroups.flatMap(g=>g[1]);
     const label = nav.find(n=>n[0]===state.page)?.[1] || 'Dashboard';
@@ -3392,7 +3392,21 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
 
 
-  function renderPage(){const pages={dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,corrections:correctionsPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage};const fn=pages[state.page]||dashboard;try{return fn()}catch(err){console.error('DalasiPay page render failed',state.page,err);const message=esc(err?.message||'Unknown rendering error');return '<section class="surface" style="padding:24px;max-width:760px;margin:20px auto"><div class="eyebrow">RECOVERY MODE</div><h2 style="margin:6px 0 8px">DalasiPay could not open this page</h2><p style="color:var(--muted);line-height:1.55">Your workspace data is still present. A page component failed while rendering, so DalasiPay stopped that component instead of showing a blank screen.</p><div class="warn-box compact"><div><b>Technical detail</b><p>'+message+'</p></div></div><div class="inline-buttons" style="margin-top:14px"><button class="primary" data-page="dashboard">Go to dashboard</button><button class="secondary" data-page="settings">Open settings</button></div></section>';}}
+  function helpDeskPage(){
+    return `<div style="max-width:880px;margin:0 auto"><div class="section-head"><div><h2>Help Desk</h2><p>Need help using DalasiPay? Contact BE Business Solutions.</p></div></div>
+      <section class="surface" style="padding:24px;margin-top:16px"><h3>Contact support</h3>
+      <p style="color:var(--muted);line-height:1.6">Describe what happened and where in DalasiPay you experienced the problem. The form prepares an email draft in your email application; you must press Send there to submit it.</p>
+      <form id="dalasipay-helpdesk-form" style="display:grid;gap:14px;max-width:680px">
+      <label>What do you need help with?<select name="category" required><option value="Technical problem">Technical problem</option><option value="Accounting or reports">Accounting or reports</option><option value="Invoices and payments">Invoices and payments</option><option value="Payroll">Payroll</option><option value="Tax and GRA">Tax and GRA</option><option value="Subscription or login">Subscription or login</option><option value="Other question">Other question</option></select></label>
+      <label>Subject<input name="subject" maxlength="120" placeholder="Short description of your issue" required></label>
+      <label>Details<textarea name="details" rows="6" maxlength="4000" placeholder="What were you doing? What error did you see? What did you expect?" required></textarea></label>
+      <label>Your reply email<input name="replyEmail" type="email" maxlength="200" autocomplete="email" placeholder="Where support can reply to you" required></label>
+      <p style="font-size:13px;color:var(--muted)">Please do not include passwords, private financial records, bank details or personal identification numbers.</p>
+      <button type="submit" class="primary">Open email draft</button></form>
+      <div style="margin-top:20px"><b>Contact us directly</b><p><a href="mailto:info@bebusinesssolutionsgm.com">info@bebusinesssolutionsgm.com</a> · <a href="tel:+220833159875">+220 83 3159875</a></p></div>
+      </section></div>`;
+  }
+  function renderPage(){const pages={dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,corrections:correctionsPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage,helpdesk:helpDeskPage};const fn=pages[state.page]||dashboard;try{return fn()}catch(err){console.error('DalasiPay page render failed',state.page,err);const message=esc(err?.message||'Unknown rendering error');return '<section class="surface" style="padding:24px;max-width:760px;margin:20px auto"><div class="eyebrow">RECOVERY MODE</div><h2 style="margin:6px 0 8px">DalasiPay could not open this page</h2><p style="color:var(--muted);line-height:1.55">Your workspace data is still present. A page component failed while rendering, so DalasiPay stopped that component instead of showing a blank screen.</p><div class="warn-box compact"><div><b>Technical detail</b><p>'+message+'</p></div></div><div class="inline-buttons" style="margin-top:14px"><button class="primary" data-page="dashboard">Go to dashboard</button><button class="secondary" data-page="settings">Open settings</button></div></section>';}}
   function render(){
     const existingSidebar=document.querySelector('.sidebar');if(existingSidebar)state.sidebarScrollTop=existingSidebar.scrollTop||0;
     if(state.authFlowActive||!state.session){app.innerHTML=authScreen();bindInputs();return;}
@@ -3402,6 +3416,20 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
+    const helpForm=document.getElementById('dalasipay-helpdesk-form');
+    if(helpForm)helpForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      if(!helpForm.reportValidity())return;
+      const data=new FormData(helpForm);
+      const category=String(data.get('category')||'Other question').slice(0,120);
+      const subject=String(data.get('subject')||'Support request').trim().slice(0,120);
+      const details=String(data.get('details')||'').trim().slice(0,4000);
+      const reply=String(data.get('replyEmail')||'').trim().slice(0,200);
+      if(!subject||!details||!reply)return;
+      const body=['Category: '+category,'Workspace: '+String(state.company||''),'Reply email: '+reply,'','Issue details:',details,'','Please reply to the email address above.'].join('\n');
+      window.location.href='mailto:info@bebusinesssolutionsgm.com?subject='+encodeURIComponent('[DalasiPay Help] '+subject)+'&body='+encodeURIComponent(body);
+    });
+
     const planRoot=document.getElementById('dashboard-subscription-summary');
     if(planRoot){
       const workspaceId=String(state.org?.id||'');
