@@ -120,6 +120,17 @@
   }
   function viewReport(kind,state,h){
     const {money2,esc,icon}=h,title=reportTitle(kind),m=metrics(state,h),period=state.pnlPeriod||state.currentPeriod;
+    if(kind==='loan-register'&&window.DalasiLoans?.summary){
+      const summary=window.DalasiLoans.summary(state),loans=state.businessLoans||[];
+      const rows=loans.map(l=>[esc(l.lender||l.name||''),esc(l.reference||l.id||''),money2(l.principal||0),money2(window.DalasiLoans.outstandingPrincipal(state,l)),money2(window.DalasiLoans.accruedInterestPayable(state,l)),esc(window.DalasiLoans.status(state,l))]);
+      return '<div class="report-preview-kpis"><div><span>Loans</span><b>'+summary.count+'</b></div><div><span>Outstanding principal</span><b>'+money2(summary.outstanding)+'</b></div><div><span>Interest payable</span><b>'+money2(summary.interestPayable)+'</b></div><div><span>Overdue instalments</span><b>'+summary.overdue+'</b></div></div>'+previewTable(['Lender','Reference','Principal (D)','Outstanding (D)','Interest payable (D)','Status'],rows,esc);
+    }
+    if(kind==='inventory-movements'&&window.DalasiInventory?.movements){
+      const items=(state.inventoryMovements||[]).slice().sort((a,b)=>String(b.movementDate||b.createdAt||'').localeCompare(String(a.movementDate||a.createdAt||'')));
+      const names=new Map((state.catalogItems||[]).map(p=>[String(p.id),p.name||p.code||'']));
+      const rows=items.map(m=>[esc(m.movementDate||String(m.createdAt||'').slice(0,10)),esc(names.get(String(m.catalogId))||m.catalogId||''),esc(m.type||''),esc(m.reference||''),String(Number(m.quantity)||0),money2(m.costAmount||0)]);
+      return '<div class="report-preview-kpis"><div><span>Stock movements</span><b>'+items.length+'</b></div><div><span>Items affected</span><b>'+new Set(items.map(m=>m.catalogId).filter(Boolean)).size+'</b></div></div>'+previewTable(['Date','Product','Movement type','Reference','Quantity change','Cost amount (D)'],rows,esc);
+    }
     if(kind==='cash-bank-register'&&window.DalasiCashBank?.accountById){
       const items=(state.cashTransactions||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
       const rows=items.map(t=>{const account=window.DalasiCashBank.accountById(state,t.accountId);return [esc(t.date||''),esc(account?.name||''),esc(t.type||''),esc(t.reference||''),esc(t.description||''),Number(t.amount)>=0?money2(t.amount):'',Number(t.amount)<0?money2(-t.amount):''];});
