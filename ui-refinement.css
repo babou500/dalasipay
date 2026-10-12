@@ -3201,3 +3201,25 @@ body{background:
   .invoice-detail-drawer .invoice-progress-label,
   .invoice-detail-drawer .invoice-progress-amounts{flex-wrap:wrap}
 }
+
+/* Compact professional five-step employee setup; scoped to this modal only. */
+.employee-form-modal .modal-scrim{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(10,25,22,.34)!important}
+.employee-form-modal .employee-master-form{width:min(960px,calc(100vw - 32px))!important;max-width:960px!important;max-height:min(88vh,880px);display:flex;flex-direction:column;border-radius:18px;overflow:hidden;box-shadow:0 24px 72px rgba(14,35,30,.23)}
+.employee-form-modal .employee-form-head{padding:22px 30px 16px}
+.employee-form-modal .employee-form-body{padding:12px 30px 18px;overflow-y:auto;flex:1;min-height:0}
+.employee-form-modal .employee-form-section{padding:18px 20px;border:1px solid var(--line,#dce8e3);border-radius:12px;background:var(--panel,#fff)}
+.employee-form-modal .employee-form-section[hidden],.employee-form-modal [hidden]{display:none!important}
+.employee-form-modal .employee-form-section-head{margin-bottom:18px}
+.employee-form-modal .employee-wizard-progress{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:14px 30px 6px}
+.employee-form-modal .employee-wizard-progress span{font-size:12px;text-align:center;padding:12px 4px;border-bottom:3px solid #dbe8e3;color:#667b75;font-weight:600}
+.employee-form-modal .employee-wizard-progress span.is-active{border-color:#087a62;color:#08634e}
+.employee-form-modal .employee-wizard-progress span.is-complete{border-color:#80b5a5;color:#336e5e}
+.employee-form-modal .employee-wizard-count{margin:4px 30px 0;font-size:12px;color:var(--muted,#647770)}
+.employee-form-modal .employee-form-footer{padding:16px 30px;flex-shrink:0;border-top:1px solid #e2eae6;background:var(--panel,#fff)}
+@media(max-width:650px){
+ .employee-form-modal .employee-master-form{width:calc(100vw - 12px)!important;max-height:96vh;border-radius:12px}
+ .employee-form-modal .employee-form-head,.employee-form-modal .employee-form-body,.employee-form-modal .employee-form-footer{padding-left:16px;padding-right:16px}
+ .employee-form-modal .employee-wizard-progress{gap:2px;padding:8px 12px}
+ .employee-form-modal .employee-wizard-progress span{font-size:10px}
+ .employee-form-modal .employee-wizard-count{margin-left:16px}
+}
