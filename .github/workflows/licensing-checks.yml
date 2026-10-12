@@ -18,6 +18,7 @@ on:
       - 'excel-linked-formulas.test.js'
       - 'trial-balance-excel-formulas.test.js'
       - 'ledger-excel-traceability.test.js'
+      - 'balance-sheet-excel-controls.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -60,6 +61,7 @@ on:
       - 'excel-linked-formulas.test.js'
       - 'trial-balance-excel-formulas.test.js'
       - 'ledger-excel-traceability.test.js'
+      - 'balance-sheet-excel-controls.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -124,6 +126,7 @@ jobs:
           node --check excel-linked-formulas.test.js
           node --check trial-balance-excel-formulas.test.js
           node --check ledger-excel-traceability.test.js
+          node --check balance-sheet-excel-controls.test.js
           node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
@@ -186,6 +189,7 @@ jobs:
             excel-linked-formulas.test.js \
             trial-balance-excel-formulas.test.js \
             ledger-excel-traceability.test.js \
+            balance-sheet-excel-controls.test.js \
             gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \

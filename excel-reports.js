@@ -261,8 +261,11 @@ async function exportProfessionalBalanceSheet(state,ctx){
  let row=7;
  const section=(title,items,currentTotal,priorTotal)=>{
   statementRow(ws,row++,title,['','',''],'section');
+  const firstAccountRow=row;
   items.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
-  const excelRow=row;const total=statementRow(ws,row++,'TOTAL '+title,[currentTotal,priorTotal,currentTotal-priorTotal],'total');linkedFormula(total.getCell(4),'B'+excelRow+'-C'+excelRow,currentTotal-priorTotal);
+  const excelRow=row;const total=statementRow(ws,row++,'TOTAL '+title,[currentTotal,priorTotal,currentTotal-priorTotal],'total');
+  if(items.length){linkedFormula(total.getCell(2),'SUM(B'+firstAccountRow+':B'+(excelRow-1)+')',currentTotal);linkedFormula(total.getCell(3),'SUM(C'+firstAccountRow+':C'+(excelRow-1)+')',priorTotal);}
+  linkedFormula(total.getCell(4),'B'+excelRow+'-C'+excelRow,currentTotal-priorTotal);
  };
  section('ASSETS',current.assets,current.totalAssets,prior?.totalAssets||0);
  section('LIABILITIES',current.liabilities,current.totalLiabilities,prior?.totalLiabilities||0);
@@ -271,7 +274,14 @@ async function exportProfessionalBalanceSheet(state,ctx){
  {const er=row,delta=current.currentEarnings-(prior?.currentEarnings||0),r=statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,delta]);linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
  {const er=row,delta=current.equity-(prior?.equity||0),r=statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
  {const er=row,delta=current.liabilitiesEquity-(prior?.liabilitiesEquity||0),r=statementRow(ws,row++,'LIABILITIES + EQUITY',[current.liabilitiesEquity,prior?.liabilitiesEquity||0,delta],'total');linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
- const diff=Number(current.totalAssets||0)-Number(current.liabilitiesEquity||0),prDiff=(prior?.totalAssets||0)-(prior?.liabilitiesEquity||0);const er=row,check=statementRow(ws,row++,'BALANCE CHECK',[diff,prDiff,diff-prDiff],Math.abs(diff)<.01?'key':'total');linkedFormula(check.getCell(4),'B'+er+'-C'+er,diff-prDiff);if(Math.abs(diff)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
+ const diff=Number(current.totalAssets||0)-Number(current.liabilitiesEquity||0),prDiff=(prior?.totalAssets||0)-(prior?.liabilitiesEquity||0);const er=row,check=statementRow(ws,row++,'BALANCE CHECK',[diff,prDiff,diff-prDiff],Math.abs(diff)<.01?'key':'total');
+ const locate=label=>{for(let r=7;r<er;r++)if(ws.getCell('A'+r).value===label)return r;return 0};
+ const assetsRow=locate('TOTAL ASSETS'),liabilitiesEquityRow=locate('LIABILITIES + EQUITY');
+ if(assetsRow&&liabilitiesEquityRow){
+  linkedFormula(check.getCell(2),'B'+assetsRow+'-B'+liabilitiesEquityRow,diff);
+  linkedFormula(check.getCell(3),'C'+assetsRow+'-C'+liabilitiesEquityRow,prDiff);
+ }
+ linkedFormula(check.getCell(4),'B'+er+'-C'+er,diff-prDiff);if(Math.abs(diff)>=.01)check.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:WARN}});
  ws.getColumn(1).width=43;[2,3,4].forEach(i=>ws.getColumn(i).width=19);ws.pageSetup.printTitlesRow='1:6';
  const note=row+1;ws.mergeCells(note,1,note,4);ws.getCell(note,1).value='Comparative Balance Sheet. Prior period is calculated from General Ledger postings through '+(prev?periodEnd(prev):'the prior reporting date')+'.';ws.getCell(note,1).font={name:'Aptos',size:9,italic:true,color:{argb:MUTED}};
  await saveWorkbook(wb,'dalasipay-balance-sheet-'+period,ctx);
