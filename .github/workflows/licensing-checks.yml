@@ -16,6 +16,7 @@ on:
       - 'corporate-tax.js'
       - 'gra-excel-working-papers.test.js'
       - 'excel-linked-formulas.test.js'
+      - 'trial-balance-excel-formulas.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -56,6 +57,7 @@ on:
       - 'corporate-tax.js'
       - 'gra-excel-working-papers.test.js'
       - 'excel-linked-formulas.test.js'
+      - 'trial-balance-excel-formulas.test.js'
       - 'business-payments.js'
       - 'business-reports.js'
       - 'report-viewer-*'
@@ -118,6 +120,7 @@ jobs:
           node --check opening-ledger-reconciliation.test.js
           node --check read-only-viewer-backdrops.test.js
           node --check excel-linked-formulas.test.js
+          node --check trial-balance-excel-formulas.test.js
           node --check gra-excel-working-papers.test.js
           node --check opening-balance-migration.test.js
           node --check scripts/cloudflare-source-check.mjs
@@ -178,6 +181,7 @@ jobs:
             opening-ledger-reconciliation.test.js \
             read-only-viewer-backdrops.test.js \
             excel-linked-formulas.test.js \
+            trial-balance-excel-formulas.test.js \
             gra-excel-working-papers.test.js \
             opening-balance-migration.test.js \
             subscription-usage.test.js \
