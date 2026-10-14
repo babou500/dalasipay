@@ -175,6 +175,10 @@ jobs:
           node --check invoice-detail-view.test.js
           node --check accounting-calendar.js
           node --check accounting-calendar.test.js
+          node --check accounting-journals.js
+          node --check expenses-purchases.js
+          node --check business-payments.js
+          node --check account-supplier-quick-create.test.js
           node --check fiscal-reporting-preview.js
           node --check fiscal-reporting-preview.test.js
           node --check year-close-fiscal-safety.test.js
@@ -280,6 +284,7 @@ jobs:
             employee-drawer-backdrop.test.js \
             invoice-detail-view.test.js \
             accounting-calendar.test.js \
+            account-supplier-quick-create.test.js \
             fiscal-reporting-preview.test.js \
             year-close-fiscal-safety.test.js \
             year-close-scope-audit.test.js \
