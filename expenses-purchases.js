@@ -138,9 +138,47 @@
     const guide=!(state.businessExpenses||[]).length&&!(state.purchaseOrders||[]).length?'<div class="first-use-card"><span>'+icon('building',16)+'</span><div><b>Record spending in the right place</b><p>Use Expenses for costs already incurred. Use Purchase Orders when you want approval and supplier control before the bill arrives.</p></div><button class="primary" data-action="open-purchase">Create purchase order</button></div>':'';
     return tabs(state)+pageTitle('SPEND MANAGEMENT','Expenses','Track business expenses, receipts, approvals and purchase orders before payment.',action)+guide+(tab==='purchases'?purchasesPanel(state,h):expensesPanel(state,h));
   }
+  function quickSupplierPanel(){
+    return '<section class="payment-modal-note" data-quick-supplier-panel hidden style="margin:10px 0;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2)">'+
+      '<strong>Add supplier without leaving this form</strong><div class="form-grid" style="margin-top:10px">'+
+      '<label>Supplier name <input data-quick-supplier-name placeholder="Supplier / business name"></label>'+
+      '<label>Phone (optional) <input data-quick-supplier-phone placeholder="+220 …"></label>'+
+      '<label>Email (optional) <input data-quick-supplier-email type="email" placeholder="supplier@example.com"></label>'+
+      '</div><div class="inline-buttons" style="margin-top:10px">'+
+      '<button type="button" class="primary" data-quick-supplier-save>Save supplier</button>'+
+      '<button type="button" class="secondary" data-quick-supplier-cancel>Cancel</button></div></section>';
+  }
+  function bindQuickSupplier(form,state,ctx){
+    if(!form||form.dataset.quickSupplierBound==='1')return;
+    form.dataset.quickSupplierBound='1';
+    const select=form.querySelector('[name="supplierId"]'),panel=form.querySelector('[data-quick-supplier-panel]');
+    if(!select||!panel)return;
+    const hide=()=>{panel.hidden=true;if(select.value==='__add_supplier__')select.value='';};
+    select.addEventListener('change',()=>{
+      panel.hidden=select.value!=='__add_supplier__';
+      if(!panel.hidden)panel.querySelector('[data-quick-supplier-name]')?.focus();
+    });
+    form.addEventListener('click',ev=>{
+      if(ev.target.closest('[data-quick-supplier-cancel]')){hide();return;}
+      if(!ev.target.closest('[data-quick-supplier-save]'))return;
+      const name=panel.querySelector('[data-quick-supplier-name]')?.value||'';
+      const phone=panel.querySelector('[data-quick-supplier-phone]')?.value||'';
+      const email=panel.querySelector('[data-quick-supplier-email]')?.value||'';
+      if(email&&!panel.querySelector('[data-quick-supplier-email]').checkValidity()){ctx.toast('Enter a valid email address.');return;}
+      const supplier=window.DalasiBusinessPayments?.createQuickSupplier?.(state,{name,phone,email},ctx);
+      if(!supplier)return;
+      const option=[...select.options].find(x=>x.value===supplier.id);
+      if(!option){const o=document.createElement('option');o.value=supplier.id;o.textContent=supplier.name+' · '+(supplier.kind||'Supplier');select.add(o,select.options.length-1);}
+      select.value=supplier.id;hide();
+      const nameInput=form.querySelector('[name="supplierName"]')||form.querySelector('[name="merchant"]');
+      if(nameInput&&!nameInput.value.trim())nameInput.value=supplier.name;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+  }
+
   function expenseModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,suppliers=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
-    const supplierOptions=['<option value="">No saved supplier / merchant</option>'].concat(suppliers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.kind||'Supplier')+'</option>')).join('');
+    const supplierOptions=['<option value="">No saved supplier / merchant</option>'].concat(suppliers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.kind||'Supplier')+'</option>')).concat(['<option value="__add_supplier__">+ Add new supplier…</option>']).join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-expense"></div><form id="expense-form" class="modal-box">'+
       '<div class="modal-head"><div><div class="eyebrow">BUSINESS EXPENSE</div><h2>Record expense</h2><p>Capture the cost, payment method and supporting receipt.</p></div><button type="button" class="close" data-action="close-expense">×</button></div>'+
       '<div class="form-grid">'+
@@ -157,14 +195,14 @@
         field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
         field('Reference','<input name="reference" placeholder="Receipt, transfer or internal reference">')+
         field('Receipt / evidence','<input name="receipt" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
-      '</div>'+
+      '</div>'+quickSupplierPanel()+
       field('Description / business purpose','<input name="description" placeholder="What was this expense for?">')+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-expense">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save expense</button></div>'+
     '</form></div>';
   }
   function purchaseModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,suppliers=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
-    const supplierOptions=['<option value="">Supplier not yet selected</option>'].concat(suppliers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.kind||'Supplier')+'</option>')).join('');
+    const supplierOptions=['<option value="">Supplier not yet selected</option>'].concat(suppliers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.kind||'Supplier')+'</option>')).concat(['<option value="__add_supplier__">+ Add new supplier…</option>']).join('');
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-purchase"></div><form id="purchase-form" class="modal-box sales-document-modal">'+
       '<div class="modal-head"><div><div class="eyebrow">PURCHASE ORDER</div><h2>Create purchase order</h2><p>Build an itemized purchase order. Product lines can be received directly into stock.</p></div><button type="button" class="close" data-action="close-purchase">×</button></div>'+
       '<div class="form-grid">'+
@@ -180,7 +218,7 @@
         field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+
         field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
         field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
-      '</div>'+
+      '</div>'+quickSupplierPanel()+
       window.DalasiCatalog.lineItemsForm(state,state.purchasePrefillLines||[],'purchase')+
       field('Purchase description','<input name="description" placeholder="Optional summary of the purchase">')+
       field('Notes','<input name="notes" placeholder="Optional procurement note">')+
@@ -335,5 +373,5 @@
   function expenseRows(state){return state.businessExpenses||[]}
   function purchaseRows(state){return state.purchaseOrders||[]}
 
-  window.DalasiExpensesPurchases={render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,reverseExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
+  window.DalasiExpensesPurchases={bindQuickSupplier,render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,reverseExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
 })();
