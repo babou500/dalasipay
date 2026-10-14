@@ -1262,6 +1262,22 @@
     state.paymentBeneficiaries.push({id,name,kind,contact:String(fd.get('contact')||'').trim(),phone:String(fd.get('phone')||'').trim(),email:String(fd.get('email')||'').trim(),preferredMethod:String(fd.get('preferredMethod')||'Bank transfer'),bankName:String(fd.get('bankName')||'').trim(),accountName:String(fd.get('accountName')||'').trim(),accountNumber:String(fd.get('accountNumber')||'').trim(),mobileProvider:String(fd.get('mobileProvider')||'').trim(),mobileNumber:String(fd.get('mobileNumber')||'').trim(),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     state.beneficiaryOpen=false;state.beneficiaryDefaultKind='';ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind});ctx.save();ctx.toast(name+(kind==='Supplier / vendor'?' added as a supplier':' added as a beneficiary'));ctx.render();
   }
+  // Save a supplier from the purchase/expense form without closing that form.
+  // Uses the same beneficiary record shape and audit trail as the Suppliers page.
+  function createQuickSupplier(state,details,ctx){
+    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add suppliers.');return null;}
+    const name=String(details?.name||'').trim(),phone=String(details?.phone||'').trim(),email=String(details?.email||'').trim();
+    if(!name){ctx.toast('Enter the supplier name.');return null;}
+    const existing=(state.paymentBeneficiaries||[]).find(x=>normPartyText(x.name)===normPartyText(name)&&(x.status||'Active')==='Active');
+    if(existing){ctx.toast('A supplier or beneficiary with this name already exists. Selected the existing record.');return existing;}
+    const now=new Date().toISOString(),id='BEN-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6);
+    const row={id,name,kind:'Supplier / vendor',contact:'',phone,email,preferredMethod:'Bank transfer',bankName:'',accountName:'',accountNumber:'',mobileProvider:'',mobileNumber:'',reference:'',status:'Active',createdAt:now,createdBy:state.session?.name||'User'};
+    state.paymentBeneficiaries=state.paymentBeneficiaries||[];state.paymentBeneficiaries.push(row);
+    ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind:row.kind,source:'quick-add'});
+    ctx.save();ctx.toast(name+' added as a supplier');
+    return row;
+  }
+
   function update(id,status,state,ctx,meta={}){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
@@ -1392,5 +1408,5 @@
         '<button class="secondary" data-action="close-payment-detail">Close</button>'+
       '</div></aside></div>';
   }
-window.DalasiBusinessPayments={resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+window.DalasiBusinessPayments={createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
