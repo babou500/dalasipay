@@ -945,14 +945,19 @@ window.DALASIPAY_CONFIG = {
       if(configured()&&typeof navigator!=='undefined'&&!navigator.onLine)throw Object.assign(Error(),{code:'offline'});
       const storage=store();if(!storage)throw Object.assign(Error(),{code:'storage'});
       const snapshot=collectWorkspace(orgId,storage),expected=Number(storage?.getItem(`${REV_PREFIX}${orgId}`)||0);
+      const remote=configured()?await window.DalasiBackend.repository.appState(orgId):null;
+      if(configured()&&Number(remote?.revision||0)!==expected)throw Object.assign(Error(),{code:'conflict'});
+      const baseline=remote?.state||snapshot;
+      if((baseline.data?.[key]||[]).some(existing=>!rows.some(row=>row.id===existing.id)))throw Object.assign(Error(),{code:'conflict'});
+      const seenAudit=new Set(),previousAudit=[...(snapshot.data.audit||[]),...(baseline.data?.audit||[])].filter(item=>{if(seenAudit.has(item.id))return false;seenAudit.add(item.id);return true;});
       const audit={id:crypto.randomUUID(),actorUserId:session.userId,actorName:session.name||'User',action:event.action,metadata:event.metadata,createdAt:now()};
-      const values={[key]:rows,audit:[audit,...(snapshot.data.audit||[])].slice(0,200)};
-      const next={...snapshot,data:{...snapshot.data,...values}};
+      const values={[key]:rows,audit:[audit,...previousAudit].slice(0,200)};
+      const next={...baseline,data:{...baseline.data,...values}};
       if(configured()){
         const result=await window.DalasiBackend.repository.saveAppState({organizationId:orgId,schemaVersion:next.schemaVersion,state:next,expectedRevision:expected});
         if(result?.conflict)throw Object.assign(Error(),{code:'conflict'});
         if(!Number.isFinite(result?.revision)||result.revision<=expected)throw Error('Save acknowledgement missing');
-        try{applyWorkspace(orgId,{data:values},storage);storage.setItem(`${REV_PREFIX}${orgId}`,String(result.revision));}catch{throw Object.assign(Error(),{code:'storage'});}
+        try{const missing=Object.fromEntries(Object.entries(baseline.data||{}).filter(([name])=>storage.getItem(workspacePrefix(orgId)+name)===null));applyWorkspace(orgId,{data:{...missing,...values}},storage);storage.setItem(`${REV_PREFIX}${orgId}`,String(result.revision));}catch{throw Object.assign(Error(),{code:'storage'});}
       }else applyWorkspace(orgId,{data:values},storage);
       return {ok:true};
     });

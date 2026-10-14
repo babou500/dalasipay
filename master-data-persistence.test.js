@@ -6,7 +6,7 @@ function fixture(){
   const data=new Map(),writes=[],remote={revision:3,state:{schemaVersion:'test',data:{'transactions':[{id:'preserved',amount:321}],'subscriptions':Array.from({length:13},(_,id)=>({id,professional_preview:true})),billing:false}}};
   const storage={get length(){return data.size;},key:i=>[...data.keys()][i],getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,String(value)),removeItem:key=>data.delete(key)};
   const control={allowed:true,online:true,error:null,org:'workspace',userId:'owner'};
-  const window={DALASIPAY_CONFIG:{mode:'supabase'},addEventListener(){},DalasiAuth:{getSession:()=>({userId:control.userId,name:'Owner'}),getActiveOrganization:()=>({id:control.org}),can:()=>control.allowed},DalasiBackend:{configured:()=>true,repository:{saveAppState:async request=>{
+  const window={DALASIPAY_CONFIG:{mode:'supabase'},addEventListener(){},DalasiAuth:{getSession:()=>({userId:control.userId,name:'Owner'}),getActiveOrganization:()=>({id:control.org}),can:()=>control.allowed},DalasiBackend:{configured:()=>true,repository:{appState:async()=>structuredClone(remote),saveAppState:async request=>{
     writes.push(request);await new Promise(resolve=>setTimeout(resolve,5));if(control.error)throw control.error;
     if(request.expectedRevision!==remote.revision)return {conflict:true};
     remote.state=structuredClone(request.state);return {revision:++remote.revision};
@@ -77,4 +77,17 @@ test('switching workspace during a pending creation never appends the saved reco
   const state={org:{id:'first'},customAccounts:[]};let finish;
   const pending=window.DalasiAccounting.createAccountRecord(state,{code:'6001',name:'Child',parentCode:'6000'},{can:()=>true,toast:()=>{},persist:()=>new Promise(resolve=>finish=resolve)});
   state.org={id:'second'};state.customAccounts=[];finish();assert.equal(await pending,null);assert.equal(state.customAccounts.length,0);
+});
+
+
+test('a partial browser cache cannot remove server financial data or silently drop existing master records',async()=>{
+  const f=fixture(),before=structuredClone(f.remote.state.data);
+  f.storage.removeItem('dalasipay-v3-org-workspace-transactions');f.storage.removeItem('dalasipay-v3-org-workspace-subscriptions');f.storage.removeItem('dalasipay-v3-org-workspace-billing');
+  await f.production.commitMasterData('workspace','custom-accounts',[{id:'new-account'}],{action:'accounting.account_created',metadata:{}});
+  for(const key of Object.keys(before))assert.deepEqual(f.remote.state.data[key],before[key]);
+  await f.production.syncNow('workspace');
+  for(const key of Object.keys(before))assert.deepEqual(f.remote.state.data[key],before[key]);
+  const count=f.writes.length;
+  await assert.rejects(f.production.commitMasterData('workspace','custom-accounts',[{id:'different-account'}],{action:'accounting.account_created',metadata:{}}),error=>error.code==='conflict');
+  assert.equal(f.writes.length,count);assert.equal(f.remote.state.data['custom-accounts'][0].id,'new-account');
 });
