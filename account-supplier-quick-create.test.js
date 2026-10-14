@@ -52,7 +52,7 @@ test('purchase, expense and journal forms expose inline creation choices',()=>{
   const j=a.journalModal(state,{field:(_,html)=>html,icon:()=>''});
   assert.match(j,/value="__add_account__"/);assert.match(j,/data-journal-quick-account/);
   const acc=a.accountModal(state,{field:(_,html)=>html,icon:()=>''});
-  assert.match(acc,/name="code"[^>]+value="1010"/);
+  assert.match(acc,/name="code"[^>]+value="6010"/);
   const win={DalasiCashBank:{accountSelect:()=>'<select></select>'},DalasiCatalog:{lineItemsForm:()=>'<div>Items</div>'}};
   load('expenses-purchases.js',win);
   const h={field:(_,html)=>html,icon:()=>'',esc:x=>x};
