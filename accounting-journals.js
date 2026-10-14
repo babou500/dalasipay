@@ -51,33 +51,36 @@
     const parent=parentCode?parentAccount(state,parentCode):null;
     const prefixes={Asset:1000,Liability:2000,Equity:3000,Revenue:4000,Expense:6000};
     const source=parent?Number(String(parent.code).split('-')[0]):(prefixes[type]||6000);
-    const used=new Set(allAccounts(state,true).map(x=>String(x.code)));
+    const used=new Set([...allAccounts(state,true),...(state.customAccounts||[])].map(x=>String(Number(x.code))));
     let candidate=source+(parent?1:10);
     while(candidate<=999999&&used.has(String(candidate)))candidate++;
     return candidate<=999999?String(candidate):'';
   }
-  function createAccountRecord(state,details,ctx){
-    if(!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can add ledger accounts.');return null;}
-    const parentCode=String(details.parentCode||'').trim(),parent=parentCode?parentAccount(state,parentCode):null;
-    if(parentCode&&(!parent||(parent.status||'Active')!=='Active')){ctx.toast('Choose an active parent account.');return null;}
-    const type=parent?.type||String(details.type||'Asset'),code=String(details.code||'').trim()||nextAccountCode(state,parentCode,type),name=String(details.name||'').trim();
-    if(!/^\d{3,6}$/.test(code)||!name||!TYPES.includes(type)){ctx.toast('Enter a numeric account code (3 to 6 digits), name and valid type.');return null;}
-    const accounts=allAccounts(state,true);
-    if(accounts.some(x=>x.code===code)){ctx.toast('Account code '+code+' already exists. Choose another code.');return null;}
-    if(accounts.some(x=>x.name.toLowerCase()===name.toLowerCase())){ctx.toast('The account name already exists.');return null;}
-    const id='ACC-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6);
-    const account={id,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'};
-    state.customAccounts=state.customAccounts||[];state.customAccounts.push(account);
-    ctx.audit('accounting.account_created',{accountId:id,code,name,type,parentCode:account.parentCode,parentName:account.parentName});
-    ctx.save();ctx.toast(code+' · '+name+(parent?' added under '+parent.name:' added'));
-    return account;
+  async function createAccountRecord(state,details,ctx){
+    return window.DalasiMasterForms.create(state,'accounts',ctx,async()=>{
+      if(!state.org?.id||!ctx.can('workspace.manage')){ctx.toast('Only the workspace owner can add ledger accounts in the active workspace.');return null;}
+      const workspaceId=state.org.id,parentCode=String(details.parentCode||'').trim(),parent=parentCode?parentAccount(state,parentCode):null;
+      if(parentCode&&(!parent||(parent.status||'Active')!=='Active'||parent.organizationId&&parent.organizationId!==workspaceId)){ctx.toast('Choose an active parent account.');return null;}
+      const type=parent?.type||String(details.type||'Asset'),code=String(details.code||'').trim()||nextAccountCode(state,parentCode,type),name=String(details.name||'').trim();
+      if(!/^\d{3,6}$/.test(code)||!name||!TYPES.includes(type)){ctx.toast('Enter a numeric account code (3 to 6 digits), name and valid type.');return null;}
+      // Validate against raw custom records too: display deduplication must not hide occupied codes.
+      const accounts=[...allAccounts(state,true),...(state.customAccounts||[])];
+      if(accounts.some(x=>Number(x.code)===Number(code))){ctx.toast('Account code '+code+' already exists. Choose another code.');return null;}
+      if(accounts.some(x=>String(x.name).trim().toLowerCase()===name.toLowerCase())){ctx.toast('The account name already exists.');return null;}
+      const id='ACC-'+crypto.randomUUID(),account={id,organizationId:workspaceId,code,name,type,parentCode:parent?.code||null,parentName:parent?.name||null,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'};
+      const rows=[...(state.customAccounts||[]),account];
+      await ctx.persist('custom-accounts',rows,'accounting.account_created',{accountId:id,code,name,type,parentCode:account.parentCode,parentName:account.parentName});
+      if(state.org?.id!==workspaceId||ctx.isCurrent&&!ctx.isCurrent())return null;
+      state.customAccounts=rows;ctx.toast(code+' · '+name+(parent?' saved under '+parent.name:' saved'));
+      return account;
+    });
   }
   function bindAccountForm(form,state){
     if(!form||form.dataset.autoCodeBound==='1')return;
-    form.dataset.autoCodeBound='1';
+    form.dataset.autoCodeBound='1';form.dataset.workspaceId=state.org?.id||'';form.dataset.userId=state.session?.userId||'';
     const parentSelect=form.querySelector('[name="parentCode"]'),typeSelect=form.querySelector('[name="type"]'),codeInput=form.querySelector('[name="code"]');
     if(!parentSelect||!typeSelect||!codeInput)return;
-    let lastSuggested=codeInput.value;
+    let lastSuggested=form.dataset.draftRestored?'':codeInput.value;
     const update=()=>{
       const parent=parentAccount(state,parentSelect.value);
       typeSelect.disabled=!!parent;if(parent)typeSelect.value=parent.type;
@@ -92,7 +95,7 @@
 
   function lineRow(state,line={},i=0){
     return '<div class="journal-line" data-journal-line>'+
-      '<select name="journalAccount" required>'+accountOptions(state,line.account||'')+'<option value="__add_account__">+ Add new account…</option></select>'+
+      '<select name="journalAccount" required>'+accountOptions(state,line.account||'')+'<option value="__add_account__">+ Add New Account</option></select>'+
       '<input name="journalMemo" value="'+esc(line.memo||'')+'" placeholder="Line memo">'+
       '<input name="journalDebit" type="number" min="0" step="0.01" value="'+(line.debit||'')+'" placeholder="0.00">'+
       '<input name="journalCredit" type="number" min="0" step="0.01" value="'+(line.credit||'')+'" placeholder="0.00">'+
@@ -114,9 +117,11 @@
   }
   function bindJournalForm(form,state,ctx){
     if(!form||form.dataset.bound==='1')return;form.dataset.bound='1';
+    ctx=window.DalasiMasterForms.context(form,state,ctx);
     const wrap=form.querySelector('.journal-lines');if(!wrap)return;
     const panel=form.querySelector('[data-journal-quick-account]'),parentSelect=panel?.querySelector('[data-quick-parent]'),typeSelect=panel?.querySelector('[data-quick-type]'),codeInput=panel?.querySelector('[data-quick-code]');
-    let targetSelect=null,lastSuggested='';
+    let targetSelect=form.querySelector('[data-quick-account-target]'),lastSuggested='',saving=false;
+    const previous=new WeakMap();form.querySelectorAll('[name="journalAccount"]').forEach(select=>previous.set(select,select.dataset.previousValue||select.value));
     const update=()=>{
       const t=journalTotals(readLines(form));
       const d=form.querySelector('[data-journal-debit-total]'),c=form.querySelector('[data-journal-credit-total]'),diff=form.querySelector('[data-journal-difference]');
@@ -125,7 +130,8 @@
     };
     const hidePanel=()=>{
       if(panel)panel.hidden=true;
-      if(targetSelect?.value==='__add_account__')targetSelect.value='';
+      if(targetSelect?.value==='__add_account__')targetSelect.value=previous.get(targetSelect)||'';
+      if(targetSelect)delete targetSelect.dataset.quickAccountTarget;
       targetSelect=null;update();
     };
     const updateQuickCode=()=>{
@@ -138,25 +144,31 @@
     };
     parentSelect?.addEventListener('change',updateQuickCode);
     typeSelect?.addEventListener('change',updateQuickCode);
-    form.addEventListener('click',ev=>{
+    form.addEventListener('click',async ev=>{
+      if(saving)return;
       if(ev.target.closest('[data-journal-add]')){wrap.insertAdjacentHTML('beforeend',lineRow(state,{},wrap.children.length));update();return;}
       const rem=ev.target.closest('[data-journal-remove]');if(rem){if(wrap.children.length<=2)return;const row=rem.closest('[data-journal-line]');if(row?.contains(targetSelect))hidePanel();row?.remove();update();return;}
       if(ev.target.closest('[data-quick-account-cancel]')){hidePanel();return;}
       if(!ev.target.closest('[data-quick-account-save]'))return;
       if(!panel||!ctx)return;
       const name=panel.querySelector('[data-quick-name]')?.value||'';
-      const a=createAccountRecord(state,{code:codeInput.value,name,parentCode:parentSelect.value,type:typeSelect.value},ctx);
+      saving=true;let a;
+      try{a=await createAccountRecord(state,{code:codeInput.value,name,parentCode:parentSelect.value,type:typeSelect.value},ctx);}finally{saving=false;}
+      if(!form.isConnected)return;
       if(!a)return;
       [...form.querySelectorAll('[name="journalAccount"]')].forEach(select=>{
         const old=select===targetSelect?a.name:select.value;
-        select.innerHTML=accountOptions(state,old)+'<option value="__add_account__">+ Add new account…</option>';
-        select.value=old;
+        select.innerHTML=accountOptions(state,old)+'<option value="__add_account__">+ Add New Account</option>';
+        select.value=old;previous.set(select,old);
       });
       hidePanel();
     });
     form.addEventListener('change',ev=>{
+      if(saving)return;
+      if(ev.target.matches('[name="journalAccount"]')&&ev.target.value!=='__add_account__'){previous.set(ev.target,ev.target.value);ev.target.dataset.previousValue=ev.target.value;}
       if(ev.target.matches('[name="journalAccount"]')&&ev.target.value==='__add_account__'){
-        targetSelect=ev.target;
+        if(targetSelect&&targetSelect!==ev.target){targetSelect.value=previous.get(targetSelect)||'';delete targetSelect.dataset.quickAccountTarget;}
+        targetSelect=ev.target;targetSelect.dataset.quickAccountTarget='1';
         if(panel){panel.hidden=false;lastSuggested='';codeInput.value='';updateQuickCode();panel.querySelector('[data-quick-name]')?.focus();}
       }
       update();
@@ -168,8 +180,9 @@
     (state.manualJournals||[]).forEach(x=>{const n=String(x.journalNo||'');if(n.startsWith(prefix)){const v=Number(n.slice(prefix.length));if(v>max)max=v;}});
     return prefix+String(max+1).padStart(5,'0');
   }
+  function formPending(form){if(!form.querySelector('[data-journal-quick-account]:not([hidden])'))return false;window.DalasiMasterForms.feedback(form,'Save or cancel the new account before saving the journal.');return true;}
   function createJournal(ev,state,ctx){
-    ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create journals.');return;}
+    ev.preventDefault();if(formPending(ev.target)){return;}if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create journals.');return;}
     const form=ev.target,fd=new FormData(form),date=String(fd.get('journalDate')||''),reference=String(fd.get('reference')||'').trim(),memo=String(fd.get('memo')||'').trim(),lines=readLines(form),t=journalTotals(lines);
     if(!date||lines.length<2||!t.balanced){ctx.toast('Journal must have a date, at least two lines, and equal debits and credits.');return;}
     if(window.DalasiMonthClose?.isClosed(state,date)){ctx.toast('That accounting period is closed. Reopen it before creating this journal.');return;}
@@ -205,10 +218,10 @@
     state.manualJournals.unshift(rev);j.reversalJournalId=rid;j.reversalJournalNo=journalNo;j.reversedAt=now;j.reversedBy=actor;j.reversalReason=reason;j.reversalRequestId=ctx.approvedRequest.id;
     ctx.audit('accounting.journal_reversed',{journalId:j.id,requestId:j.reversalRequestId,journalNo:j.journalNo,reversalJournalId:rid,reversalJournalNo:journalNo,reason});ctx.save();return true;
   }
-  function createAccount(ev,state,ctx){
+  async function createAccount(ev,state,ctx){
     ev.preventDefault();
     const fd=new FormData(ev.target);
-    const created=createAccountRecord(state,{code:fd.get('code'),name:fd.get('name'),type:fd.get('type'),parentCode:fd.get('parentCode')},ctx);
+    const created=await createAccountRecord(state,{code:fd.get('code'),name:fd.get('name'),type:fd.get('type'),parentCode:fd.get('parentCode')},ctx);
     if(!created)return;
     state.accountOpen=false;state.accountParentCode='';ctx.render();
   }
@@ -242,27 +255,25 @@
       '<button type="button" class="secondary journal-add" data-journal-add>'+icon('plus',13)+' Add line</button>'+
       '<section data-journal-quick-account hidden class="payment-modal-note" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2)">'+
       '<strong>Create an account for this journal</strong><p style="margin:4px 0 10px">The new account will be selected in the journal. Your entered amounts will be retained.</p>'+
-      '<div class="form-grid"><label>Parent (optional)<select data-quick-parent><option value="">Top-level account</option>'+orderedAccounts(state).map(a=>'<option value="'+esc(a.code)+'">'+esc(a.code+' · '+a.name)+'</option>').join('')+'</select></label>'+
-      '<label>Account type<select data-quick-type>'+TYPES.map(t=>'<option '+(t==='Expense'?'selected':'')+'>'+t+'</option>').join('')+'</select></label>'+
-      '<label>Account code<input data-quick-code inputmode="numeric" placeholder="Suggested code"></label>'+
-      '<label>Account name<input data-quick-name placeholder="e.g. Transport expense"></label></div>'+
+      accountFields(state,h,true)+
       '<div class="inline-buttons" style="margin-top:10px"><button type="button" class="primary" data-quick-account-save>Save account</button><button type="button" class="secondary" data-quick-account-cancel>Cancel</button></div></section>'+
       '<div class="journal-totals"><span>Debits <b>D <em data-journal-debit-total>0.00</em></b></span><span>Credits <b>D <em data-journal-credit-total>0.00</em></b></span><span class="journal-diff">Difference <b>D <em data-journal-difference>0.00</em></b></span></div>'+
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-journal">Cancel</button><button class="primary" type="submit" disabled>'+icon('save',14)+' Save draft journal</button></div>'+
     '</form></div>';
   }
+  function accountFields(state,h,quick=false){
+    const {field}=h,selectedParent=String(quick?'':state.accountParentCode||''),parent=parentAccount(state,selectedParent);
+    const attr=(name,extra='')=>quick?'name="quickAccount_'+name+'" data-quick-'+({parentCode:'parent',type:'type',code:'code',name:'name'}[name])+' '+extra:'name="'+name+'" '+extra;
+    const parents='<option value="">No parent · top-level account</option>'+orderedAccounts(state).map(a=>'<option value="'+esc(a.code)+'" '+(a.code===selectedParent?'selected':'')+'>'+esc(a.code+' · '+a.name+' · '+a.type)+'</option>').join('');
+    return field('Parent account','<select '+attr('parentCode')+'>'+parents+'</select>')+'<div class="account-parent-note">Sub-accounts inherit the parent account type.</div><div class="form-grid">'+
+      field('Account code','<input '+attr('code')+' inputmode="numeric" value="'+esc(nextAccountCode(state,selectedParent,parent?.type||(quick?'Expense':'Asset')))+'" placeholder="e.g. 6010">')+
+      field('Account type','<select '+attr('type')+' '+(parent?'disabled':'')+'>'+TYPES.map(t=>'<option '+((parent?.type||(quick?'Expense':'Asset'))===t?'selected':'')+'>'+t+'</option>').join('')+'</select>')+'</div>'+
+      field('Account name','<input '+attr('name')+' placeholder="e.g. Office Rent">');
+  }
   function accountModal(state,h){
-    const {field,icon}=h,parents=orderedAccounts(state).filter(a=>(a.status||'Active')==='Active'),selectedParent=String(state.accountParentCode||'');
-    const parentOptions='<option value="">No parent · top-level account</option>'+parents.map(a=>'<option value="'+esc(a.code)+'" '+(String(a.code)===selectedParent?'selected':'')+'>'+esc((a.depth?'↳ '.repeat(Math.min(a.depth,2)):'')+a.code+' · '+a.name+' · '+a.type)+'</option>').join('');
-    const selectedParentAccount=selectedParent?parentAccount(state,selectedParent):null;
     return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-account"></div><form id="ledger-account-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">CHART OF ACCOUNTS</div><h2>Add account or sub-account</h2><p>Create a top-level ledger account or place a sub-account beneath an existing account.</p></div><button type="button" class="close" data-action="close-account">×</button></div>'+
-      field('Parent account','<select id="ledger-parent-account" name="parentCode">'+parentOptions+'</select>')+
-      '<div class="account-parent-note">If a parent is selected, the new sub-account automatically inherits the parent account type.</div>'+
-      '<div class="form-grid">'+field('Account code','<input name="code" inputmode="numeric" value="'+esc(nextAccountCode(state,selectedParent,selectedParentAccount?.type||'Asset'))+'" placeholder="e.g. 6010" required>')+field('Account type','<select id="ledger-account-type" name="type" '+(selectedParentAccount?'disabled':'')+'>'+TYPES.map(x=>'<option '+(selectedParentAccount?.type===x?'selected':'')+'>'+x+'</option>').join('')+'</select>')+'</div>'+
-      field('Account name','<input name="name" placeholder="e.g. Office Rent" required>')+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-account">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Add account</button></div>'+
-    '</form></div>';
+      '<div class="modal-head"><div><div class="eyebrow">CHART OF ACCOUNTS</div><h2>Add account or sub-account</h2><p>Create a top-level ledger account or place a sub-account beneath an existing account.</p></div><button type="button" class="close" data-action="close-account">×</button></div>'+accountFields(state,h)+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-account">Cancel</button><button class="primary" type="submit">'+h.icon('plus',14)+' Add account</button></div></form></div>';
   }
   function render(state,h){
     const {pageTitle,icon,money2,pill}=h,tab=state.accountingTab||'journals',journals=(state.manualJournals||[]),accounts=allAccounts(state,true);
@@ -291,5 +302,5 @@
       '<div class="surface employee-card"><div class="table-tools"><div><h3>Manual journal register</h3><p>Adjustments, accruals, depreciation, suspense clearing and accounting corrections</p></div><div class="register-tools"><label class="register-search">'+icon('search',13)+'<input data-table-search="journal-register" placeholder="Search journals"></label></div></div><div class="table-scroll"><table data-register-table="journal-register"><thead><tr><th>JOURNAL</th><th>DATE</th><th>MEMO</th><th>DEBIT</th><th>CREDIT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
 
-  window.DalasiAccounting={nextAccountCode,createAccountRecord,bindAccountForm,TYPES,cashLedgerAccounts,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,journalDetailModal,accountModal,render};
+  window.DalasiAccounting={accountFields,nextAccountCode,createAccountRecord,bindAccountForm,TYPES,cashLedgerAccounts,allAccounts,orderedAccounts,parentAccount,accountByName,accountOptions,purchasePostingAccounts,purchasePostingOptions,journalTotals,readLines,bindJournalForm,createJournal,postJournal,reverseJournal,createAccount,toggleAccount,journalModal,journalDetailModal,accountModal,render};
 })();
