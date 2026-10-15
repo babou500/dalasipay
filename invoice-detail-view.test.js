@@ -73,3 +73,26 @@ test('invoice scope does not alter shared record drawer, subscription, payment o
   assert.doesNotMatch(source,/invoice-detail-drawer.*(?:billing|subscription|customer_subscription_portal)/);
   assert.match(source,/data-action="close-invoice-detail"/);
 });
+
+test('Record payment from an open invoice is visible above the invoice drawer and retains the invoice context',()=>{
+  const invoice=sample();invoice.incomingPayments=[];invoice.incomingPaymentInvoiceId=invoice.invoiceDetailId;
+  global.window.DalasiCashBank={accountSelect:()=>'<select name="accountId"><option value="bank">Bank</option></select>'};
+  require('./business-payments.js');
+  const invoiceView=viewer.invoiceDetailModal(invoice,helpers);
+  const paymentView=global.window.DalasiBusinessPayments.incomingPaymentModal(invoice,{...helpers,field:(_,content)=>content});
+  assert.match(invoiceView,/data-action="record-incoming:invoice-1"/);
+  assert.match(paymentView,/class="center-modal payment-modal incoming-payment-modal"/);
+  assert.match(paymentView,/id="incoming-payment-form"/);
+  assert.match(paymentView,/name="invoiceId" value="invoice-1"/);
+  assert.match(paymentView,/data-action="close-incoming-payment"/);
+  const app=fs.readFileSync('index.html','utf8');
+  const invoiceLayer=style.match(/\.record-drawer-wrap\s*\{[^}]*z-index:\s*(\d+)/g)||[];
+  assert.ok(invoiceLayer.some(layer=>Number(layer.match(/z-index:\s*(\d+)/)[1])===120),'invoice drawer must be at z-index 120');
+  const customerReceiptLayer=style.match(/\.center-modal\.incoming-payment-modal\s*\{\s*z-index:\s*(\d+)\s*\}/);
+  assert.ok(customerReceiptLayer,'receipt modal needs an explicit stacking layer');
+  assert.ok(Number(customerReceiptLayer[1])>120,'receipt must appear in front of invoice');
+  assert.match(app,/href="\.\/ui-refinement\.css\?v=20261015-incoming-overlay"/);
+  assert.match(app,/state\.incomingPaymentOpen\?window\.DalasiBusinessPayments\.incomingPaymentModal/);
+  assert.match(app,/state\.invoiceDetailId\?window\.DalasiSalesInvoices\.invoiceDetailModal/);
+  assert.match(app,/a\.startsWith\('record-incoming:'\)[^\n]+state\.incomingPaymentOpen=true;render\(\)/);
+});
