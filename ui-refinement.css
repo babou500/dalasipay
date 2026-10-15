@@ -3242,3 +3242,7 @@ body{background:
 .employee-allowance-add{margin-top:12px}
 .employee-allowance-remove{min-height:39px}
 @media(max-width:650px){.employee-allowance-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.employee-allowance-remove{grid-column:1/-1;justify-self:start}}
+
+/* Keep the customer receipt dialog above the invoice record viewer while collecting payment.
+   The invoice stays mounted beneath it so Cancel and successful save return to its refreshed details. */
+.center-modal.incoming-payment-modal{z-index:130}
