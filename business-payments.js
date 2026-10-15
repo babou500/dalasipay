@@ -1362,7 +1362,7 @@
     const title=approve?'Approve payment':reject?'Reject payment':'Return for correction';
     const copy=approve?'Record what you reviewed before approving this payment.':reject?'Record why this payment should not proceed.':'Explain what needs to be corrected before the payment is resubmitted.';
     const sameMaker=p.createdBy&&(state.session?.name||'User')===p.createdBy;
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-payment-approval"></div><form id="payment-approval-form" class="modal-box"><input type="hidden" name="paymentId" value="'+esc(p.id)+'"><input type="hidden" name="mode" value="'+esc(mode)+'">'+
+    return '<div class="center-modal payment-modal payment-approval-modal"><div class="modal-scrim" data-action="close-payment-approval"></div><form id="payment-approval-form" class="modal-box"><input type="hidden" name="paymentId" value="'+esc(p.id)+'"><input type="hidden" name="mode" value="'+esc(mode)+'">'+
       '<div class="modal-head"><div><div class="eyebrow">PAYMENT CONTROL</div><h2>'+esc(title)+'</h2><p>'+esc(copy)+'</p></div><button type="button" class="close" data-action="close-payment-approval">×</button></div>'+
       '<div class="payment-approval-facts"><div><span>Payee</span><b>'+esc(p.payee)+'</b></div><div><span>Amount</span><b>'+h.money2(p.amount)+'</b></div><div><span>Prepared by</span><b>'+esc(p.createdBy||'Unknown')+'</b></div><div><span>Status</span><b>'+esc(p.status||'Draft')+'</b></div></div>'+
       (approve&&sameMaker?'<div class="warn-box compact">'+icon('alert',16)+'<div><b>Maker-checker control</b><p>You created this payment, so you cannot approve it. Another authorized user must review it.</p></div></div>':'')+
