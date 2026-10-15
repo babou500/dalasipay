@@ -3246,3 +3246,9 @@ body{background:
 /* Keep the customer receipt dialog above the invoice record viewer while collecting payment.
    The invoice stays mounted beneath it so Cancel and successful save return to its refreshed details. */
 .center-modal.incoming-payment-modal{z-index:130}
+
+/* Nested record workflows: child forms must appear above retained record drawers.
+   Cash/bank quick-add can be opened from a receipt, so it needs a higher layer. */
+.center-modal.payment-approval-modal,
+.center-modal.purchase-bill-modal{z-index:130}
+.center-modal.cash-account-modal{z-index:140}

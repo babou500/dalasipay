@@ -60,7 +60,7 @@
   }
   function accountModal(state,h){
     const {field,icon}=h;
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-cash-account"></div><form id="cash-account-form" class="modal-box"><div class="modal-head"><div><div class="eyebrow">CASH & BANK</div><h2>Add account</h2><p>Add a real business bank, mobile-money or cash account.</p></div><button type="button" class="close" data-action="close-cash-account">×</button></div><div class="form-grid">'+
+    return '<div class="center-modal payment-modal cash-account-modal"><div class="modal-scrim" data-action="close-cash-account"></div><form id="cash-account-form" class="modal-box"><div class="modal-head"><div><div class="eyebrow">CASH & BANK</div><h2>Add account</h2><p>Add a real business bank, mobile-money or cash account.</p></div><button type="button" class="close" data-action="close-cash-account">×</button></div><div class="form-grid">'+
       field('Account name','<input name="name" placeholder="e.g. GTBank Operating Account" required>')+
       field('Account type','<select name="type">'+TYPES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
       field('Opening balance (GMD)','<input name="openingBalance" type="number" step="0.01" value="0">')+

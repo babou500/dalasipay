@@ -91,7 +91,7 @@ test('Record payment from an open invoice is visible above the invoice drawer an
   const customerReceiptLayer=style.match(/\.center-modal\.incoming-payment-modal\s*\{\s*z-index:\s*(\d+)\s*\}/);
   assert.ok(customerReceiptLayer,'receipt modal needs an explicit stacking layer');
   assert.ok(Number(customerReceiptLayer[1])>120,'receipt must appear in front of invoice');
-  assert.match(app,/href="\.\/ui-refinement\.css\?v=20261015-incoming-overlay"/);
+  assert.match(app,/href="\.\/ui-refinement\.css\?v=[0-9a-z-]+"/);
   assert.match(app,/state\.incomingPaymentOpen\?window\.DalasiBusinessPayments\.incomingPaymentModal/);
   assert.match(app,/state\.invoiceDetailId\?window\.DalasiSalesInvoices\.invoiceDetailModal/);
   assert.match(app,/a\.startsWith\('record-incoming:'\)[^\n]+state\.incomingPaymentOpen=true;render\(\)/);
