@@ -927,7 +927,42 @@ window.DALASIPAY_CONFIG = {
     }catch(e){setStatus({state:'error',message:e?.message||'Production bootstrap failed'});return {ok:false,reason:e?.message||'bootstrap-failed'};}
     finally{hydrating=false;}
   }
-  async function syncNow(orgId,{force=false}={}){
+  const workspaceWrites=new Map();
+  function serializeWorkspace(orgId,work){
+    const previous=workspaceWrites.get(orgId)||Promise.resolve();
+    const next=previous.catch(()=>{}).then(work);workspaceWrites.set(orgId,next);
+    next.finally(()=>{if(workspaceWrites.get(orgId)===next)workspaceWrites.delete(orgId);}).catch(()=>{});
+    return next;
+  }
+  function syncNow(orgId,options={}){return serializeWorkspace(orgId,()=>syncWorkspace(orgId,options));}
+  async function commitMasterData(orgId,key,rows,event){
+    if(!['custom-accounts','payment-beneficiaries'].includes(key))throw Error('Unsupported master data');
+    return serializeWorkspace(orgId,async()=>{
+      const session=window.DalasiAuth.getSession();
+      const permission=key==='custom-accounts'?window.DalasiAuth.can('workspace.manage',orgId):(window.DalasiAuth.can('workspace.manage',orgId)||window.DalasiAuth.can('payroll.manage',orgId));
+      if(!orgId||!session?.userId||window.DalasiAuth.getActiveOrganization()?.id!==orgId||!permission)throw Object.assign(Error(),{code:'permission'});
+      if(hydrating)throw Object.assign(Error(),{code:'conflict'});
+      if(configured()&&typeof navigator!=='undefined'&&!navigator.onLine)throw Object.assign(Error(),{code:'offline'});
+      const storage=store();if(!storage)throw Object.assign(Error(),{code:'storage'});
+      const snapshot=collectWorkspace(orgId,storage),expected=Number(storage?.getItem(`${REV_PREFIX}${orgId}`)||0);
+      const remote=configured()?await window.DalasiBackend.repository.appState(orgId):null;
+      if(configured()&&Number(remote?.revision||0)!==expected)throw Object.assign(Error(),{code:'conflict'});
+      const baseline=remote?.state||snapshot;
+      if((baseline.data?.[key]||[]).some(existing=>!rows.some(row=>row.id===existing.id)))throw Object.assign(Error(),{code:'conflict'});
+      const seenAudit=new Set(),previousAudit=[...(snapshot.data.audit||[]),...(baseline.data?.audit||[])].filter(item=>{if(seenAudit.has(item.id))return false;seenAudit.add(item.id);return true;});
+      const audit={id:crypto.randomUUID(),actorUserId:session.userId,actorName:session.name||'User',action:event.action,metadata:event.metadata,createdAt:now()};
+      const values={[key]:rows,audit:[audit,...previousAudit].slice(0,200)};
+      const next={...baseline,data:{...baseline.data,...values}};
+      if(configured()){
+        const result=await window.DalasiBackend.repository.saveAppState({organizationId:orgId,schemaVersion:next.schemaVersion,state:next,expectedRevision:expected});
+        if(result?.conflict)throw Object.assign(Error(),{code:'conflict'});
+        if(!Number.isFinite(result?.revision)||result.revision<=expected)throw Error('Save acknowledgement missing');
+        try{const missing=Object.fromEntries(Object.entries(baseline.data||{}).filter(([name])=>storage.getItem(workspacePrefix(orgId)+name)===null));applyWorkspace(orgId,{data:{...missing,...values}},storage);storage.setItem(`${REV_PREFIX}${orgId}`,String(result.revision));}catch{throw Object.assign(Error(),{code:'storage'});}
+      }else applyWorkspace(orgId,{data:values},storage);
+      return {ok:true};
+    });
+  }
+  async function syncWorkspace(orgId,{force=false}={}){
     if(!configured()||hydrating||!orgId)return {ok:false,reason:'not-ready'};
     if(typeof navigator!=='undefined'&&!navigator.onLine){setStatus({state:'queued',pending:true,message:'Offline changes queued'});return {ok:false,reason:'offline'};}
     const s=store(), expected=Number(s?.getItem(`${REV_PREFIX}${orgId}`)||0);
@@ -954,7 +989,7 @@ window.DALASIPAY_CONFIG = {
   async function inviteMember(payload){if(!configured())throw new Error('Production backend is not configured.');const body={...payload};if(body.role==='employee'&&body.employeeId){let employees=localEmployees(body.organizationId),emp=employees.find(e=>e.id===body.employeeId||e._dbId===body.employeeId);if(!emp?._dbId){await projectEmployees(body.organizationId);employees=localEmployees(body.organizationId);emp=employees.find(e=>e.id===body.employeeId||e._dbId===body.employeeId)}if(!emp?._dbId)throw new Error('Sync this employee before sending an employee self-service invitation.');body.employeeId=emp._dbId}return window.DalasiBackend.functions.inviteMember(body);}
   async function signOut(){try{if(configured())await window.DalasiBackend.auth.signOut();}finally{clearProductionCache();setStatus({state:'signed-out',pending:false,conflict:false,message:'Signed out'});}}
   if(typeof window.addEventListener==='function')window.addEventListener('online',()=>{const orgId=store()?.getItem(ACTIVE_ORG_KEY);if(status().pending&&orgId)syncNow(orgId)});
-  window.DalasiProduction={configured,status,setStatus,collectWorkspace,applyWorkspace,bootstrap,hydrateOrganization,syncNow,queueSync,pull,projectEmployees,projectPayrollRuns,createOrganization,updateOrganization,inviteMember,signOut};
+  window.DalasiProduction={commitMasterData,configured,status,setStatus,collectWorkspace,applyWorkspace,bootstrap,hydrateOrganization,syncNow,queueSync,pull,projectEmployees,projectPayrollRuns,createOrganization,updateOrganization,inviteMember,signOut};
 })();
 
 </script><!-- auth.js -->
@@ -1937,7 +1972,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   window.DalasiPilot={readiness};
 })();
 
-</script><script src="./cash-bank.js?v=20261008-0820"></script><script src="./tax-vat.js?v=20261008-0920"></script><script src="./corporate-tax.js?v=20261008-0920"></script><script src="./corporate-tax-evidence.js?v=20261008-1015"></script><script src="./tax-compliance-calendar.js?v=20261008-0920"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./business-payments.js?v=20261014-quick-add"></script><script src="./expenses-purchases.js?v=20261014-quick-add"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-3300"></script><script src="./profit-loss.js?v=20261008-0880"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js?v=20261008-0240"></script><script src="./returns-credits.js?v=20261008-0780"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-3600"></script><script src="./balance-sheet.js?v=20261008-0850"></script><script src="./general-ledger.js?v=20261008-0900"></script><script src="./equity-statement.js?v=20261008-0890"></script><script src="./accounting-journals.js?v=20261014-quick-add"></script><script src="./opening-balance-migration.js?v=20261008-0850"></script><script src="./control-reconciliation.js?v=20261008-0860"></script><script src="./reversal-approvals.js?v=20261008-0800"></script><script src="./corrections-register.js?v=20261008-0800"></script><script src="./month-end-close.js?v=20261008-0870"></script><script src="./year-end-close.js?v=20261008-0880"></script><script src="./dashboard-command.js?v=20261008-1600"></script><script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script><script src="./excel-reports.js?v=20261008-1100"></script><script src="./business-reports.js?v=20261008-0890"></script><script src="./licensing-policy.js?v=20261008-2100"></script><script src="./workspace-subscription.js?v=20261008-2100"></script><script src="./subscription-customer.js?v=20261009-wave1"></script><script src="./subscription-plan-view.js?v=20261008-3000"></script><script src="./subscription-usage.js?v=20261008-2300"></script><script src="./subscription-verify.js?v=20261008-2800"></script><script src="./subscription-usage-panel.js?v=20261008-2800"></script><script src="./subscription-admin-preview.js?v=20261008-3200"></script><!-- app.js -->
+</script><script src="./cash-bank.js?v=20261008-0820"></script><script src="./tax-vat.js?v=20261008-0920"></script><script src="./corporate-tax.js?v=20261008-0920"></script><script src="./corporate-tax-evidence.js?v=20261008-1015"></script><script src="./tax-compliance-calendar.js?v=20261008-0920"></script><script src="./fixed-assets.js"></script><script src="./bank-reconciliation.js"></script><script src="./master-data-forms.js?v=20261014-review"></script><script src="./business-payments.js?v=20261014-review"></script><script src="./expenses-purchases.js?v=20261014-review"></script><script src="./inventory-costing.js"></script><script src="./sales-catalog.js"></script><script src="./revenue-income.js"></script><script src="./recurring-invoices.js?v=20261008-0052"></script><script src="./sales-orders.js?v=20261008-0052"></script><script src="./sales-invoices.js?v=20261008-3300"></script><script src="./profit-loss.js?v=20261008-0880"></script><script src="./projects-cost-centres.js"></script><script src="./budget-management.js"></script><script src="./loan-financing.js"></script><script src="./cash-flow-statement.js"></script><script src="./payment-reminders.js"></script><script src="./credit-control.js?v=20261008-0240"></script><script src="./returns-credits.js?v=20261008-0780"></script><script src="./debit-notes.js"></script><script src="./account-statements.js?v=20261008-3600"></script><script src="./balance-sheet.js?v=20261008-0850"></script><script src="./general-ledger.js?v=20261008-0900"></script><script src="./equity-statement.js?v=20261008-0890"></script><script src="./accounting-journals.js?v=20261014-review"></script><script src="./opening-balance-migration.js?v=20261008-0850"></script><script src="./control-reconciliation.js?v=20261008-0860"></script><script src="./reversal-approvals.js?v=20261008-0800"></script><script src="./corrections-register.js?v=20261008-0800"></script><script src="./month-end-close.js?v=20261008-0870"></script><script src="./year-end-close.js?v=20261008-0880"></script><script src="./dashboard-command.js?v=20261008-1600"></script><script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script><script src="./excel-reports.js?v=20261014-review"></script><script src="./business-reports.js?v=20261008-0890"></script><script src="./licensing-policy.js?v=20261008-2100"></script><script src="./workspace-subscription.js?v=20261008-2100"></script><script src="./subscription-customer.js?v=20261009-wave1"></script><script src="./subscription-plan-view.js?v=20261008-3000"></script><script src="./subscription-usage.js?v=20261008-2300"></script><script src="./subscription-verify.js?v=20261008-2800"></script><script src="./subscription-usage-panel.js?v=20261008-2800"></script><script src="./subscription-admin-preview.js?v=20261008-3200"></script><!-- app.js -->
 <script>
 (() => {
   const seedEmployees = window.DALASIPAY_SEED || [];
@@ -3243,7 +3278,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     return window.DalasiBusinessPayments.create(ev,state,{can,audit,save,toast,render});
   }
   function savePaymentBeneficiary(ev){
-    return window.DalasiBusinessPayments.createBeneficiary(ev,state,{can,audit,save,toast,render});
+    return window.DalasiBusinessPayments.createBeneficiary(ev,state,window.DalasiMasterForms.context(ev.target,state,{can,audit,save,toast,render}));
   }
   function updateBusinessPayment(id,status){
     return window.DalasiBusinessPayments.update(id,status,state,{can,audit,save,toast,render});
@@ -3317,7 +3352,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   function accountingPage(){return window.DalasiAccounting.render(state,{pageTitle,icon,money2,pill,esc});}
   function correctionsPage(){return window.DalasiCorrectionsRegister.render(state,{pageTitle,icon,money2,pill,esc});}
   function saveManualJournal(ev){return window.DalasiAccounting.createJournal(ev,state,{can,audit,save,toast,render});}
-  function saveLedgerAccount(ev){return window.DalasiAccounting.createAccount(ev,state,{can,audit,save,toast,render});}
+  function saveLedgerAccount(ev){return window.DalasiAccounting.createAccount(ev,state,window.DalasiMasterForms.context(ev.target,state,{can,audit,save,toast,render}));}
   function reportsPage(){
     if((state.reportsTab||'business')==='business')return window.DalasiBusinessReports.render(state,{pageTitle,icon,money2,pill,esc,payrollCalc,periodLabel,downloadText,toast});
     const p=payrollCalc(),t=p.totals,ds=window.DalasiPayroll.departmentSummary(p.rows),netPct=t.gross?Math.round(t.net/t.gross*100):0,year=Number(String(state.currentPeriod).slice(0,4)),ytd=ytdRows(year),attendance=attendanceSummary(),avgNet=p.rows.length?t.net/p.rows.length:0,avgGross=p.rows.length?t.gross/p.rows.length:0;
@@ -3438,11 +3473,13 @@ input,select,textarea{font-size:12.5px;min-height:44px}
   }
   function renderPage(){const pages={dashboard,employees:employeesPage,payroll:payrollPage,payments:paymentsPage,payslips:payslipsPage,cashbank:cashBankPage,cashflow:cashFlowPage,credit:creditControlPage,customers:customersPage,suppliers:suppliersPage,invoices:invoicesPage,returns:returnsPage,debits:debitNotesPage,statements:statementsPage,expenses:expensesPage,assets:assetsPage,accounting:accountingPage,corrections:correctionsPage,tax:taxPage,budgets:budgetsPage,projects:projectsPage,loans:loansPage,inventory:inventoryPage,reports:reportsPage,settings:settingsPage,helpdesk:helpDeskPage};const fn=pages[state.page]||dashboard;try{return fn()}catch(err){console.error('DalasiPay page render failed',state.page,err);const message=esc(err?.message||'Unknown rendering error');return '<section class="surface" style="padding:24px;max-width:760px;margin:20px auto"><div class="eyebrow">RECOVERY MODE</div><h2 style="margin:6px 0 8px">DalasiPay could not open this page</h2><p style="color:var(--muted);line-height:1.55">Your workspace data is still present. A page component failed while rendering, so DalasiPay stopped that component instead of showing a blank screen.</p><div class="warn-box compact"><div><b>Technical detail</b><p>'+message+'</p></div></div><div class="inline-buttons" style="margin-top:14px"><button class="primary" data-page="dashboard">Go to dashboard</button><button class="secondary" data-page="settings">Open settings</button></div></section>';}}
   function render(){
+    if(window.DalasiMasterForms?.saving(document,state)){state._masterRenderPending=true;return;}
+    const masterDrafts=window.DalasiMasterForms?.capture(document,state);
     const existingSidebar=document.querySelector('.sidebar');if(existingSidebar)state.sidebarScrollTop=existingSidebar.scrollTop||0;
     if(state.authFlowActive||!state.session){app.innerHTML=authScreen();bindInputs();return;}
     if(!state.org){app.innerHTML=onboardingScreen(false);bindInputs();return;}
     if(state.role==='employee'){app.innerHTML=employeeWorkspace();bindInputs();return;}
-    try{app.innerHTML=shell()}catch(err){console.error('DalasiPay signed-in shell failed',err);app.innerHTML='<div style="max-width:760px;margin:10vh auto;padding:24px;font-family:Inter,system-ui,sans-serif"><div style="background:#fff;border:1px solid #dfe6e1;border-radius:14px;padding:24px"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:#0f5e50">RECOVERY MODE</div><h2 style="margin:7px 0 10px;color:#17211f">DalasiPay could not open your workspace</h2><p style="color:#71807b;line-height:1.5">Your saved workspace is still present. A startup component failed before the dashboard could load.</p><pre style="white-space:pre-wrap;background:#f8faf8;border:1px solid #dfe6e1;border-radius:8px;padding:12px;color:#a84242">'+esc(err?.message||'Unknown startup error')+'</pre><button data-action="sign-out" style="margin-top:12px;border:0;border-radius:8px;padding:10px 14px;background:#0f5e50;color:#fff;font-weight:700;cursor:pointer">Sign out safely</button></div></div>'} bindInputs();
+    try{app.innerHTML=shell()}catch(err){console.error('DalasiPay signed-in shell failed',err);app.innerHTML='<div style="max-width:760px;margin:10vh auto;padding:24px;font-family:Inter,system-ui,sans-serif"><div style="background:#fff;border:1px solid #dfe6e1;border-radius:14px;padding:24px"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:#0f5e50">RECOVERY MODE</div><h2 style="margin:7px 0 10px;color:#17211f">DalasiPay could not open your workspace</h2><p style="color:#71807b;line-height:1.5">Your saved workspace is still present. A startup component failed before the dashboard could load.</p><pre style="white-space:pre-wrap;background:#f8faf8;border:1px solid #dfe6e1;border-radius:8px;padding:12px;color:#a84242">'+esc(err?.message||'Unknown startup error')+'</pre><button data-action="sign-out" style="margin-top:12px;border:0;border-radius:8px;padding:10px 14px;background:#0f5e50;color:#fff;font-weight:700;cursor:pointer">Sign out safely</button></div></div>'} window.DalasiMasterForms?.restore(document,state,masterDrafts);bindInputs();
     const sidebar=document.querySelector('.sidebar');if(sidebar){sidebar.scrollTop=Number(state.sidebarScrollTop)||0;sidebar.addEventListener('scroll',()=>{state.sidebarScrollTop=sidebar.scrollTop},{passive:true});const active=sidebar.querySelector('nav button.active');if(active&&!((active.getBoundingClientRect().top>=sidebar.getBoundingClientRect().top+70)&&(active.getBoundingClientRect().bottom<=sidebar.getBoundingClientRect().bottom-60)))active.scrollIntoView({block:'center'});}
   }
   function bindInputs(){
@@ -3542,7 +3579,7 @@ input,select,textarea{font-size:12.5px;min-height:44px}
     const epl=document.getElementById('employee-portal-leave-form');if(epl)epl.addEventListener('submit',submitPortalLeave);
     const bpf=document.getElementById('business-payment-form');if(bpf)bpf.addEventListener('submit',saveBusinessPayment);if(bpf)window.DalasiBusinessPayments?.bindSupplierPaymentPreview?.(bpf,state);
     const paf=document.getElementById('payment-approval-form');if(paf)paf.addEventListener('submit',e=>window.DalasiBusinessPayments.handlePaymentApproval(e,state,{can,audit,save,toast,render}));
-    const bnf=document.getElementById('beneficiary-form');if(bnf)bnf.addEventListener('submit',savePaymentBeneficiary);
+    const bnf=document.getElementById('beneficiary-form');if(bnf){bnf.dataset.workspaceId=state.org?.id||'';bnf.dataset.userId=state.session?.userId||'';bnf.addEventListener('submit',savePaymentBeneficiary);}
     const blf2=document.getElementById('business-bill-form');if(blf2)blf2.addEventListener('submit',saveBusinessBill);if(blf2)window.DalasiBusinessPayments?.bindBillPreview?.(blf2,state);
     const rpf=document.getElementById('recurring-payment-form');if(rpf)rpf.addEventListener('submit',saveRecurringBusinessPayment);
     const arvf=document.getElementById('receivable-form');if(arvf)arvf.addEventListener('submit',saveCustomerInvoice);

@@ -1063,14 +1063,9 @@
     form.addEventListener('change',update);
     update();
   }
-  function beneficiaryModal(state,h){
-    const field=h.field,icon=h.icon,selectedKind=state.beneficiaryDefaultKind||BENEFICIARY_TYPES[0];
-    const kindOptions=BENEFICIARY_TYPES.map(x=>'<option '+(x===selectedKind?'selected':'')+'>'+x+'</option>').join('');
-    const methodOptions=METHODS.map(x=>'<option>'+x+'</option>').join('');
-    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-beneficiary"></div><form id="beneficiary-form" class="modal-box">'+
-      '<div class="modal-head"><div><div class="eyebrow">NEW BENEFICIARY</div><h2>Add beneficiary</h2><p>Save a regular supplier, contractor or other payee.</p></div><button type="button" class="close" data-action="close-beneficiary">×</button></div>'+
-      '<div class="payment-modal-note">Payment details are saved to this workspace for reuse. DalasiPay will not initiate a transfer until a supported payment integration is connected.</div>'+
-      '<div class="form-grid">'+
+  function beneficiaryFields(h,selectedKind='',quick=false){
+    const {field}=h,kindOptions=BENEFICIARY_TYPES.map(x=>'<option '+(x===selectedKind?'selected':'')+'>'+x+'</option>').join(''),methodOptions=METHODS.map(x=>'<option>'+x+'</option>').join('');
+    let html='<div class="form-grid">'+
         field('Beneficiary / business name','<input name="name" placeholder="e.g. ABC Supplies Ltd" required>')+
         field('Beneficiary type','<select name="kind">'+kindOptions+'</select>')+
         field('Contact person','<input name="contact" placeholder="Optional contact name">')+
@@ -1083,9 +1078,15 @@
         field('Mobile-money provider','<input name="mobileProvider" placeholder="Provider name">')+
         field('Mobile-money number','<input name="mobileNumber" autocomplete="off" placeholder="Optional">')+
         field('Internal reference','<input name="reference" placeholder="Vendor code or note">')+
-      '</div>'+
-      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-beneficiary">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save beneficiary</button></div>'+
-    '</form></div>';
+      '</div>';
+    if(quick)html=html.replace(/name="([a-zA-Z]+)"/g,(_,name)=>'name="quickSupplier_'+name+'" data-quick-supplier-'+name+'');
+    return html;
+  }
+  function beneficiaryModal(state,h){
+    return '<div class="center-modal payment-modal"><div class="modal-scrim" data-action="close-beneficiary"></div><form id="beneficiary-form" class="modal-box">'+
+      '<div class="modal-head"><div><div class="eyebrow">NEW BENEFICIARY</div><h2>Add beneficiary</h2><p>Save a regular supplier, contractor or other payee.</p></div><button type="button" class="close" data-action="close-beneficiary">×</button></div>'+
+      '<div class="payment-modal-note">Payment details are saved to this workspace for reuse. DalasiPay will not initiate a transfer until a supported payment integration is connected.</div>'+beneficiaryFields(h,state.beneficiaryDefaultKind||'')+
+      '<div class="modal-actions"><button type="button" class="secondary" data-action="close-beneficiary">Cancel</button><button class="primary" type="submit">'+h.icon('plus',14)+' Save beneficiary</button></div></form></div>';
   }
 
   function recurringModal(state,h){
@@ -1252,31 +1253,35 @@
     state.paymentOpen=false;state.paymentBeneficiaryId=null;state.paymentBillId=null;
     ctx.audit('payment.created',{paymentId:id,beneficiaryId:beneficiaryId||null,payee,amount});ctx.save();ctx.toast('Business payment saved as draft');ctx.render();
   }
-  function createBeneficiary(ev,state,ctx){
-    ev.preventDefault();
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add beneficiaries.');return;}
-    const fd=new FormData(ev.target),name=String(fd.get('name')||'').trim();if(!name){ctx.toast('Enter the beneficiary name.');return;}
-    const id='BEN-'+Date.now().toString(36).toUpperCase();
-    state.paymentBeneficiaries=state.paymentBeneficiaries||[];
-    const kind=String(fd.get('kind')||'Other beneficiary');
-    state.paymentBeneficiaries.push({id,name,kind,contact:String(fd.get('contact')||'').trim(),phone:String(fd.get('phone')||'').trim(),email:String(fd.get('email')||'').trim(),preferredMethod:String(fd.get('preferredMethod')||'Bank transfer'),bankName:String(fd.get('bankName')||'').trim(),accountName:String(fd.get('accountName')||'').trim(),accountNumber:String(fd.get('accountNumber')||'').trim(),mobileProvider:String(fd.get('mobileProvider')||'').trim(),mobileNumber:String(fd.get('mobileNumber')||'').trim(),reference:String(fd.get('reference')||'').trim(),status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
-    state.beneficiaryOpen=false;state.beneficiaryDefaultKind='';ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind});ctx.save();ctx.toast(name+(kind==='Supplier / vendor'?' added as a supplier':' added as a beneficiary'));ctx.render();
+  async function createBeneficiaryRecord(state,details,ctx){
+    return window.DalasiMasterForms.create(state,'suppliers',ctx,async()=>{
+      if(!state.org?.id||!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required in the active workspace.');return null;}
+      const workspaceId=state.org.id,name=String(details.name||'').trim(),email=String(details.email||'').trim(),kind=String(details.kind||'Supplier / vendor');
+      if(!name){ctx.toast('Enter the supplier / beneficiary name.');return null;}
+      if(email&&!/^[^\s@]+@[^\s@]+$/.test(email)){ctx.toast('Enter a valid email address.');return null;}
+      if(!BENEFICIARY_TYPES.includes(kind)||!METHODS.includes(details.preferredMethod||'Bank transfer')){ctx.toast('Choose a valid beneficiary type and payment method.');return null;}
+      const existing=(state.paymentBeneficiaries||[]).find(x=>normPartyText(x.name)===normPartyText(name)||(email&&normPartyText(x.email)===normPartyText(email)));
+      if(existing){
+        if(existing.organizationId&&existing.organizationId!==workspaceId){ctx.toast('Supplier belongs to another workspace. Refresh and choose the correct workspace.');return null;}
+        if((existing.status||'Active')!=='Active'){ctx.toast('This supplier already exists but is inactive. Reactivate it in Suppliers instead of creating a duplicate.');return null;}
+        ctx.toast('Selected the existing supplier / beneficiary; no duplicate was created.');return existing;
+      }
+      const id='BEN-'+crypto.randomUUID(),row={id,organizationId:workspaceId,name,kind,status:'Active',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'};
+      for(const key of ['contact','phone','email','bankName','accountName','accountNumber','mobileProvider','mobileNumber','reference'])row[key]=String(details[key]||'').trim();
+      row.preferredMethod=details.preferredMethod||'Bank transfer';
+      const rows=[...(state.paymentBeneficiaries||[]),row];
+      await ctx.persist('payment-beneficiaries',rows,'payment.beneficiary_created',{beneficiaryId:id,name,kind});
+      if(state.org?.id!==workspaceId||ctx.isCurrent&&!ctx.isCurrent())return null;
+      state.paymentBeneficiaries=rows;ctx.toast(name+' saved to this workspace');return row;
+    });
   }
-  // Save a supplier from the purchase/expense form without closing that form.
-  // Uses the same beneficiary record shape and audit trail as the Suppliers page.
-  function createQuickSupplier(state,details,ctx){
-    if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add suppliers.');return null;}
-    const name=String(details?.name||'').trim(),phone=String(details?.phone||'').trim(),email=String(details?.email||'').trim();
-    if(!name){ctx.toast('Enter the supplier name.');return null;}
-    const existing=(state.paymentBeneficiaries||[]).find(x=>normPartyText(x.name)===normPartyText(name)&&(x.status||'Active')==='Active');
-    if(existing){ctx.toast('A supplier or beneficiary with this name already exists. Selected the existing record.');return existing;}
-    const now=new Date().toISOString(),id='BEN-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6);
-    const row={id,name,kind:'Supplier / vendor',contact:'',phone,email,preferredMethod:'Bank transfer',bankName:'',accountName:'',accountNumber:'',mobileProvider:'',mobileNumber:'',reference:'',status:'Active',createdAt:now,createdBy:state.session?.name||'User'};
-    state.paymentBeneficiaries=state.paymentBeneficiaries||[];state.paymentBeneficiaries.push(row);
-    ctx.audit('payment.beneficiary_created',{beneficiaryId:id,name,kind:row.kind,source:'quick-add'});
-    ctx.save();ctx.toast(name+' added as a supplier');
-    return row;
+  async function createBeneficiary(ev,state,ctx){
+    ev.preventDefault();if(ev.target.dataset.masterBusy)return;
+    const details=Object.fromEntries(new FormData(ev.target));
+    const created=await createBeneficiaryRecord(state,details,ctx);if(!created)return;
+    state.beneficiaryOpen=false;state.beneficiaryDefaultKind='';ctx.render();return created;
   }
+  function createQuickSupplier(state,details,ctx){return createBeneficiaryRecord(state,{kind:'Supplier / vendor',...details},ctx);}
 
   function update(id,status,state,ctx,meta={}){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
@@ -1408,5 +1413,5 @@
         '<button class="secondary" data-action="close-payment-detail">Close</button>'+
       '</div></aside></div>';
   }
-window.DalasiBusinessPayments={createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+window.DalasiBusinessPayments={beneficiaryFields,createBeneficiaryRecord,createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();

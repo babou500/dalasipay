@@ -271,7 +271,6 @@ async function exportProfessionalBalanceSheet(state,ctx){
  section('LIABILITIES',current.liabilities,current.totalLiabilities,prior?.totalLiabilities||0);
  statementRow(ws,row++,'EQUITY',['','',''],'section');
  const equityFirstRow=row;
- const equityFirstRow=row;
  current.equityAccounts.forEach(a=>{const pv=priorMap.get(String(a.code)+'|'+String(a.name))||0,cur=Number(a.amount)||0,excelRow=row;const r=statementRow(ws,row++,String(a.code||'')+' · '+String(a.name||''),[cur,pv,cur-pv]);linkedFormula(r.getCell(4),'B'+excelRow+'-C'+excelRow,cur-pv);});
  {const er=row,delta=current.currentEarnings-(prior?.currentEarnings||0),r=statementRow(ws,row++,'Current-year earnings',[current.currentEarnings,prior?.currentEarnings||0,delta]);linkedFormula(r.getCell(4),'B'+er+'-C'+er,delta);}
  {const er=row,delta=current.equity-(prior?.equity||0),r=statementRow(ws,row++,'TOTAL EQUITY',[current.equity,prior?.equity||0,delta],'total');
