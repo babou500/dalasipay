@@ -49,6 +49,7 @@ on:
       - 'report-viewer-*'
       - 'read-only-viewer-backdrops.test.js'
       - 'ui-handler-integrity.test.js'
+      - 'customer-receipt-confirmation.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -121,6 +122,7 @@ on:
       - 'report-viewer-*'
       - 'read-only-viewer-backdrops.test.js'
       - 'ui-handler-integrity.test.js'
+      - 'customer-receipt-confirmation.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -176,6 +178,7 @@ jobs:
           node --check employee-drawer-backdrop.test.js
           node --check invoice-detail-view.test.js
           node --check ui-handler-integrity.test.js
+          node --check customer-receipt-confirmation.test.js
           node --check accounting-calendar.js
           node --check accounting-calendar.test.js
           node --check accounting-journals.js
@@ -287,6 +290,7 @@ jobs:
             employee-drawer-backdrop.test.js \
             invoice-detail-view.test.js \
             ui-handler-integrity.test.js \
+            customer-receipt-confirmation.test.js \
             accounting-calendar.test.js \
             account-supplier-quick-create.test.js \
             fiscal-reporting-preview.test.js \

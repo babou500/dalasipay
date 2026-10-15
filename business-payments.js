@@ -630,6 +630,40 @@
     const cust=customerById(state,id);if(!cust)return;cust.status=status;cust.updatedAt=new Date().toISOString();cust.updatedBy=state.session?.name||'User';ctx.audit('customer.status_updated',{customerId:id,status});ctx.save();ctx.toast(cust.name+': '+status);ctx.render();
   }
 
+
+  function customerReceiptDetailModal(state,h){
+    const payment=incomingPaymentById(state,state.customerReceiptDetailId);
+    const invoice=payment?receivableById(state,payment.invoiceId):null;
+    if(!payment||!invoice)return '';
+    const esc=h.esc,money2=h.money2,icon=h.icon;
+    const account=window.DalasiCashBank?.accountById?.(state,payment.accountId);
+    const remaining=receivableBalance(state,invoice);
+    const field=(label,value)=>'<div><span>'+label+'</span><b>'+esc(value||'—')+'</b></div>';
+    return '<div class="record-drawer-wrap customer-receipt-detail-wrap">'+
+      '<div class="modal-scrim" data-action="close-customer-receipt"></div>'+
+      '<aside class="record-drawer customer-receipt-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="customer-receipt-heading">'+
+      '<div class="record-drawer-head"><div><div class="eyebrow">CUSTOMER RECEIPT</div><h2 id="customer-receipt-heading">'+esc(payment.receiptNumber||payment.id)+'</h2><p>Payment from '+esc(invoice.customerName||payment.customerName||'Customer')+'</p></div>'+
+      '<button type="button" class="close" aria-label="Close customer receipt" data-action="close-customer-receipt">×</button></div>'+
+      '<div class="record-hero"><div><span>Amount received</span><b>'+money2(payment.amount)+'</b><small>Recorded against invoice '+esc(invoice.invoiceNo||invoice.id)+'</small></div><span class="status-chip approved">Recorded</span></div>'+
+      '<div class="record-facts">'+
+        field('Receipt number',payment.receiptNumber||payment.id)+
+        field('Date received',payment.receivedDate||String(payment.createdAt||'').slice(0,10))+
+        field('Payment method',payment.method)+
+        field('Deposited into',account?.name||'Account unavailable')+
+        field('Invoice number',invoice.invoiceNo||invoice.id)+
+        field('Payment reference',payment.reference)+
+        field('Remaining invoice balance',money2(remaining))+
+        (payment.note?field('Note',payment.note):'')+
+      '</div>'+
+      '<section class="record-section"><div class="record-section-head"><b>Receipt recorded</b></div>'+
+      '<p class="customer-receipt-hint">This receipt confirms the customer payment recorded in DalasiPay. Match the collection against the cash or bank statement during reconciliation.</p></section>'+
+      '<div class="record-drawer-actions">'+
+        '<button type="button" class="secondary" data-action="close-customer-receipt">Close</button>'+
+        '<button type="button" class="secondary" data-action="invoice-view:'+esc(invoice.id)+'">'+icon('file',14)+' View invoice</button>'+
+        '<button type="button" class="primary" data-action="receivable-doc:receipt:'+esc(payment.id)+'">'+icon('download',14)+' Download Receipt PDF</button>'+
+      '</div></aside></div>';
+  }
+
   function incomingPaymentModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,money2=h.money2,inv=receivableById(state,state.incomingPaymentInvoiceId);
     if(!inv)return '';
@@ -723,7 +757,7 @@
     state.incomingPayments.unshift({id,invoiceId,customerName:inv.customerName,amount,receivedDate,method:String(fd.get('method')||'Bank transfer'),accountId,reference:paymentReference,note:String(fd.get('note')||'').trim(),receiptNumber,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User'});
     if(accountId)window.DalasiCashBank?.post(state,{accountId,date:receivedDate,direction:'in',amount,type:'Customer collection',counterparty:inv.customerName,reference:paymentReference||receiptNumber,description:'Collection for '+(inv.invoiceNo||invoiceId),sourceType:'customer-collection',sourceId:id,sourceKey:'customer-collection:'+id+':in',createdBy:state.session?.name||'User'});
     const remaining=Math.max(0,balance-amount);inv.status=remaining<=0.004?'Paid':'Part paid';inv.updatedAt=new Date().toISOString();inv.updatedBy=state.session?.name||'User';if(inv.status==='Paid')inv.paidAt=inv.updatedAt;
-    state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;state.paymentSelectedAccountId=null;ctx.audit('receivable.payment_recorded',{invoiceId,invoiceNo:inv.invoiceNo,incomingPaymentId:id,receiptNumber,amount,balanceRemaining:remaining});ctx.save();ctx.toast('Payment recorded · Receipt '+receiptNumber+' created');ctx.render();
+    state.incomingPaymentOpen=false;state.incomingPaymentInvoiceId=null;state.paymentSelectedAccountId=null;state.customerReceiptDetailId=id;ctx.audit('receivable.payment_recorded',{invoiceId,invoiceNo:inv.invoiceNo,incomingPaymentId:id,receiptNumber,amount,balanceRemaining:remaining});ctx.save();ctx.toast('Payment recorded · Receipt '+receiptNumber+' created');ctx.render();
   }
   function downloadReceivableDocument(id,type,state,ctx){
     const isReceipt=type==='receipt',payment=isReceipt?incomingPaymentById(state,id):null,inv=isReceipt?receivableById(state,payment?.invoiceId):receivableById(state,id);
@@ -1408,5 +1442,5 @@
         '<button class="secondary" data-action="close-payment-detail">Close</button>'+
       '</div></aside></div>';
   }
-window.DalasiBusinessPayments={createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+window.DalasiBusinessPayments={createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,customerReceiptDetailModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();
