@@ -3252,3 +3252,13 @@ body{background:
 .center-modal.payment-approval-modal,
 .center-modal.purchase-bill-modal{z-index:130}
 .center-modal.cash-account-modal{z-index:140}
+
+/* Post-collection confirmation is a receipt, not another customer invoice. */
+.customer-receipt-detail-wrap{z-index:150}
+.customer-receipt-detail-wrap .record-drawer{width:min(660px,100vw)}
+.customer-receipt-detail-wrap .record-drawer-actions{gap:8px}
+.customer-receipt-hint{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+@media(max-width:620px){
+  .customer-receipt-detail-wrap .record-drawer-actions{display:flex;flex-direction:column}
+  .customer-receipt-detail-wrap .record-drawer-actions button{width:100%}
+}
