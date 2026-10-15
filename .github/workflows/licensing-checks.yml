@@ -39,6 +39,7 @@ on:
       - 'dimension-reports-onscreen.test.js'
       - 'period-close-onscreen.test.js'
       - 'report-payment-fields.test.js'
+      - 'trial-balance-movement-labels.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -110,6 +111,7 @@ on:
       - 'dimension-reports-onscreen.test.js'
       - 'period-close-onscreen.test.js'
       - 'report-payment-fields.test.js'
+      - 'trial-balance-movement-labels.test.js'
       - 'ledger-excel-traceability.test.js'
       - 'balance-sheet-excel-controls.test.js'
       - 'helpdesk-ticket-foundation.test.js'
@@ -208,6 +210,7 @@ jobs:
           node --check dimension-reports-onscreen.test.js
           node --check period-close-onscreen.test.js
           node --check report-payment-fields.test.js
+          node --check trial-balance-movement-labels.test.js
           node --check ledger-excel-traceability.test.js
           node --check balance-sheet-excel-controls.test.js
           node --check helpdesk-ticket-foundation.test.js
@@ -311,6 +314,7 @@ jobs:
             dimension-reports-onscreen.test.js \
             period-close-onscreen.test.js \
             report-payment-fields.test.js \
+            trial-balance-movement-labels.test.js \
             ledger-excel-traceability.test.js \
             balance-sheet-excel-controls.test.js \
             helpdesk-ticket-foundation.test.js \

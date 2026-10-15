@@ -277,8 +277,8 @@
       const difference=Math.round((netDebit-netCredit)*100)/100;
       const reconciled=Math.abs(difference)<0.01;
       rows.push(['','TOTAL','',money2(netDebit),money2(netCredit)]);
-      return '<div class="report-preview-kpis"><div><span>Debit balances</span><b>'+money2(netDebit)+'</b></div><div><span>Credit balances</span><b>'+money2(netCredit)+'</b></div><div><span>Difference</span><b>'+money2(Math.abs(difference))+'</b></div><div><span>Balance check</span><b>'+(reconciled?'Balanced':'Out of balance')+'</b></div></div>'
-        +'<p class="report-preview-note">Account closing balances from the live general ledger. '+(reconciled?'Debit and credit balances agree.':'Review journals and opening entries before relying on this report.')+'</p>'
+      return '<div class="report-preview-kpis"><div><span>Closing debit balances</span><b>'+money2(netDebit)+'</b></div><div><span>Closing credit balances</span><b>'+money2(netCredit)+'</b></div><div><span>Difference</span><b>'+money2(Math.abs(difference))+'</b></div><div><span>Balance check</span><b>'+(reconciled?'Balanced':'Out of balance')+'</b></div></div>'
+        +'<p class="report-preview-note">Account closing balances from the live general ledger. Total journal debit movements: '+money2(t.debit)+'; credit movements: '+money2(t.credit)+'. These gross movements differ from closing debit and credit balances. '+(reconciled?'Debit and credit balances agree.':'Review journals and opening entries before relying on this report.')+'</p>'
         +previewTable(['Code','Account','Type','Debit (D)','Credit (D)'],rows,esc);
     }
     if(kind==='profit-loss'&&window.DalasiProfitLoss)return window.DalasiProfitLoss.panel(state,h);
