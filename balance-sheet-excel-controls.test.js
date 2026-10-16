@@ -25,3 +25,5 @@ test('Balance Sheet equity and liabilities plus equity are formula-linked',()=>{
  assert.ok(body.includes("'B'+liabilitiesRow+'+B'+equityRow"));
  assert.ok(body.includes("'C'+liabilitiesRow+'+C'+equityRow"));
 });
+
+test('Excel reports module compiles without duplicate declarations',()=>{new (require('node:vm').Script)(s);});
