@@ -19,6 +19,8 @@ on:
       - 'employee-allowance-suggestions.test.js'
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
+      - 'master-data-*'
+      - 'tests/master-data-forms.browser.cjs'
       - 'sales-invoices.js'
       - 'excel-reports.js'
       - 'corporate-tax.js'
@@ -92,6 +94,8 @@ on:
       - 'employee-allowance-suggestions.test.js'
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
+      - 'master-data-*'
+      - 'tests/master-data-forms.browser.cjs'
       - 'sales-invoices.js'
       - 'excel-reports.js'
       - 'corporate-tax.js'
@@ -182,6 +186,9 @@ jobs:
           node --check accounting-calendar.js
           node --check accounting-calendar.test.js
           node --check accounting-journals.js
+          node --check excel-reports.js
+          node --check master-data-forms.js
+          node --check master-data-persistence.test.js
           node --check expenses-purchases.js
           node --check business-payments.js
           node --check account-supplier-quick-create.test.js
@@ -293,6 +300,7 @@ jobs:
             customer-receipt-confirmation.test.js \
             accounting-calendar.test.js \
             account-supplier-quick-create.test.js \
+            master-data-persistence.test.js \
             fiscal-reporting-preview.test.js \
             year-close-fiscal-safety.test.js \
             year-close-scope-audit.test.js \
