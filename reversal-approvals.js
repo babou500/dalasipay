@@ -4,6 +4,11 @@
   function requests(state){state.reversalRequests=state.reversalRequests||[];return state.reversalRequests;}
   function pendingFor(state,sourceType,sourceId){return requests(state).find(x=>x.sourceType===sourceType&&x.sourceId===sourceId&&x.status==='Pending')||null;}
   function request(state,input,ctx){
+    const source=input;
+    if(ctx._procurementDraft||!['expense','business-payment'].includes(source?.sourceType))return requestDraft(state,input,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>requestDraft(draft,input,controlled));
+  }
+  function requestDraft(state,input,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to request a reversal.');return null;}
     if(pendingFor(state,input.sourceType,input.sourceId)){ctx.toast('A reversal request is already pending for this transaction.');return null;}
     const reason=String(input.reason||'').trim();if(reason.length<5){ctx.toast('Enter a clear reversal reason of at least 5 characters.');return null;}
@@ -12,6 +17,11 @@
     requests(state).unshift(rec);ctx.audit('reversal.requested',{requestId:rec.id,sourceType:rec.sourceType,sourceId:rec.sourceId,sourceRef:rec.sourceRef,amount:rec.amount,reason});ctx.save();ctx.toast('Reversal request submitted for independent approval');ctx.render();return rec;
   }
   function approve(id,state,ctx){
+    const source=requests(state).find(r=>r.id===id);
+    if(ctx._procurementDraft||!['expense','business-payment'].includes(source?.sourceType))return approveDraft(id,state,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>approveDraft(id,draft,controlled));
+  }
+  function approveDraft(id,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to approve reversals.');return;}
     const r=requests(state).find(x=>x.id===id);if(!r||r.status!=='Pending')return;
     const actor=state.session?.name||'User',actorId=state.session?.userId||actor;
@@ -29,6 +39,11 @@
     ctx.audit('reversal.approved',{requestId:r.id,sourceType:r.sourceType,sourceId:r.sourceId,sourceRef:r.sourceRef,requestedBy:r.requestedBy,approvedBy:actor});ctx.save();ctx.toast(r.sourceRef+' reversal approved and posted');ctx.render();
   }
   function reject(id,state,ctx){
+    const source=requests(state).find(r=>r.id===id);
+    if(ctx._procurementDraft||!['expense','business-payment'].includes(source?.sourceType))return rejectDraft(id,state,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>rejectDraft(id,draft,controlled));
+  }
+  function rejectDraft(id,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to reject reversals.');return;}
     const r=requests(state).find(x=>x.id===id);if(!r||r.status!=='Pending')return;
     const actor=state.session?.name||'User',actorId=state.session?.userId||actor;

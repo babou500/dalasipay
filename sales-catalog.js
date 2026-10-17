@@ -32,7 +32,7 @@
     const unitOpts=UNITS.map(x=>'<option '+((line.unit||'Unit')===x?'selected':'')+'>'+x+'</option>').join('');
     return '<div class="sales-line" data-line-index="'+index+'">'+
       '<div class="line-product"><select name="lineCatalogId">'+opts+'</select></div>'+
-      '<div class="line-desc"><input name="lineDescription" value="'+esc(line.description||'')+'" placeholder="Item / service" required></div>'+
+      '<div class="line-desc"><input name="lineDescription" value="'+esc(line.description||'')+'" placeholder="Item / service" required>'+(mode==='purchase'?'<label>Line VAT '+(window.DalasiTax?.purchaseOptions?.(state,line.taxCode||window.DalasiTax?.defaultPurchaseCode?.(state)).replace('name="taxCode"','name="lineTaxCode"')||'<select name="lineTaxCode"><option value="OUT">No VAT</option></select>')+'</label>':'')+'</div>'+
       '<div><input name="lineQuantity" type="number" min="0.01" step="0.01" value="'+esc(line.quantity||1)+'" required></div>'+
       '<div><select name="lineUnit">'+unitOpts+'</select></div>'+
       '<div><input name="lineUnitPrice" type="number" min="0" step="0.01" value="'+esc(line.unitPrice??'')+'" placeholder="0.00" required></div>'+
@@ -58,7 +58,7 @@
       const unit=String(row.querySelector('[name="lineUnit"]')?.value||'Unit');
       const unitPrice=Number(row.querySelector('[name="lineUnitPrice"]')?.value||0);
       const discount=Math.min(100,Math.max(0,Number(row.querySelector('[name="lineDiscount"]')?.value||0)));
-      return {catalogId:catalogId||null,description,quantity,unit,unitPrice,discount,amount:lineAmount({quantity,unitPrice,discount})};
+      return {...(row.querySelector('[name="lineTaxCode"]')?{taxCode:row.querySelector('[name="lineTaxCode"]').value}:{}),catalogId:catalogId||null,description,quantity,unit,unitPrice,discount,amount:lineAmount({quantity,unitPrice,discount})};
     }).filter(x=>x.description&&x.quantity>0&&x.unitPrice>=0);
   }
   function bindLineItems(form,state,mode='sales'){

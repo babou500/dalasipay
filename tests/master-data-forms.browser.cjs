@@ -9,29 +9,30 @@ const production=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
 const style=html.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
 let server,browser,origin,sequence=0;
 const fixtures=new Map();
-const initial=()=>({revision:1,state:{schemaVersion:'fixture',data:{'custom-accounts':[],'payment-beneficiaries':[{id:'existing',organizationId:'workspace',name:'Existing Supplier',kind:'Supplier / vendor',status:'Active',email:'existing@example.test'}],transactions:[{id:'unchanged',amount:123}],subscriptions:Array.from({length:13},(_,id)=>({id,professional_preview:true})),billing:false}}});
+const initial=()=>({revision:1,state:{schemaVersion:'fixture',data:{'custom-accounts':[],'business-expenses':[],'purchase-orders':[],'business-bills':[],'business-payments':[],'cash-accounts':[{id:'bank',name:'Fixture Bank',type:'Bank',status:'Active'}],'cash-transactions':[],'sales-catalog':[],'inventory-movements':[],'payment-beneficiaries':[{id:'existing',organizationId:'workspace',name:'Existing Supplier',kind:'Supplier / vendor',status:'Active',email:'existing@example.test'}],transactions:[{id:'unchanged',amount:123}],subscriptions:Array.from({length:13},(_,id)=>({id,professional_preview:true})),billing:false}}});
 function fixtureHtml(id,mode){return `<!doctype html><html><head><meta charset="utf-8"><title>DalasiPay · isolated master data QA</title><style>${style}</style><link rel="stylesheet" href="/accounting-journals.css"><link rel="stylesheet" href="/expenses-purchases.css"></head><body><div id="app"></div>
 <script>window.DALASIPAY_CONFIG={mode:'supabase'};window.allowed=true;window.fixtureFailure='';window.globalToastCalls=0;
 window.DalasiBackend={configured:()=>true,repository:{appState:async()=>{return (await fetch('/fixture-state?id=${id}')).json();},saveAppState:async payload=>{const r=await fetch('/fixture-save?id=${id}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,fail:window.fixtureFailure,allowed:window.allowed})});if(!r.ok)throw Error('Fixture backend refused');return r.json();}}};
 window.DalasiAuth={getSession:()=>window.state.session,getActiveOrganization:()=>window.state.org,can:()=>window.allowed};
 </script><script>${production}</script>
-${['master-data-forms.js','business-payments.js','expenses-purchases.js','sales-catalog.js','accounting-journals.js'].map(f=>'<script src="/'+f+'"></script>').join('')}
+${['master-data-forms.js','business-payments.js','expenses-purchases.js','sales-catalog.js','accounting-journals.js','tax-vat.js','cash-bank.js','returns-credits.js'].map(f=>'<script src="/'+f+'"></script>').join('')}
 <script>
 window.DalasiGeneralLedger={CHART:[[6000,'Operating Expenses','Expense'],[3000,'Owner Capital','Equity']]};
 window.h={field:(label,content)=>'<label class="field"><span>'+label+'</span>'+content+'</label>',icon:()=>'',esc:value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])),money2:value=>Number(value).toFixed(2)};
-window.mode='${mode}';window.state={org:{id:'workspace'},session:{userId:'owner',name:'Fixture Owner'},cashAccounts:[],manualJournals:[],accountOpen:true,accountParentCode:'6000'};
+window.mode='${mode}';window.state={org:{id:'workspace'},session:{userId:'owner',name:'Fixture Owner'},taxSettings:{vatRegistered:true,standardRate:15},expenseOpen:true,cashAccounts:[],manualJournals:[],accountOpen:true,accountParentCode:'6000'};
 window.base={can:()=>window.allowed,audit:()=>{throw Error('Old audit path must not be used');},save:()=>{throw Error('Old queued save path must not be used');},toast:()=>{window.globalToastCalls++;renderFixture();},render:()=>renderFixture()};
 window.renderFixture=()=>{
  if(DalasiMasterForms.saving(document,state))return;
  const drafts=DalasiMasterForms.capture(document,state),app=document.getElementById('app');
- app.innerHTML=mode==='journal'?DalasiAccounting.journalModal(state,h):mode==='purchase'?DalasiExpensesPurchases.purchaseModal(state,h):mode==='supplier'?DalasiBusinessPayments.beneficiaryModal(state,h):state.accountOpen?DalasiAccounting.accountModal(state,h):'<h2>Saved chart of accounts</h2>';
+ app.innerHTML=mode==='expense'?(state.expenseOpen?DalasiExpensesPurchases.expenseModal(state,h):'<h2>Saved procurement record</h2>'):mode==='journal'?DalasiAccounting.journalModal(state,h):mode==='purchase'?DalasiExpensesPurchases.purchaseModal(state,h):mode==='supplier'?DalasiBusinessPayments.beneficiaryModal(state,h):state.accountOpen?DalasiAccounting.accountModal(state,h):'<h2>Saved chart of accounts</h2>';
  DalasiMasterForms.restore(document,state,drafts);
  const account=document.getElementById('ledger-account-form');if(account){DalasiAccounting.bindAccountForm(account,state);account.addEventListener('submit',ev=>DalasiAccounting.createAccount(ev,state,DalasiMasterForms.context(account,state,base)));}
  const supplier=document.getElementById('beneficiary-form');if(supplier){supplier.dataset.workspaceId=state.org.id;supplier.addEventListener('submit',ev=>DalasiBusinessPayments.createBeneficiary(ev,state,DalasiMasterForms.context(supplier,state,base)));}
  const journal=document.getElementById('manual-journal-form');if(journal){DalasiAccounting.bindJournalForm(journal,state,base);journal.addEventListener('submit',ev=>DalasiAccounting.createJournal(ev,state,base));}
- const purchase=document.getElementById('purchase-form');if(purchase){DalasiCatalog.bindLineItems(purchase,state,'purchase');DalasiExpensesPurchases.bindQuickSupplier(purchase,state,base);}
+ const purchase=document.getElementById('purchase-form');if(purchase){DalasiCatalog.bindLineItems(purchase,state,'purchase');DalasiExpensesPurchases.bindQuickSupplier(purchase,state,base);purchase.addEventListener('submit',ev=>DalasiExpensesPurchases.createPurchase(ev,state,base));}
+ const expense=document.getElementById('expense-form');if(expense){DalasiExpensesPurchases.bindQuickSupplier(expense,state,base);expense.addEventListener('submit',ev=>DalasiExpensesPurchases.createExpense(ev,state,base));}
 };
-window.ready=(async()=>{const remote=await (await fetch('/fixture-state?id=${id}')).json();DalasiProduction.applyWorkspace('workspace',remote.state);localStorage.setItem('dalasipay-prod-revision-workspace',remote.revision);state.customAccounts=remote.state.data['custom-accounts'];state.paymentBeneficiaries=remote.state.data['payment-beneficiaries'];renderFixture();})();
+window.ready=(async()=>{const remote=await (await fetch('/fixture-state?id=${id}')).json();DalasiProduction.applyWorkspace('workspace',remote.state);localStorage.setItem('dalasipay-prod-revision-workspace',remote.revision);for(const [prop,key] of Object.entries({businessExpenses:'business-expenses',purchaseOrders:'purchase-orders',businessBills:'business-bills',businessPayments:'business-payments',cashAccounts:'cash-accounts'}))state[prop]=remote.state.data[key]||[];state.customAccounts=remote.state.data['custom-accounts'];state.paymentBeneficiaries=remote.state.data['payment-beneficiaries'];renderFixture();})();
 </script></body></html>`;}
 test.before(async()=>{
  server=http.createServer(async(req,res)=>{try{
@@ -53,17 +54,38 @@ test.before(async()=>{
 });
 test.after(async()=>{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));});
 async function pageFor(mode){
- const id=String(++sequence);fixtures.set(id,initial());const context=await browser.newContext({viewport:{width:1440,height:1100}});const page=await context.newPage(),errors=[];
- page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
+ const id=String(++sequence);fixtures.set(id,initial());const context=await browser.newContext({viewport:{width:1440,height:1100}});const page=await context.newPage(),errors=[];page.setDefaultTimeout(15000);
+ page.on('pageerror',error=>{errors.push(error.message);console.error('Fixture page error:',error.message);});page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
  await page.route('**/*',route=>route.request().url().startsWith(origin)?route.continue():route.abort());
  await page.goto(origin+'/?id='+id+'&mode='+mode);await page.evaluate(()=>window.ready);
- assert.match(await page.title(),/DalasiPay/);assert.match(await page.locator('body').innerText(),/account|supplier|journal|purchase/i);
+ assert.match(await page.title(),/DalasiPay/);assert.match(await page.locator('body').innerText(),/account|supplier|journal|purchase|expense/i);
  return {page,id,context,errors};
 }
 async function saved(page){await page.waitForFunction(()=>!document.querySelector('[data-master-busy]'));}
 async function screenshot(page,name){if(process.env.MASTER_QA_OUTPUT){fs.mkdirSync(process.env.MASTER_QA_OUTPUT,{recursive:true});await page.screenshot({path:path.join(process.env.MASTER_QA_OUTPUT,name+'.png'),fullPage:true});}}
 
-test('sub-account validation preserves typed fields; backend failure is useful; success persists with inherited type after refresh',async()=>{
+test('expense and purchase saves acknowledge HTTP backend, retain attachment on conflict and survive reload',{timeout:60000},async()=>{
+ const {page,id,context}=await pageFor('expense');
+ await page.locator('[name="supplierId"]').selectOption('existing');await page.locator('[name="amount"]').fill('115');await page.locator('[name="reference"]').fill('EXP-QA-1');
+ await page.locator('[name="receipt"]').setInputFiles({name:'fixture-receipt.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64')});
+ assert.deepEqual(await page.locator('#expense-form').evaluate(f=>[...f.elements].filter(e=>!e.checkValidity()).map(e=>({name:e.name,value:e.value,message:e.validationMessage}))),[]);
+ await page.evaluate(()=>window.fixtureFailure='conflict');await page.getByRole('button',{name:'Save expense',exact:true}).click();await saved(page);
+ assert.match(await page.locator('[data-master-feedback]').innerText(),/newer workspace/);assert.equal(await page.locator('[name="reference"]').inputValue(),'EXP-QA-1');assert.equal(await page.locator('[name="receipt"]').evaluate(el=>el.files[0].name),'fixture-receipt.png');assert.equal(fixtures.get(id).state.data['business-expenses'].length,0);
+ await screenshot(page,'expense-conflict-retained');await page.evaluate(()=>window.fixtureFailure='');await page.getByRole('button',{name:'Save expense',exact:true}).click();await page.getByRole('heading',{name:'Saved procurement record'}).waitFor();
+ const record=fixtures.get(id).state.data['business-expenses'][0];assert.equal(record.organizationId,'workspace');assert.equal(record.status,'Draft');assert.equal(record.vatAmount,15);assert.match(record.receiptData,/^data:image\/png/);
+ await page.reload();await page.evaluate(()=>window.ready);assert.equal(await page.evaluate(()=>state.businessExpenses[0].reference),'EXP-QA-1');await context.close();
+ const purchase=await pageFor('purchase');await purchase.page.locator('[name="supplierId"]').selectOption('existing');await purchase.page.locator('[name="reference"]').fill('PO-QA-1');await purchase.page.locator('[name="lineDescription"]').fill('Fictional office service');await purchase.page.locator('[name="lineUnitPrice"]').fill('100');
+ await purchase.page.getByRole('button',{name:'Save purchase order',exact:true}).click();await purchase.page.waitForFunction(()=>state.purchaseOrders.length===1);assert.equal(fixtures.get(purchase.id).state.data['purchase-orders'][0].status,'Draft');assert.equal(fixtures.get(purchase.id).state.data['business-bills'].length,0);
+ await purchase.page.reload();await purchase.page.evaluate(()=>window.ready);assert.equal(await purchase.page.evaluate(()=>state.purchaseOrders[0].reference),'PO-QA-1');assert.deepEqual(purchase.errors,[]);await purchase.context.close();
+});
+test('Buy on credit saves one supplier bill with due date, terms and planned partial payment without cash or expense duplication',{timeout:60000},async()=>{
+ const {page,id,context,errors}=await pageFor('expense');await page.locator('[name="supplierId"]').selectOption('existing');await page.locator('[name="settlementChoice"]').selectOption('credit');await page.locator('[name="amount"]').fill('115');await page.locator('[name="invoiceNo"]').fill('CREDIT-QA-1');await page.locator('[name="dueDate"]').fill('2026-11-30');await page.locator('[name="paymentTerms"]').fill('Net 30');await page.locator('[name="plannedPaymentAmount"]').fill('40');
+ await screenshot(page,'credit-purchase-draft');assert.deepEqual(await page.locator('#expense-form').evaluate(f=>[...f.elements].filter(e=>!e.checkValidity()).map(e=>({name:e.name,value:e.value,message:e.validationMessage}))),[]);await page.getByRole('button',{name:'Save expense',exact:true}).click();await saved(page);assert.equal(fixtures.get(id).state.data['business-bills'].length,1,await page.locator('body').innerText());await page.getByRole('heading',{name:'Saved procurement record'}).waitFor();
+ const data=fixtures.get(id).state.data;assert.equal(data['business-expenses'].length,0);assert.equal(data['business-bills'].length,1);assert.equal(data['business-bills'][0].amount,115);assert.equal(data['business-bills'][0].paymentTerms,'Net 30');assert.equal(data['business-bills'][0].plannedPaymentAmount,40);assert.equal(data['business-payments'].length,0);assert.equal(data['cash-transactions'].length,0);
+ await page.reload();await page.evaluate(()=>window.ready);assert.equal(await page.evaluate(()=>state.businessBills[0].invoiceNo),'CREDIT-QA-1');assert.deepEqual(errors,[]);await context.close();
+});
+
+test('sub-account validation preserves typed fields; backend failure is useful; success persists with inherited type after refresh',{timeout:60000},async()=>{
  const {page,id,context,errors}=await pageFor('account');
  await page.locator('[name="code"]').fill('6000');await page.locator('[name="name"]').fill('New Expense Child');await page.getByRole('button',{name:'Add account',exact:true}).click();
  assert.match(await page.locator('[data-master-feedback]').innerText(),/already exists/);assert.equal(await page.locator('[name="name"]').inputValue(),'New Expense Child');
@@ -74,7 +96,7 @@ test('sub-account validation preserves typed fields; backend failure is useful; 
  await page.reload();await page.evaluate(()=>window.ready);assert.equal(await page.evaluate(()=>state.customAccounts[0].name),'New Expense Child');assert.equal(await page.evaluate(()=>globalToastCalls),0);assert.deepEqual(errors,[]);await context.close();
 });
 
-test('purchase supplier form reuses all beneficiary fields, preserves items and selects the saved supplier; duplicate and cancel retain selection',async()=>{
+test('purchase supplier form reuses all beneficiary fields, preserves items and selects the saved supplier; duplicate and cancel retain selection',{timeout:60000},async()=>{
  const {page,id,context,errors}=await pageFor('purchase');
  await page.locator('[name="supplierId"]').selectOption('existing');
  for(const [name,value] of Object.entries({supplierName:'Typed supplier',requestDate:'2026-10-13',requiredDate:'2026-10-20',requestedBy:'Procurement',reference:'PO-UNFINISHED',description:'Keep description',notes:'Keep notes',lineDescription:'Unfinished item',lineQuantity:'3',lineUnitPrice:'44',lineDiscount:'5'}))await page.locator('[name="'+name+'"]').first().fill(value);
@@ -91,7 +113,7 @@ test('purchase supplier form reuses all beneficiary fields, preserves items and 
  assert.equal(await page.evaluate(()=>globalToastCalls),0);assert.deepEqual(errors,[]);await page.reload();await page.evaluate(()=>window.ready);assert.equal(await page.locator('[name="supplierId"] option[value="'+newId+'"]').count(),1);await context.close();
 });
 
-test('journal inline creation preserves date, reference, memo, partial and zero lines; selects exact line; main and child accounts supported',async()=>{
+test('journal inline creation preserves date, reference, memo, partial and zero lines; selects exact line; main and child accounts supported',{timeout:60000},async()=>{
  const {page,id,context,errors}=await pageFor('journal');
  await page.locator('[name="journalDate"]').fill('2026-10-13');await page.locator('[name="reference"]').fill('J-UNFINISHED');await page.locator('[name="memo"]').fill('Unfinished memo');
  await page.locator('[name="journalAccount"]').nth(0).selectOption('Operating Expenses');await page.locator('[name="journalDebit"]').nth(0).fill('125.50');await page.locator('[name="journalMemo"]').nth(0).fill('Keep line memo');
@@ -107,7 +129,7 @@ test('journal inline creation preserves date, reference, memo, partial and zero 
 });
 
 
-test('actual application wiring preserves unfinished purchase and journal forms through online re-renders and saves scoped records',async()=>{
+test('actual application wiring preserves unfinished purchase and journal forms through online re-renders and saves scoped records',{timeout:60000},async()=>{
  const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage(),errors=[],localFailures=[];
  page.on('pageerror',error=>errors.push(error.message));page.on('response',response=>{if(response.url().startsWith(origin)&&response.status()>=400&&!response.url().includes('favicon'))localFailures.push(response.url());});
  await page.route('**/*',route=>route.request().url().startsWith(origin)?route.continue():route.abort());
