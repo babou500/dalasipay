@@ -20,6 +20,11 @@ on:
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
       - 'master-data-*'
+      - 'procurement-*'
+      - 'tests/procurement-state.postgres.test.mjs'
+      - 'general-ledger.js'
+      - 'sales-catalog.js'
+      - 'reversal-approvals.js'
       - 'tests/master-data-forms.browser.cjs'
       - 'sales-invoices.js'
       - 'excel-reports.js'
@@ -95,6 +100,11 @@ on:
       - 'employee-drawer-backdrop.test.js'
       - 'accounting-journals.js'
       - 'master-data-*'
+      - 'procurement-*'
+      - 'tests/procurement-state.postgres.test.mjs'
+      - 'general-ledger.js'
+      - 'sales-catalog.js'
+      - 'reversal-approvals.js'
       - 'tests/master-data-forms.browser.cjs'
       - 'sales-invoices.js'
       - 'excel-reports.js'
@@ -301,6 +311,7 @@ jobs:
             accounting-calendar.test.js \
             account-supplier-quick-create.test.js \
             master-data-persistence.test.js \
+            procurement-persistence.test.js \
             fiscal-reporting-preview.test.js \
             year-close-fiscal-safety.test.js \
             year-close-scope-audit.test.js \
@@ -385,7 +396,7 @@ jobs:
       - name: Verify first-administrator transaction and Worker flow against PostgreSQL
         env:
           PGLITE_MODULE: ${{ github.workspace }}/tests/admin-auth-runtime/node_modules/@electric-sql/pglite/dist/index.js
-        run: node --test tests/admin-bootstrap.postgres.test.mjs tests/licensing-management.postgres.test.mjs
+        run: node --test tests/admin-bootstrap.postgres.test.mjs tests/licensing-management.postgres.test.mjs tests/procurement-state.postgres.test.mjs
       - name: Check release guards
         run: node --test tests/cloudflare-release.test.mjs
       - name: Install locked deployment tooling without credentials

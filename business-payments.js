@@ -145,7 +145,7 @@
         const scheduledDate=r.nextDueDate;
         const exists=state.businessPayments.some(p=>p.recurringId===r.id&&p.recurringDueDate===scheduledDate);
         if(!exists){
-          const ben=beneficiaryById(state,r.beneficiaryId),id='BP-'+Date.now().toString(36).toUpperCase()+'-'+String(created+1);
+          const ben=beneficiaryById(state,r.beneficiaryId),id='BP-'+crypto.randomUUID()+'-'+String(created+1);
           state.businessPayments.unshift({id,recurringId:r.id,recurringDueDate:scheduledDate,beneficiaryId:r.beneficiaryId||null,payee:ben?.name||r.payee||r.name,type:r.type||paymentTypeForBeneficiary(ben?.kind),amount:Number(r.amount)||0,method:r.method||ben?.preferredMethod||'Bank transfer',dueDate:scheduledDate,reference:r.reference||'',description:r.description||r.name,status:'Draft',createdAt:new Date().toISOString(),createdBy:'Recurring schedule',updatedAt:new Date().toISOString()});
           created++;
         }
@@ -1057,7 +1057,7 @@
           '<div class="form-grid">'+
             field('Payee / beneficiary','<input name="payee" value="'+esc(bill?.supplier||selected?.name||'')+'" placeholder="e.g. ABC Supplies Ltd" required>')+
             field('Payment type','<select name="type">'+typeOptions+'</select>')+
-            field('Amount (GMD)','<input name="amount" type="number" min="0.01" '+(bill?'max="'+billBalance+'" ':'')+'step="0.01" value="'+esc(bill?billBalance:'')+'" placeholder="0.00" required>')+
+            field('Amount (GMD)','<input name="amount" type="number" min="0.01" '+(bill?'max="'+billBalance+'" ':'')+'step="0.01" value="'+esc(bill?Math.min(billBalance,Number(bill.plannedPaymentAmount)||billBalance):'')+'" placeholder="0.00" required>')+
             field('Payment method','<select name="method">'+methodOptions+'</select>')+
             field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId',state.paymentSelectedAccountId||'','Select cash / bank account')+(!(state.cashAccounts||[]).filter(x=>(x.status||'Active')==='Active').length?'<button type="button" class="secondary tiny" data-action="payment-add-cash-account">+ Add cash/bank account</button>':''))+
             field('Due date','<input name="dueDate" type="date" value="'+esc(bill?.dueDate||'')+'">')+
@@ -1168,11 +1168,12 @@
     if(!scheduledDate){ctx.toast('No next due date is set.');return;}
     const exists=(state.businessPayments||[]).some(p=>p.recurringId===r.id&&p.recurringDueDate===scheduledDate);
     if(exists){ctx.toast('A payment already exists for '+dueDate(scheduledDate)+'.');return;}
-    const pid='BP-'+Date.now().toString(36).toUpperCase();
+    const pid='BP-'+crypto.randomUUID();
     state.businessPayments.unshift({id:pid,recurringId:r.id,recurringDueDate:scheduledDate,beneficiaryId:r.beneficiaryId||null,payee:ben?.name||r.payee||r.name,type:r.type||paymentTypeForBeneficiary(ben?.kind),amount:Number(r.amount)||0,method:r.method||ben?.preferredMethod||'Bank transfer',dueDate:scheduledDate,reference:r.reference||'',description:r.description||r.name,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     r.lastGeneratedDueDate=scheduledDate;r.nextDueDate=advanceRecurringDate(scheduledDate,r.frequency||'Monthly');r.updatedAt=new Date().toISOString();ctx.audit('payment.recurring_generated',{recurringId:r.id,paymentId:pid,dueDate:scheduledDate,amount:r.amount});ctx.save();ctx.toast('Draft payment generated for '+r.name);ctx.render();
   }
 
+  function settlementFields(h){return h.field('Purchase payment','<select name="settlementChoice"><option value="credit">Buy on credit</option><option value="pay_now">Pay now after bill and payment approval</option></select>')+h.field('Payment terms','<input name="paymentTerms" placeholder="e.g. Net 30">')+h.field('Planned first payment (GMD)','<input name="plannedPaymentAmount" type="number" min="0" step="0.01" value="0">')+'<div class="modal-note">Saving creates a draft only. Credit purchases post Accounts Payable on bill approval. Pay now and partial settlements use the existing separately approved supplier payment workflow; no cash is posted by this form.</div>';}
   function billModal(state,h){
     const field=h.field,icon=h.icon,esc=h.esc,beneficiaries=(state.paymentBeneficiaries||[]).filter(x=>(x.status||'Active')==='Active');
     const beneficiaryOptions=['<option value="">One-off supplier</option>'].concat(beneficiaries.map(b=>'<option value="'+esc(b.id)+'" '+(state.paymentBeneficiaryId===b.id?'selected':'')+'>'+esc(b.name)+' · '+esc(b.kind)+'</option>')).join('');
@@ -1184,7 +1185,7 @@
           field('Supplier name','<input name="supplier" placeholder="e.g. ABC Supplies Ltd">')+
           field('Invoice number','<input name="invoiceNo" placeholder="e.g. INV-1042" required>')+
           field('Invoice date','<input name="invoiceDate" type="date">')+
-          field('Due date','<input name="dueDate" type="date" required>')+
+          field('Due date','<input name="dueDate" type="date" required>')+settlementFields(h)+
           field('Invoice document','<input name="attachment" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
         '</div><div class="supplier-bill-create-note">Optional invoice attachments are stored with the workspace record. Maximum file size in this version is 1.5 MB.</div></section>'+
         '<section class="supplier-bill-create-section"><div class="supplier-bill-create-section-head"><span>'+icon('payroll',16)+'</span><div><h3>Commercial value</h3><p>Enter the supplier amount and any discount received before VAT treatment is applied.</p></div></div><div class="form-grid">'+
@@ -1239,31 +1240,52 @@
     form.addEventListener('change',update);
     update();
   }
-  async function createBill(ev,state,ctx){
+  function createBill(ev,state,ctx){
+    ev.preventDefault();
+    if(ctx._procurementDraft)return createBillDraft(ev,state,ctx);
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>createBillDraft(ev,draft,controlled));
+  }
+  async function createBillDraft(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add bills.');return;}
-    const fd=new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),grossAmount=Number(fd.get('amount')||0),discountReceived=Math.max(0,Number(fd.get('discountReceived')||0)),amount=Math.max(0,grossAmount-discountReceived),due=String(fd.get('dueDate')||'');
-    if(!supplier||!invoiceNo||grossAmount<=0||discountReceived>grossAmount||amount<=0||!due){ctx.toast('Supplier, invoice number, valid gross amount, discount and due date are required.');return;}
-    const invoiceDate=String(fd.get('invoiceDate')||'');if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
+    const fd=ctx.billData||new FormData(ev.target),selectedBeneficiaryId=String(fd.get('beneficiaryId')||''),typedSupplier=String(fd.get('supplier')||'').trim(),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedSupplier}),beneficiaryId=ben?.id||selectedBeneficiaryId,supplier=ben?.name||typedSupplier||'',invoiceNo=String(fd.get('invoiceNo')||'').trim(),grossAmount=Number(fd.get('amount')||0),discountReceived=Math.max(0,Number(fd.get('discountReceived')||0)),amount=Math.max(0,grossAmount-discountReceived),due=String(fd.get('dueDate')||'');
+    if(!supplier||!invoiceNo||!Number.isFinite(grossAmount)||!Number.isFinite(discountReceived)||grossAmount<=0||discountReceived>grossAmount||amount<=0||!due){ctx.toast('Supplier, invoice number, valid gross amount, discount and due date are required.');return;}
+    const invoiceDate=String(fd.get('invoiceDate')||''),choice=String(fd.get('settlementChoice')||'credit'),planned=Number(fd.get('plannedPaymentAmount')||0);
+    if(!invoiceDate||!['credit','pay_now'].includes(choice)||due<invoiceDate||!Number.isFinite(planned)||planned<0){ctx.toast('Choose a valid invoice date, due date and planned payment.');return;}
+    if(beneficiaryId&&(!ben||(ben.organizationId&&ben.organizationId!==state.org?.id)||(ben.status||'Active')!=='Active')){ctx.toast('Choose an active supplier in this workspace.');return;}
+if(invoiceDate&&window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed. Reopen it before recording this supplier bill.');return;}
     if((state.businessBills||[]).some(x=>{
       const sameSupplier=(beneficiaryId&&x.beneficiaryId===beneficiaryId)||normPartyText(x.supplier)===normPartyText(supplier);
       return sameSupplier&&normRef(x.invoiceNo)===normRef(invoiceNo);
     })){ctx.toast('That supplier invoice is already recorded for this supplier.');return;}
     let attachment={name:'',data:''};try{attachment=await readBillAttachment(fd.get('attachment'));}catch(err){ctx.toast(err?.message||'Unable to attach invoice');return;}
-    const id='BILL-'+Date.now().toString(36).toUpperCase(),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',taxPricingMode,vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
-    state.businessBills.unshift({id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),postingAccount:String(fd.get('postingAccount')||'Operating Expenses'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    const id='BILL-'+crypto.randomUUID(),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=ctx.billLines?.length?window.DalasiExpensesPurchases.purchaseTaxSummary(state,ctx.billLines,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),taxPricingMode):window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',taxPricingMode,vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};state.businessBills=state.businessBills||[];
+    if(planned>Number(tax.taxGross)+.004){ctx.toast('Planned payment cannot exceed the bill total including VAT.');return;}
+    state.businessBills.unshift({id,settlementChoice:choice,paymentTerms:String(fd.get('paymentTerms')||'').trim(),plannedPaymentAmount:choice==='pay_now'?Number(tax.taxGross):planned,plannedAccountId:String(fd.get('accountId')||'')||null,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,subtotal:grossAmount,discountTotal:discountReceived,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),invoiceDate,dueDate:due,category:String(fd.get('category')||'Other expense'),postingAccount:String(fd.get('postingAccount')||'Operating Expenses'),description:String(fd.get('description')||'').trim(),attachmentName:attachment.name,attachmentData:attachment.data,status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.billOpen=false;state.paymentBeneficiaryId=null;ctx.audit('bill.created',{billId:id,beneficiaryId:beneficiaryId||null,supplier,invoiceNo,amount,dueDate:due});ctx.save();ctx.toast('Supplier bill saved as draft');ctx.render();
   }
   function updateBill(id,status,state,ctx){
+    if(ctx._procurementDraft)return updateBillDraft(id,status,state,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>updateBillDraft(id,status,draft,controlled));
+  }
+  function updateBillDraft(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update bills.');return;}
     const b=billById(state,id);if(!b)return;
     const current=b.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved';
     if(['Approved','Part paid','Paid'].includes(current)){ctx.toast('Posted supplier bills are locked. Use supplier credit/debit notes or payments for corrections.');return;}
     if(!allowed){ctx.toast('This supplier bill status change is not allowed. Follow Draft → Pending approval → Approved.');return;}
+    if(status==='Approved'&&b.createdByUserId&&b.createdByUserId===state.session?.userId){ctx.toast('Another authorized user must approve this supplier bill.');return;}
+    if(status==='Pending approval')b.submittedByUserId=state.session?.userId;
+    if(status==='Approved')b.approvedByUserId=state.session?.userId;
     if(window.DalasiMonthClose?.isClosed(state,b.invoiceDate||b.createdAt)){ctx.toast('This supplier bill belongs to a closed accounting period. Reopen the period before changing it.');return;}b.status=status;b.updatedAt=new Date().toISOString();b.updatedBy=state.session?.name||'User';if(status==='Approved'){b.approvedAt=b.approvedAt||b.updatedAt;b.approvedBy=b.approvedBy||b.updatedBy;}ctx.audit('bill.status_updated',{billId:id,status,amount:b.amount,supplier:b.supplier});ctx.save();ctx.toast(b.invoiceNo+': '+status);ctx.render();
   }
 
   function create(ev,state,ctx){
+    ev.preventDefault();
+    if(ctx._procurementDraft)return createDraft(ev,state,ctx);
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>createDraft(ev,draft,controlled));
+  }
+  function createDraft(ev,state,ctx){
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create business payments.');return;}
     const fd=new FormData(ev.target),amount=Number(fd.get('amount')||0),typedPayee=String(fd.get('payee')||'').trim(),billId=String(fd.get('billId')||state.paymentBillId||''),linkedBill=billId?billById(state,billId):null,selectedBeneficiaryId=String(fd.get('beneficiaryId')||linkedBill?.beneficiaryId||''),ben=resolveBeneficiaryForTransaction(state,{beneficiaryId:selectedBeneficiaryId,name:typedPayee||linkedBill?.supplier||''}),beneficiaryId=ben?.id||selectedBeneficiaryId,payee=ben?.name||typedPayee||linkedBill?.supplier||'';
@@ -1271,7 +1293,7 @@
     const paymentReference=String(fd.get('reference')||'').trim(),paymentAccountId=String(fd.get('accountId')||state.paymentSelectedAccountId||'')||null,dueDate=String(fd.get('dueDate')||'');
     if(billId){
       const linked=billById(state,billId),bal=window.DalasiReturns?.billBalance?.(state,linked)??(Number(linked?.amount)||0);
-      if(!linked||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}
+      if(!linked||!['Approved','Part paid'].includes(linked.status)||bal<=.004){ctx.toast('This supplier bill has no payable balance remaining.');return;}
       if(amount>bal+.004){ctx.toast('Payment amount cannot exceed the supplier bill balance after credits.');return;}
       const openDuplicate=(state.businessPayments||[]).find(x=>x.billId===billId&&activePaymentStatus(x.status)&&x.status!=='Paid');
       if(openDuplicate){ctx.toast('A payment for this supplier bill is already in progress. Complete or cancel it before creating another.');return;}
@@ -1280,7 +1302,7 @@
       const duplicate=(state.businessPayments||[]).some(x=>activePaymentStatus(x.status)&&normRef(x.reference)===refKey&&sameMoney(x.amount,amount)&&((beneficiaryId&&x.beneficiaryId===beneficiaryId)||normPartyText(x.payee)===normPartyText(payee)));
       if(duplicate){ctx.toast('A matching business payment with this reference is already recorded.');return;}
     }
-    const id='BP-'+Date.now().toString(36).toUpperCase();
+    const id='BP-'+crypto.randomUUID();
     state.businessPayments=state.businessPayments||[];
     state.businessPayments.unshift({id,billId:billId||null,beneficiaryId:beneficiaryId||null,payee,type:String(fd.get('type')||'Other payment'),amount,method:String(fd.get('method')||'Bank transfer'),accountId:paymentAccountId,dueDate,reference:paymentReference,description:String(fd.get('description')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     if(billId){const bill=billById(state,billId);if(bill){bill.paymentId=id;bill.updatedAt=new Date().toISOString();}}
@@ -1318,17 +1340,21 @@
   function createQuickSupplier(state,details,ctx){return createBeneficiaryRecord(state,{kind:'Supplier / vendor',...details},ctx);}
 
   function update(id,status,state,ctx,meta={}){
+    if(ctx._procurementDraft)return updateDraft(id,status,state,ctx,meta);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>updateDraft(id,status,draft,controlled,meta));
+  }
+  function updateDraft(id,status,state,ctx,meta={}){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update business payments.');return;}
     const p=(state.businessPayments||[]).find(x=>x.id===id);if(!p)return;
     if((p.status||'Draft')===status){ctx.toast(p.payee+': already '+String(status).toLowerCase()+'.');return;}
     const actor=state.session?.name||'User',now=new Date().toISOString(),comment=String(meta.comment||'').trim();
     if(status==='Pending approval'){
-      p.status=status;p.submittedAt=now;p.submittedBy=actor;p.updatedAt=now;p.updatedBy=actor;
+      p.status=status;p.submittedByUserId=state.session?.userId;p.submittedAt=now;p.submittedBy=actor;p.updatedAt=now;p.updatedBy=actor;
     }else if(status==='Approved'){
       if((p.status||'Draft')!=='Pending approval'){ctx.toast('Submit the payment for approval first.');return;}
-      if(p.createdBy&&p.createdBy===actor){ctx.toast('The person who created this payment cannot approve it. Another authorized user must review it.');return;}
+      if((p.createdByUserId&&p.createdByUserId===state.session?.userId)||(!p.createdByUserId&&p.createdBy&&p.createdBy===actor)){ctx.toast('The person who created this payment cannot approve it. Another authorized user must review it.');return;}
       if(!comment){ctx.toast('Add an approval comment before approving the payment.');return;}
-      p.status=status;p.approvedAt=now;p.approvedBy=actor;p.approvalComment=comment;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);p.updatedAt=now;p.updatedBy=actor;
+      p.status=status;p.approvedAt=now;p.approvedBy=actor;p.approvalComment=comment;p.approvedByUserId=state.session?.userId;p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);p.updatedAt=now;p.updatedBy=actor;
     }else if(status==='Draft'&&meta.returnForCorrection){
       if(!comment){ctx.toast('Add a reason before returning the payment for correction.');return;}
       p.status='Draft';p.returnedAt=now;p.returnedBy=actor;p.returnReason=comment;p.updatedAt=now;p.updatedBy=actor;
@@ -1339,6 +1365,7 @@
       if(!p.accountId||!window.DalasiCashBank?.accountById?.(state,p.accountId)){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this payment paid.');return;}
       if(window.DalasiMonthClose?.isClosed(state,todayIso())){ctx.toast('The current accounting period is closed. Reopen it before posting this payment.');return;}
       if((p.status||'Draft')!=='Approved'){ctx.toast('Approve the payment before marking it paid.');return;}
+      if(p.billId){const bill=billById(state,p.billId),balance=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,Number(bill?.amount||0)-(state.businessPayments||[]).filter(x=>x.billId===p.billId&&x.status==='Paid').reduce((sum,x)=>sum+Number(x.amount||0),0));if(!bill||!['Approved','Part paid'].includes(bill.status)||!Number.isFinite(Number(p.amount))||Number(p.amount)>balance+.004){ctx.toast('The supplier bill balance changed. Review the payment before settlement.');return;}}
       p.status='Paid';p.paidAt=p.paidAt||now;p.paidBy=actor;p.receiptNumber=p.receiptNumber||nextDocumentNumber('PR',state);p.voucherNumber=p.voucherNumber||nextDocumentNumber('PV',state);p.updatedAt=now;p.updatedBy=actor;
       window.DalasiCashBank?.post(state,{accountId:p.accountId,date:p.paidAt.slice(0,10),direction:'out',amount:p.amount,type:'Business payment',counterparty:p.payee,reference:p.reference||p.receiptNumber||'',description:p.description||p.type,sourceType:'business-payment',sourceId:p.id,sourceKey:'business-payment:'+p.id+':out',createdBy:actor});
       if(p.billId){const bill=billById(state,p.billId);if(bill){const remaining=window.DalasiReturns?.billBalance?.(state,bill)??Math.max(0,(Number(bill.amount)||0)-(state.businessPayments||[]).filter(x=>x.billId===bill.id&&x.status==='Paid').reduce((a,x)=>a+(Number(x.amount)||0),0));bill.status=remaining<=.004?'Paid':'Part paid';if(remaining<=.004)bill.paidAt=p.paidAt;else delete bill.paidAt;bill.paymentId=p.id;bill.updatedAt=p.paidAt;}}
@@ -1400,7 +1427,7 @@
     const esc=h.esc,icon=h.icon,mode=cfg.mode||'approve',approve=mode==='approve',reject=mode==='reject';
     const title=approve?'Approve payment':reject?'Reject payment':'Return for correction';
     const copy=approve?'Record what you reviewed before approving this payment.':reject?'Record why this payment should not proceed.':'Explain what needs to be corrected before the payment is resubmitted.';
-    const sameMaker=p.createdBy&&(state.session?.name||'User')===p.createdBy;
+    const sameMaker=p.createdByUserId?p.createdByUserId===state.session?.userId:p.createdBy&&(state.session?.name||'User')===p.createdBy;
     return '<div class="center-modal payment-modal payment-approval-modal"><div class="modal-scrim" data-action="close-payment-approval"></div><form id="payment-approval-form" class="modal-box"><input type="hidden" name="paymentId" value="'+esc(p.id)+'"><input type="hidden" name="mode" value="'+esc(mode)+'">'+
       '<div class="modal-head"><div><div class="eyebrow">PAYMENT CONTROL</div><h2>'+esc(title)+'</h2><p>'+esc(copy)+'</p></div><button type="button" class="close" data-action="close-payment-approval">×</button></div>'+
       '<div class="payment-approval-facts"><div><span>Payee</span><b>'+esc(p.payee)+'</b></div><div><span>Amount</span><b>'+h.money2(p.amount)+'</b></div><div><span>Prepared by</span><b>'+esc(p.createdBy||'Unknown')+'</b></div><div><span>Status</span><b>'+esc(p.status||'Draft')+'</b></div></div>'+
@@ -1411,11 +1438,12 @@
 
   function handlePaymentApproval(ev,state,ctx){
     ev.preventDefault();const fd=new FormData(ev.target),id=String(fd.get('paymentId')||''),mode=String(fd.get('mode')||'approve'),comment=String(fd.get('comment')||'').trim();
-    if(!comment){ctx.toast('Add a comment or reason before continuing.');return;}
-    state.paymentApprovalAction=null;
-    if(mode==='approve')update(id,'Approved',state,ctx,{comment});
-    else if(mode==='reject')update(id,'Rejected',state,ctx,{comment});
-    else update(id,'Draft',state,ctx,{comment,returnForCorrection:true});
+    if(!comment){window.DalasiMasterForms.feedback(ev.target,'Add a comment or reason before continuing.');return;}
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>{
+      const before=(draft.businessPayments||[]).find(x=>x.id===id)?.status;
+      updateDraft(id,mode==='approve'?'Approved':mode==='reject'?'Rejected':'Draft',draft,controlled,{comment,returnForCorrection:mode!=='approve'&&mode!=='reject'});
+      if((draft.businessPayments||[]).find(x=>x.id===id)?.status!==before)draft.paymentApprovalAction=null;
+    });
   }
 
   function paymentDetailModal(state,h){
@@ -1447,5 +1475,5 @@
         '<button class="secondary" data-action="close-payment-detail">Close</button>'+
       '</div></aside></div>';
   }
-window.DalasiBusinessPayments={beneficiaryFields,createBeneficiaryRecord,createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,customerReceiptDetailModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
+window.DalasiBusinessPayments={settlementFields,beneficiaryFields,createBeneficiaryRecord,createQuickSupplier,resolveCustomerForInvoice,resolveBeneficiaryForTransaction,materializeInvoiceCustomers,customerInvoicesFor,supplierBillsFor,beneficiaryPayments,render,renderCustomers,renderSuppliers,modal,bindSupplierPaymentPreview,paymentDetailModal,paymentApprovalModal,handlePaymentApproval,beneficiaryModal,billModal,bindBillPreview,recurringModal,receivableModal,bindReceivablePreview,incomingPaymentModal,customerReceiptDetailModal,bindIncomingPaymentPreview,customerModal,customerAccountModal,supplierAccountModal,billDetailModal,create,createBeneficiary,createBill,createRecurring,createReceivable,createCustomer,recordIncomingPayment,update,reversePayment,reverseIncomingPayment,updateBeneficiary,updateBill,updateRecurring,updateReceivable,updateCustomer,generateRecurringNow,materializeRecurring,exportRegister,downloadDocument:paymentDocumentPdf,downloadReceivableDocument,summary:totals,receivableSummary:receivableMetrics,recurringSummary:recurringMetrics,cashFlowSummary,beneficiaryById,billById,receivableById,customerById,customerAccount,supplierAccount,documentAuditEvents,invoiceLifecycle,billLifecycle,types:TYPES.slice(),methods:METHODS.slice(),frequencies:FREQUENCIES.slice()};
 })();

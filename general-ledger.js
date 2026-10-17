@@ -208,7 +208,7 @@
       const tax=window.DalasiTax?.meta?.(state,b,'purchase')||{taxNet:amt,vatAmount:0,vatRecoverable:false};
       const preDiscountTax=window.DalasiTax?.snapshot?.(state,subtotalGross,b.taxCode||'OUT','purchase',b.taxPricingMode||'inclusive')||{taxNet:subtotalGross,vatAmount:0,vatRecoverable:false};
       const net=round(tax.vatRecoverable?tax.taxNet:amt),vat=round(tax.vatRecoverable?tax.vatAmount:0);
-      const grossExpenseBase=round(preDiscountTax.vatRecoverable?preDiscountTax.taxNet:subtotalGross);
+      const grossExpenseBase=round(Number.isFinite(b.preDiscountTaxNet)?b.preDiscountTaxNet:(preDiscountTax.vatRecoverable?preDiscountTax.taxNet:subtotalGross));
       const discountReceived=round(Math.max(0,grossExpenseBase-net));
       const po=b.purchaseOrderId?(state.purchaseOrders||[]).find(x=>x.id===b.purchaseOrderId):null;
       let productBase=0;
@@ -216,7 +216,7 @@
         (po.lineItems||[]).forEach(l=>{
           const item=l.catalogId?window.DalasiCatalog?.itemById?.(state,l.catalogId):null;if(item?.type!=='Product')return;
           const raw=Math.max(0,(Number(l.quantity)||0)*(Number(l.unitPrice)||0));
-          const pt=window.DalasiTax?.snapshot?.(state,raw,b.taxCode||po.taxCode||'OUT','purchase',b.taxPricingMode||po.taxPricingMode||'inclusive')||{taxNet:raw,vatRecoverable:false};
+          const pt=window.DalasiTax?.snapshot?.(state,raw,l.taxCode||b.taxCode||po.taxCode||'OUT','purchase',b.taxPricingMode||po.taxPricingMode||'inclusive')||{taxNet:raw,vatRecoverable:false};
           productBase+=pt.vatRecoverable?Number(pt.taxNet)||0:raw;
         });
       }

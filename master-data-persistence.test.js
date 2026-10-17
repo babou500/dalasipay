@@ -16,6 +16,15 @@ function fixture(){
   production.applyWorkspace('workspace',remote.state);storage.setItem('dalasipay-prod-revision-workspace',3);
   return {production,storage,remote,writes,control};
 }
+
+test('procurement batch writes bill and PO link together, rejects stale snapshots and preserves unrelated financial data',async()=>{
+ const f=fixture(),before=structuredClone(f.remote.state.data),bill={id:'bill',organizationId:'workspace',status:'Draft',amount:115},po={id:'po',organizationId:'workspace',status:'Received',linkedBillId:'bill'};
+ await f.production.commitProcurementData('workspace',{'business-bills':[bill],'purchase-orders':[po]},{action:'purchase.converted_to_bill',metadata:{billId:'bill'}},{'business-bills':[],'purchase-orders':[]});
+ assert.equal(f.writes.length,1);for(const key of Object.keys(before))assert.deepEqual(f.remote.state.data[key],before[key]);
+ await assert.rejects(f.production.commitProcurementData('workspace',{'business-bills':[bill]},{action:'retry',metadata:{}},{'business-bills':[]}),error=>error.code==='conflict');
+ await assert.rejects(f.production.commitProcurementData('workspace',{'business-bills':[{...bill,organizationId:'other'}]},{action:'foreign',metadata:{}},{'business-bills':[bill]}),error=>error.code==='permission');
+ f.storage.removeItem('dalasipay-v3-org-workspace-business-bills');f.production.applyWorkspace('workspace',f.remote.state);assert.deepEqual(JSON.parse(f.storage.getItem('dalasipay-v3-org-workspace-business-bills')),[bill]);
+});
 test('master records and audit persist through hydrate/refresh without changing financial data or subscriptions',async()=>{
   const f=fixture(),before=structuredClone(f.remote.state.data);
   const rows=[{id:'account',code:'6001',parentCode:'6000',type:'Expense',organizationId:'workspace'}];
