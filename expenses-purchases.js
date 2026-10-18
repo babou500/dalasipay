@@ -26,6 +26,16 @@
       const r=new FileReader();r.onerror=()=>reject(new Error('Unable to read the attachment.'));r.onload=()=>resolve({name:file.name||'attachment',data:String(r.result||'')});r.readAsDataURL(file);
     });
   }
+  function purchaseTaxSummary(state,lines,taxCode,pricing){
+    const round=n=>Math.round(n*100)/100,result={taxCode,taxPricingMode:pricing,taxGross:0,taxNet:0,vatAmount:0,vatRecoverable:false,vatRate:0,taxableTurnover:false,preDiscountTaxNet:0};
+    for(const line of lines){
+      const raw=Number(line.quantity)*Number(line.unitPrice),net=window.DalasiCatalog.lineAmount(line),code=line.taxCode||taxCode;
+      const tax=window.DalasiTax?.snapshot?.(state,net,code,'purchase',pricing)||{taxGross:net,taxNet:net,vatAmount:0},pre=window.DalasiTax?.snapshot?.(state,raw,code,'purchase',pricing)||{taxNet:raw};
+      for(const key of ['taxGross','taxNet','vatAmount'])result[key]=round(result[key]+Number(tax[key]||0));
+      result.preDiscountTaxNet=round(result.preDiscountTaxNet+Number(pre.taxNet||0));result.vatRecoverable=result.vatRecoverable||!!tax.vatRecoverable;
+    }
+    return result;
+  }
   function expenseById(state,id){return (state.businessExpenses||[]).find(x=>x.id===id)||null;}
   function purchaseById(state,id){return (state.purchaseOrders||[]).find(x=>x.id===id)||null;}
   function expenseMetrics(state){
@@ -184,12 +194,18 @@
         field('Amount (GMD)','<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>')+
         field('Expense date','<input name="expenseDate" type="date" value="'+todayIso()+'" required>')+
         field('Category','<select name="category">'+EXPENSE_CATEGORIES.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
+        field('Purchase payment','<select name="settlementChoice"><option value="pay_now">Pay now (controlled expense draft)</option><option value="credit">Buy on credit (supplier bill / Accounts Payable)</option></select>')+
+        field('Supplier invoice number (credit)','<input name="invoiceNo" placeholder="Required for credit purchases">')+
+        field('Due date (credit)','<input name="dueDate" type="date">')+
+        field('Payment terms','<input name="paymentTerms" placeholder="e.g. Net 30">')+
+        field('Discount received (GMD)','<input name="discountReceived" type="number" min="0" step="0.01" value="0">')+
+        field('Planned first payment (GMD)','<input name="plannedPaymentAmount" type="number" min="0" step="0.01" value="0">')+
         field('Payment method','<select name="method">'+METHODS.map(x=>'<option>'+x+'</option>').join('')+'</select>')+
         field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state)||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+
         field('VAT pricing',window.DalasiTax?.pricingOptions?.('inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+
         field('Project',window.DalasiDimensions?.projectSelect?.(state,'project')||'<select name="project"><option value="">Unassigned</option></select>')+
         field('Cost centre',window.DalasiDimensions?.costCentreSelect?.(state,'costCentre')||'<select name="costCentre"><option value="">Unassigned</option></select>')+
-        field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Select cash / bank account'))+
+        field('Pay from account',window.DalasiCashBank.accountSelect(state,'accountId','','Choose before actual settlement').replace(/\srequired(?:="[^"]*")?/g,''))+
         field('Reference','<input name="reference" placeholder="Receipt, transfer or internal reference">')+
         field('Receipt / evidence','<input name="receipt" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">')+
       '</div>'+quickSupplierPanel(h)+
@@ -222,29 +238,52 @@
       '<div class="modal-actions"><button type="button" class="secondary" data-action="close-purchase">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Save purchase order</button></div>'+
     '</form></div>';
   }
-  async function createExpense(ev,state,ctx){
+  function createExpense(ev,state,ctx){
+    ev.preventDefault();
+    if(ctx._procurementDraft)return createExpenseDraft(ev,state,ctx);
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>createExpenseDraft(ev,draft,controlled));
+  }
+  async function createExpenseDraft(ev,state,ctx){
     if(ev.target.querySelector('[data-quick-supplier-panel]:not([hidden])')){ev.preventDefault();window.DalasiMasterForms.feedback(ev.target,'Save or cancel the new supplier before saving this form.');return;}
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to add expenses.');return;}
-    const fd=new FormData(ev.target),selectedSupplierId=String(fd.get('supplierId')||''),typedMerchant=String(fd.get('merchant')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedMerchant})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,merchant=s?.name||typedMerchant||'',amount=Number(fd.get('amount')||0),expenseDate=String(fd.get('expenseDate')||'');
-    if(!merchant||amount<=0||!expenseDate){ctx.toast('Merchant, amount and expense date are required.');return;}
+    const fd=new FormData(ev.target);
+    if(String(fd.get('settlementChoice')||'pay_now')==='credit'){
+      if(!fd.get('supplierId')){ctx.toast('Select a saved supplier for a credit purchase.');return;}
+      fd.set('beneficiaryId',fd.get('supplierId'));fd.set('supplier',fd.get('merchant')||'');fd.set('invoiceDate',fd.get('expenseDate')||'');const receipt=fd.get('receipt');if(receipt?.size>0)fd.set('attachment',receipt,receipt.name);else fd.delete('attachment');
+      const count=(state.businessBills||[]).length;
+      await window.DalasiBusinessPayments.createBill(ev,state,{...ctx,billData:fd});
+      if((state.businessBills||[]).length>count)state.expenseOpen=false;
+      return;
+    }
+    const selectedSupplierId=String(fd.get('supplierId')||''),typedMerchant=String(fd.get('merchant')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedMerchant})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,merchant=s?.name||typedMerchant||'',amount=Number(fd.get('amount')||0),expenseDate=String(fd.get('expenseDate')||'');
+    if(!merchant||!Number.isFinite(amount)||amount<=0||!expenseDate){ctx.toast('Merchant, amount and expense date are required.');return;}
+    if(selectedSupplierId&&(!s||s.organizationId&&s.organizationId!==state.org?.id||(s.status||'Active')!=='Active')){ctx.toast('Choose an active supplier in this workspace.');return;}
+    if(Number(fd.get('discountReceived')||0)!==0||Number(fd.get('plannedPaymentAmount')||0)!==0){ctx.toast('Use Buy on credit / supplier bill for discounts and partial payments.');return;}
     const expenseReference=String(fd.get('reference')||'').trim(),expenseReferenceKey=normRef(expenseReference);
     if(expenseReferenceKey&&(state.businessExpenses||[]).some(x=>normRef(x.reference)===expenseReferenceKey&&sameMoney(x.amount,amount)&&((supplierId&&x.supplierId===supplierId)||normParty(x.merchant)===normParty(merchant)))){ctx.toast('A matching expense with this reference is already recorded.');return;}
     if(window.DalasiMonthClose?.isClosed(state,expenseDate)){ctx.toast('That accounting period is closed. Reopen it before recording this expense.');return;}
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
     state.businessExpenses=state.businessExpenses||[];
-    const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo'),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
+    const id='EXP-'+crypto.randomUUID(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo'),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
     state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:expenseReference,description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.expenseOpen=false;ctx.audit('expense.created',{expenseId:id,expenseNo,merchant,amount,category:String(fd.get('category')||'Other expense')});ctx.save();ctx.toast('Expense saved as draft');ctx.render();
   }
   function updateExpense(id,status,state,ctx){
+    if(ctx._procurementDraft)return updateExpenseDraft(id,status,state,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>updateExpenseDraft(id,status,draft,controlled));
+  }
+  function updateExpenseDraft(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update expenses.');return;}
     const x=expenseById(state,id);if(!x)return;
     const current=x.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved'||current==='Approved'&&status==='Paid';
     if(current==='Paid'){ctx.toast('Paid expenses are locked. Use a reversal or correcting entry instead of changing the original expense.');return;}
+    if(status==='Approved'&&x.createdByUserId&&x.createdByUserId===state.session?.userId){ctx.toast('Another authorized user must approve this record.');return;}
     if(!allowed){ctx.toast('This expense status change is not allowed. Follow Draft → Pending approval → Approved → Paid.');return;}
     if(status==='Paid'&&(!x.accountId||!window.DalasiCashBank?.accountById?.(state,x.accountId))){ctx.toast('Choose a Cash, Bank or Mobile Money account before marking this expense paid.');return;}
     if(window.DalasiMonthClose?.isClosed(state,x.expenseDate||x.createdAt)){ctx.toast('This expense belongs to a closed accounting period. Reopen the period before changing it.');return;}x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
+    if(status==='Pending approval')x.submittedByUserId=state.session?.userId;
+    if(status==='Approved')x.approvedByUserId=state.session?.userId;
     if(status==='Approved'){x.approvedAt=x.approvedAt||x.updatedAt;x.approvedBy=x.approvedBy||x.updatedBy}
     if(status==='Paid'){x.paidAt=x.paidAt||x.updatedAt;x.paidBy=x.paidBy||x.updatedBy;if(x.accountId)window.DalasiCashBank?.post(state,{accountId:x.accountId,date:(x.paidAt||x.expenseDate||new Date().toISOString()).slice(0,10),direction:'out',amount:x.amount,type:'Business expense',counterparty:x.merchant,reference:x.reference||x.expenseNo||'',description:x.description||x.category,sourceType:'expense',sourceId:x.id,sourceKey:'expense:'+x.id+':out',createdBy:state.session?.name||'User'});}
     ctx.audit('expense.status_updated',{expenseId:id,status,amount:x.amount,merchant:x.merchant});ctx.save();ctx.toast((x.expenseNo||x.id)+': '+status);ctx.render();
@@ -262,13 +301,22 @@
     ctx.audit('expense.reversed',{expenseId:x.id,requestId:x.reversalRequestId,expenseNo:x.expenseNo||null,amount:x.amount,merchant:x.merchant,reason,reversalCashTransactionId:x.reversalCashTransactionId});ctx.save();return true;
   }
   function createPurchase(ev,state,ctx){
+    ev.preventDefault();
+    if(ctx._procurementDraft)return createPurchaseDraft(ev,state,ctx);
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>createPurchaseDraft(ev,draft,controlled));
+  }
+  function createPurchaseDraft(ev,state,ctx){
     if(ev.target.querySelector('[data-quick-supplier-panel]:not([hidden])')){ev.preventDefault();window.DalasiMasterForms.feedback(ev.target,'Save or cancel the new supplier before saving this form.');return;}
     ev.preventDefault();
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to create purchase orders.');return;}
     const fd=new FormData(ev.target),selectedSupplierId=String(fd.get('supplierId')||''),typedSupplier=String(fd.get('supplierName')||'').trim(),s=window.DalasiBusinessPayments?.resolveBeneficiaryForTransaction?.(state,{beneficiaryId:selectedSupplierId,name:typedSupplier})||supplierById(state,selectedSupplierId),supplierId=s?.id||selectedSupplierId,supplierName=s?.name||typedSupplier||'',requestDate=String(fd.get('requestDate')||''),lines=window.DalasiCatalog.readLines(ev.target),totals=window.DalasiCatalog.lineTotals(lines),description=String(fd.get('description')||'').trim()||lines.map(x=>x.description).slice(0,2).join(', ');
-    if(!requestDate||!lines.length||totals.total<=0){ctx.toast('Request date and at least one priced purchase line are required.');return;}
+    if(!requestDate||!lines.length||!Number.isFinite(totals.total)||totals.total<=0){ctx.toast('Request date and at least one priced purchase line are required.');return;}
+    if(window.DalasiMonthClose?.isClosed(state,requestDate)){ctx.toast('That accounting period is closed.');return;}
+    if(selectedSupplierId&&(!s||s.organizationId&&s.organizationId!==state.org?.id||(s.status||'Active')!=='Active')){ctx.toast('Choose an active supplier in this workspace.');return;}
+    const reference=String(fd.get('reference')||'').trim();
+    if(reference&&(state.purchaseOrders||[]).some(p=>normRef(p.reference)===normRef(reference)&&((supplierId&&p.supplierId===supplierId)||normParty(p.supplierName)===normParty(supplierName)))){ctx.toast('A purchase order with this supplier reference already exists.');return;}
     state.purchaseOrders=state.purchaseOrders||[];
-    const id='PO-'+Date.now().toString(36).toUpperCase(),poNumber=nextNumber('PO',state.purchaseOrders,'poNumber');
+    const id='PO-'+crypto.randomUUID(),poNumber=nextNumber('PO',state.purchaseOrders,'poNumber');
     state.purchaseOrders.unshift({...((window.DalasiDimensions?.tag?.(fd))||{}),id,poNumber,supplierId:supplierId||null,supplierName,lineItems:lines,subtotal:totals.subtotal,discountTotal:totals.discount,amount:totals.total,category:String(fd.get('category')||'Other purchase'),postingAccount:String(fd.get('postingAccount')||'Operating Expenses'),taxCode:String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),taxPricingMode:String(fd.get('taxPricingMode')||'inclusive'),requestDate,requiredDate:String(fd.get('requiredDate')||''),requestedBy:String(fd.get('requestedBy')||'').trim(),reference:String(fd.get('reference')||'').trim(),description,notes:String(fd.get('notes')||'').trim(),status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
     state.purchaseOpen=false;state.purchasePrefillLines=[];ctx.audit('purchase.created',{purchaseId:id,poNumber,supplierId:supplierId||null,supplierName,amount:totals.total,lineCount:lines.length});ctx.save();ctx.toast(poNumber+' saved as draft');ctx.render();
   }
@@ -280,7 +328,7 @@
       if(item?.type!=='Product')return;
       const g=groups.get(item.id)||{item,qty:0,totalCost:0};
       const qty=Math.max(0,Number(line.quantity)||0),rawLine=Math.max(0,qty*(Number(line.unitPrice)||0));
-      const tax=window.DalasiTax?.snapshot?.(state,rawLine,x.taxCode||'OUT','purchase',x.taxPricingMode||'inclusive')||{taxNet:rawLine,vatRecoverable:false};
+      const tax=window.DalasiTax?.snapshot?.(state,rawLine,line.taxCode||x.taxCode||'OUT','purchase',x.taxPricingMode||'inclusive')||{taxNet:rawLine,vatRecoverable:false};
       const accountingCost=tax.vatRecoverable?Number(tax.taxNet)||0:rawLine;
       g.qty+=qty;g.totalCost+=accountingCost;groups.set(item.id,g);
     });
@@ -299,14 +347,21 @@
     ctx.audit('inventory.purchase_received',{purchaseId:x.id,poNumber:x.poNumber,productCount:groups.size});
   }
   function updatePurchase(id,status,state,ctx){
+    if(ctx._procurementDraft)return updatePurchaseDraft(id,status,state,ctx);
+    return window.DalasiMasterForms.actionTransaction(state,ctx,(draft,controlled)=>updatePurchaseDraft(id,status,draft,controlled));
+  }
+  function updatePurchaseDraft(id,status,state,ctx){
     if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required to update purchase orders.');return;}
     const x=purchaseById(state,id);if(!x)return;
     const current=x.status||'Draft',allowed=current==='Draft'&&status==='Pending approval'||current==='Pending approval'&&status==='Approved'||current==='Approved'&&status==='Ordered'||current==='Ordered'&&status==='Received'||current==='Received'&&status==='Closed';
     if(['Closed','Cancelled'].includes(current)){ctx.toast('Closed purchase orders are locked. Create a new purchase order or adjustment instead.');return;}
+    if(status==='Approved'&&x.createdByUserId&&x.createdByUserId===state.session?.userId){ctx.toast('Another authorized user must approve this record.');return;}
     if(!allowed){ctx.toast('This purchase order status change is not allowed. Follow the normal approval and receiving sequence.');return;}
     if(status==='Received'&&window.DalasiMonthClose?.isClosed(state,new Date().toISOString().slice(0,10))){ctx.toast('The current accounting period is closed. Reopen it before receiving inventory.');return;}
     if(status==='Received'&&!x.inventoryReceivedAt)receivePurchaseInventory(x,state,ctx);
     x.status=status;x.updatedAt=new Date().toISOString();x.updatedBy=state.session?.name||'User';
+    if(status==='Pending approval')x.submittedByUserId=state.session?.userId;
+    if(status==='Approved')x.approvedByUserId=state.session?.userId;
     if(status==='Approved'){x.approvedAt=x.approvedAt||x.updatedAt;x.approvedBy=x.approvedBy||x.updatedBy}
     if(status==='Ordered')x.orderedAt=x.orderedAt||x.updatedAt;
     if(status==='Received')x.receivedAt=x.receivedAt||x.updatedAt;
@@ -355,22 +410,29 @@
   }
   function purchaseBillModal(state,h){
     const x=purchaseById(state,state.purchaseBillId);if(!x)return '';const s=supplierById(state,x.supplierId),field=h.field,icon=h.icon;
-    return '<div class="center-modal payment-modal purchase-bill-modal"><div class="modal-scrim" data-action="close-purchase-bill"></div><form id="purchase-bill-form" class="modal-box"><div class="modal-head"><div><div class="eyebrow">PO TO SUPPLIER BILL</div><h2>Record supplier invoice</h2><p>'+esc(x.poNumber||x.id)+' · '+esc(s?.name||x.supplierName||'Supplier')+' · '+h.money2(x.amount)+'</p></div><button type="button" class="close" data-action="close-purchase-bill">×</button></div><input type="hidden" name="purchaseId" value="'+esc(x.id)+'"><div class="form-grid">'+field('Supplier invoice number','<input name="invoiceNo" required placeholder="e.g. INV-1042">')+field('Invoice date','<input name="invoiceDate" type="date" value="'+todayIso()+'" required>')+field('Due date','<input name="dueDate" type="date" required>')+field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state,x.taxCode||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT')||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+field('VAT pricing',window.DalasiTax?.pricingOptions?.(x.taxPricingMode||'inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,x.postingAccount||'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+'</div>'+field('Description','<input name="description" value="'+esc(x.description||'Purchase order '+(x.poNumber||''))+'">')+'<div class="modal-note">This creates one supplier bill linked to the purchase order. DalasiPay prevents a second bill from being created from the same PO.</div><div class="modal-actions"><button type="button" class="secondary" data-action="close-purchase-bill">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Create supplier bill</button></div></form></div>';
+    return '<div class="center-modal payment-modal purchase-bill-modal"><div class="modal-scrim" data-action="close-purchase-bill"></div><form id="purchase-bill-form" class="modal-box"><div class="modal-head"><div><div class="eyebrow">PO TO SUPPLIER BILL</div><h2>Record supplier invoice</h2><p>'+esc(x.poNumber||x.id)+' · '+esc(s?.name||x.supplierName||'Supplier')+' · '+h.money2(x.amount)+'</p></div><button type="button" class="close" data-action="close-purchase-bill">×</button></div><input type="hidden" name="purchaseId" value="'+esc(x.id)+'"><div class="form-grid">'+field('Supplier invoice number','<input name="invoiceNo" required placeholder="e.g. INV-1042">')+field('Invoice date','<input name="invoiceDate" type="date" value="'+todayIso()+'" required>')+field('Due date','<input name="dueDate" type="date" required>')+window.DalasiBusinessPayments.settlementFields(h)+field('VAT treatment',window.DalasiTax?.purchaseOptions?.(state,x.taxCode||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT')||'<select name="taxCode"><option value="OUT">Out of scope / no VAT</option></select>')+field('VAT pricing',window.DalasiTax?.pricingOptions?.(x.taxPricingMode||'inclusive')||'<select name="taxPricingMode"><option value="inclusive">VAT inclusive</option><option value="exclusive">VAT exclusive</option></select>')+field('Expense / asset account','<select name="postingAccount" required>'+(window.DalasiAccounting?.purchasePostingOptions?.(state,x.postingAccount||'Operating Expenses')||'<option value="Operating Expenses">6000 · Operating Expenses</option>')+'</select>')+'</div>'+field('Description','<input name="description" value="'+esc(x.description||'Purchase order '+(x.poNumber||''))+'">')+'<div class="modal-note">This creates one supplier bill linked to the purchase order. DalasiPay prevents a second bill from being created from the same PO.</div><div class="modal-actions"><button type="button" class="secondary" data-action="close-purchase-bill">Cancel</button><button class="primary" type="submit">'+icon('plus',14)+' Create supplier bill</button></div></form></div>';
   }
   function createBillFromPurchase(ev,state,ctx){
-    ev.preventDefault();if(!(ctx.can('workspace.manage')||ctx.can('payroll.manage'))){ctx.toast('Owner or Payroll Admin access is required.');return}
-    const fd=new FormData(ev.target),x=purchaseById(state,String(fd.get('purchaseId')||''));if(!x)return;if(x.linkedBillId||(state.businessBills||[]).some(b=>b.purchaseOrderId===x.id)){ctx.toast('A supplier bill is already linked to this purchase order.');return}
-    if(x.status!=='Received'&&x.status!=='Closed'){ctx.toast('Receive the purchase order before creating the supplier bill.');return}
-    const invoiceNo=String(fd.get('invoiceNo')||'').trim(),invoiceDate=String(fd.get('invoiceDate')||''),dueDate=String(fd.get('dueDate')||'');if(!invoiceNo||!invoiceDate||!dueDate){ctx.toast('Invoice number, invoice date and due date are required.');return}
-    if(window.DalasiMonthClose?.isClosed(state,invoiceDate)){ctx.toast('That accounting period is closed.');return}
-    const s=supplierById(state,x.supplierId),supplierName=s?.name||x.supplierName||'Supplier';
-    if((state.businessBills||[]).some(b=>normRef(b.invoiceNo)===normRef(invoiceNo)&&((x.supplierId&&b.beneficiaryId===x.supplierId)||normParty(b.supplier)===normParty(supplierName)))){ctx.toast('That supplier invoice is already recorded.');return}
-    const taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,x.amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:x.amount,taxNet:x.amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false},id='BILL-'+Date.now().toString(36).toUpperCase();
-    state.businessBills=state.businessBills||[];state.businessBills.unshift({id,purchaseOrderId:x.id,beneficiaryId:x.supplierId||null,supplier:supplierName,invoiceNo,subtotal:Number(x.subtotal)||((Number(x.amount)||0)+(Number(x.discountTotal)||0)),discountTotal:Number(x.discountTotal)||0,amount:Number(tax.taxGross)||Number(x.amount)||0,...tax,postingAccount:String(fd.get('postingAccount')||x.postingAccount||'Operating Expenses'),project:x.project||'',costCentre:x.costCentre||'',invoiceDate,dueDate,category:x.category||'Other expense',description:String(fd.get('description')||'').trim(),attachmentName:'',attachmentData:'',status:'Draft',paymentId:null,createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
-    x.linkedBillId=id;x.linkedInvoiceNo=invoiceNo;x.updatedAt=new Date().toISOString();state.purchaseBillId=null;ctx.audit('purchase.converted_to_bill',{purchaseId:x.id,poNumber:x.poNumber,billId:id,invoiceNo,amount:x.amount});ctx.save();ctx.toast('Supplier bill '+invoiceNo+' created from '+(x.poNumber||x.id));ctx.render();
+    ev.preventDefault();
+    if(ctx._procurementDraft)return createBillFromPurchaseDraft(ev,state,ctx);
+    return window.DalasiMasterForms.transaction(ev.target,state,ctx,(draft,controlled)=>createBillFromPurchaseDraft(ev,draft,controlled));
+  }
+  async function createBillFromPurchaseDraft(ev,state,ctx){
+    ev.preventDefault();
+    const fd=new FormData(ev.target),po=purchaseById(state,String(fd.get('purchaseId')||''));
+    if(!po||!['Received','Closed'].includes(po.status)){ctx.toast('Receive the purchase order before creating the supplier bill.');return;}
+    if(po.linkedBillId||(state.businessBills||[]).some(b=>b.purchaseOrderId===po.id)){ctx.toast('A supplier bill is already linked to this purchase order.');return;}
+    if(!supplierById(state,po.supplierId)){ctx.toast('Select an active saved supplier before creating a bill.');return;}
+    fd.set('beneficiaryId',po.supplierId);fd.set('supplier',po.supplierName||'');fd.set('amount',po.subtotal??Number(po.amount)+Number(po.discountTotal||0));fd.set('discountReceived',po.discountTotal||0);fd.set('category',po.category||'Other expense');fd.set('project',po.project||'');fd.set('costCentre',po.costCentre||'');
+    const count=(state.businessBills||[]).length;
+    await window.DalasiBusinessPayments.createBill(ev,state,{...ctx,billData:fd,billLines:po.lineItems});
+    if((state.businessBills||[]).length===count)return;
+    const bill=state.businessBills[0];bill.purchaseOrderId=po.id;bill.lineItems=JSON.parse(JSON.stringify(po.lineItems||[]));
+    po.linkedBillId=bill.id;po.linkedInvoiceNo=bill.invoiceNo;po.updatedAt=new Date().toISOString();state.purchaseBillId=null;
+    ctx.audit('purchase.converted_to_bill',{purchaseId:po.id,billId:bill.id,invoiceNo:bill.invoiceNo});
   }
   function expenseRows(state){return state.businessExpenses||[]}
   function purchaseRows(state){return state.purchaseOrders||[]}
 
-  window.DalasiExpensesPurchases={bindQuickSupplier,render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,reverseExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
+  window.DalasiExpensesPurchases={purchaseTaxSummary,bindQuickSupplier,render,tabs,expenseModal,purchaseModal,createExpense,updateExpense,reverseExpense,createPurchase,receivePurchaseInventory,updatePurchase,expenseMetrics,purchaseMetrics,expenseRows,purchaseRows,expenseById,purchaseById,purchasePdf,purchaseGrn,sendPurchase,purchaseBillModal,purchaseDetailModal,createBillFromPurchase};
 })();

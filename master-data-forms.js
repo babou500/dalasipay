@@ -25,7 +25,43 @@
     active.add(key);
     try{return await work();}catch(error){ctx.toast(errorText(error));return null;}finally{active.delete(key);}
   }
-  const ids=['ledger-account-form','beneficiary-form','manual-journal-form','purchase-form','expense-form'];
+  // Work against an isolated draft. Financial state is published only after the
+  // revisioned workspace write acknowledges all changed collections together.
+  const procurementKeys={businessExpenses:'business-expenses',purchaseOrders:'purchase-orders',businessBills:'business-bills',businessPayments:'business-payments',cashTransactions:'cash-transactions',salesCatalog:'sales-catalog',inventoryMovements:'inventory-movements',reversalRequests:'reversal-requests'};
+  async function transaction(form,state,base,work){
+    const ctx=context(form,state,base);
+    return create(state,'procurement',ctx,async()=>{
+      if(!ctx.isCurrent()||!(ctx.can('workspace.manage')||ctx.can('payroll.manage')))throw Object.assign(Error(),{code:'permission'});
+      if(form.querySelector('[data-quick-supplier-panel]:not([hidden])')){ctx.toast('Save or cancel the new supplier before saving this form.');return null;}
+      const workspaceId=state.org.id,draft={...state},before={},events=[],messages=[];
+      for(const [prop,key] of Object.entries(procurementKeys)){before[key]=JSON.parse(JSON.stringify(state[prop]||[]));draft[prop]=JSON.parse(JSON.stringify(before[key]));}
+      form.dataset.masterBusy='1';form.inert=true;feedback(form,'Saving to this workspace…');
+      try{
+        await work(draft,{...ctx,_procurementDraft:true,audit:(action,metadata)=>events.push({action,metadata}),save:()=>{},render:()=>{},toast:message=>messages.push(message)});
+        if(!events.length){ctx.toast(messages.at(-1)||'No record was saved.');return null;}
+        if(!ctx.isCurrent())throw Object.assign(Error(),{code:'permission'});
+        const changes={};
+        for(const [prop,key] of Object.entries(procurementKeys)){
+          for(const row of draft[prop])if(!before[key].some(old=>old.id===row.id)){row.organizationId=workspaceId;row.createdByUserId=state.session?.userId;}
+          if(JSON.stringify(before[key])!==JSON.stringify(draft[prop]))changes[key]=draft[prop];
+        }
+        const last=events.at(-1);
+        await window.DalasiProduction.commitProcurementData(workspaceId,changes,{action:last.action,metadata:{...last.metadata,events}},before);
+        if(!ctx.isCurrent())return null;
+        for(const prop of Object.keys(procurementKeys))state[prop]=draft[prop];
+        for(const prop of ['expenseOpen','purchaseOpen','billOpen','purchaseBillId','paymentOpen','paymentBillId','paymentBeneficiaryId','purchasePrefillLines','paymentApprovalAction'])if(prop in draft)state[prop]=draft[prop];
+        delete form.dataset.masterBusy;form.inert=false;
+        base.toast(messages.at(-1)||'Saved to this workspace');base.render();return true;
+      }finally{delete form.dataset.masterBusy;form.inert=false;}
+    });
+  }
+  async function actionTransaction(state,base,work){
+    const form=document.createElement('form');form.dataset.workspaceId=state.org?.id||'';
+    const result=await transaction(form,state,{...base,toast:base.toast},work);
+    if(!result){const message=form.querySelector('[data-master-feedback]')?.textContent;if(message)base.toast(message);}
+    return result;
+  }
+  const ids=['ledger-account-form','beneficiary-form','manual-journal-form','purchase-form','expense-form','business-bill-form','purchase-bill-form','business-payment-form','payment-approval-form'];
   function capture(document,state){
     return ids.flatMap(id=>{
       const form=document.getElementById(id);if(!form||form.dataset.workspaceId!==state.org?.id||form.dataset.userId!==(state.session?.userId||''))return [];
@@ -40,5 +76,5 @@
     }
   }
   function saving(document,state){return ids.some(id=>{const form=document.getElementById(id);return form?.dataset.masterBusy&&form.dataset.workspaceId===state.org?.id&&form.dataset.userId===(state.session?.userId||'');});}
-  window.DalasiMasterForms={context,create,feedback,errorText,capture,restore,saving};
+  window.DalasiMasterForms={context,create,transaction,actionTransaction,feedback,errorText,capture,restore,saving};
 })();
