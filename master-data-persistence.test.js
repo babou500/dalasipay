@@ -17,6 +17,17 @@ function fixture(){
   return {production,storage,remote,writes,control};
 }
 
+test('PostgreSQL jsonb key ordering does not create false conflicts; nested value edits still conflict',async()=>{
+ const f=fixture(),prior={id:'bill',organizationId:'workspace',status:'Draft',amount:115,lineItems:[{description:'Fictional service',tax:{code:'STD',rate:15}}]};
+ f.remote.state.data['business-bills']=[prior];
+ const reordered={lineItems:[{tax:{rate:15,code:'STD'},description:'Fictional service'}],amount:115,status:'Draft',organizationId:'workspace',id:'bill'};
+ await f.production.commitProcurementData('workspace',{'business-bills':[{...reordered,status:'Pending approval'}]},{action:'bill.status_updated',metadata:{}},{'business-bills':[reordered]});
+ assert.equal(f.writes.length,1);
+ const changed=structuredClone(f.remote.state.data['business-bills']);changed[0].lineItems[0].tax.rate=5;
+ await assert.rejects(f.production.commitProcurementData('workspace',{'business-bills':changed},{action:'bill.status_updated',metadata:{}},{'business-bills':changed}),error=>error.code==='conflict');
+ assert.equal(f.writes.length,1);
+});
+
 test('procurement batch writes bill and PO link together, rejects stale snapshots and preserves unrelated financial data',async()=>{
  const f=fixture(),before=structuredClone(f.remote.state.data),bill={id:'bill',organizationId:'workspace',status:'Draft',amount:115},po={id:'po',organizationId:'workspace',status:'Received',linkedBillId:'bill'};
  await f.production.commitProcurementData('workspace',{'business-bills':[bill],'purchase-orders':[po]},{action:'purchase.converted_to_bill',metadata:{billId:'bill'}},{'business-bills':[],'purchase-orders':[]});

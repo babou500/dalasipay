@@ -944,6 +944,9 @@ window.DALASIPAY_CONFIG = {
     if(!keys.length||keys.some(key=>!['business-expenses','purchase-orders','business-bills','business-payments','cash-transactions','sales-catalog','inventory-movements','reversal-requests'].includes(key)))throw Error('Unsupported procurement data');
     return commitWorkspaceRecords(orgId,changes,event,before);
   }
+  // PostgreSQL jsonb normalizes object key order. Compare JSON values while
+  // preserving array order so genuine edits still fail the optimistic guard.
+  function workspaceJson(value){return JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);}
   async function commitWorkspaceRecords(orgId,changes,event,before){
     return serializeWorkspace(orgId,async()=>{
       const session=window.DalasiAuth.getSession();
@@ -960,7 +963,7 @@ window.DALASIPAY_CONFIG = {
         if(!Array.isArray(rows)||rows.some(row=>!row.id||row.organizationId&&row.organizationId!==orgId)||new Set(rows.map(row=>row.id)).size!==rows.length)throw Object.assign(Error(),{code:'permission'});
         const old=baseline.data?.[key]||[];
         if(old.some(existing=>!rows.some(row=>row.id===existing.id)))throw Object.assign(Error(),{code:'conflict'});
-        if(before&&JSON.stringify(old)!==JSON.stringify(before[key]||[]))throw Object.assign(Error(),{code:'conflict'});
+        if(before&&workspaceJson(old)!==workspaceJson(before[key]||[]))throw Object.assign(Error(),{code:'conflict'});
       }
       const seenAudit=new Set(),previousAudit=[...(snapshot.data.audit||[]),...(baseline.data?.audit||[])].filter(item=>{if(seenAudit.has(item.id))return false;seenAudit.add(item.id);return true;});
       const audit={id:crypto.randomUUID(),actorUserId:session.userId,actorName:session.name||'User',action:event.action,metadata:event.metadata,createdAt:now()};

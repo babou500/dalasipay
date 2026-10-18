@@ -27,3 +27,29 @@ The unapplied migration `20261016231950_procurement_state_integrity.sql` guards 
 4. Record the acceptance evidence and obtain the existing protected release approval. Only then schedule the reviewed migration and exact verified Worker release through the established protected deployment procedure; retain the prior Worker version and database backup. A failed acceptance means no release. Do not drop audit history or blindly reverse the migration as a rollback.
 
 Authenticated staging for this exact candidate has not been exercised. The production app is deliberately unchanged. Billing activation, subscription restrictions and customer record migration are outside this change.
+
+## Free local verification, 18 October 2026
+
+No dedicated DalasiPay staging project was available among the existing projects. Docker and native PostgreSQL are absent on this computer. No paused/unrelated project was resumed or repurposed; no paid branch, project or resource was created. Following the owner's instruction, all new database writes use fictional local data only. The production Supabase database was not queried or modified in this follow-up.
+
+Added a loopback-only authenticated test server backed by the existing pinned PGlite runtime. It uses random in-memory signing material, fictional users and HttpOnly test-session cookies. It verifies session signatures/expiry and passes the verified local subject into PostgreSQL RLS. This is test infrastructure, not a replacement for Supabase Auth or Cloudflare Access. Browser network access is restricted to that local server.
+
+The browser now exercises the actual expense/credit-bill UI and production persistence adapter against the real migration, RLS and CAS RPC, followed by actual payment module operations: independent maker/checker approvals, partial and final settlement, duplicate cash prevention, balanced journals/AP, retained audit, denied HR/outsider writes, invalid/expired sessions, logout and fresh sign-in/readback. Added historical paid/received record compatibility tests, including unrelated HR saves and rejection of unverifiable legacy approvals.
+
+This exposed a real jsonb integration defect masked by the prior in-memory HTTP fixtures: object key reordering made the client mistake an unchanged record for a conflict. The optimistic snapshot comparison now ignores object key order, including nested objects, while retaining array order, value checks and revision checks. Dedicated regression coverage verifies that genuine nested edits still conflict.
+
+Local commands (PowerShell, with Node on PATH and the existing Playwright runtime configured):
+
+```powershell
+$env:PGLITE_MODULE=(Resolve-Path tests/admin-auth-runtime/node_modules/@electric-sql/pglite/dist/index.js).Path
+node --test master-data-persistence.test.js procurement-persistence.test.js
+node --test tests/admin-bootstrap.postgres.test.mjs tests/licensing-management.postgres.test.mjs tests/procurement-state.postgres.test.mjs
+node --test tests/master-data-forms.browser.cjs tests/procurement-authenticated-local.browser.cjs
+node scripts/cloudflare-release.mjs dry-run
+```
+
+The GitHub browser job installs both locked PostgreSQL dependencies and the pinned Playwright runtime and runs these browser tests without credentials. Full regression checks remain part of the existing safety workflow. The protected deployment workflow is unchanged.
+
+Hosted Supabase authentication, a deployed non-production RPC and authenticated Cloudflare staging acceptance remain unverified. Local signed test sessions do not satisfy those checks. A full local Supabase stack would require a functioning container runtime; alternatively, a dedicated free hosted staging project could be used if available. No paid resource is necessary for the completed tests, and no paid resource has been authorized or created. The original no-merge/no-production-release gate remains in force.
+
+Final local results for this follow-up: **370/370** Node regression/security/release tests, **33/33** PostgreSQL tests, **7/7** browser tests, **4/4** Worker dry runs; no failures or skipped tests. The expected local HR/outsider PostgreSQL rejections in the browser log are negative authorization checks, not application failures. `git diff --check` passed.

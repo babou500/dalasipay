@@ -22,6 +22,8 @@ on:
       - 'master-data-*'
       - 'procurement-*'
       - 'tests/procurement-state.postgres.test.mjs'
+      - 'tests/procurement-database-fixture.mjs'
+      - 'tests/procurement-authenticated-local.browser.cjs'
       - 'general-ledger.js'
       - 'sales-catalog.js'
       - 'reversal-approvals.js'
@@ -102,6 +104,8 @@ on:
       - 'master-data-*'
       - 'procurement-*'
       - 'tests/procurement-state.postgres.test.mjs'
+      - 'tests/procurement-database-fixture.mjs'
+      - 'tests/procurement-authenticated-local.browser.cjs'
       - 'general-ledger.js'
       - 'sales-catalog.js'
       - 'reversal-approvals.js'
@@ -420,7 +424,10 @@ jobs:
           cd /tmp/dalasipay-browser-qa
           npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.56.1
           ./node_modules/.bin/playwright install --with-deps chromium
+      - name: Install isolated PostgreSQL browser runtime
+        run: npm ci --prefix tests/admin-auth-runtime --ignore-scripts --no-audit --no-fund
       - name: Run nonproduction master-data browser regressions
         env:
           PLAYWRIGHT_MODULE: /tmp/dalasipay-browser-qa/node_modules/playwright
-        run: node --test tests/master-data-forms.browser.cjs
+          PGLITE_MODULE: ${{ github.workspace }}/tests/admin-auth-runtime/node_modules/@electric-sql/pglite/dist/index.js
+        run: node --test tests/master-data-forms.browser.cjs tests/procurement-authenticated-local.browser.cjs
