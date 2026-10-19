@@ -35,7 +35,7 @@ test('revision conflict never changes locally saved expense data',async()=>{
   const h=harness({conflict:true});
   await assert.rejects(h.fn('workspace',{id:'new'}),/did not confirm/);
   assert.equal(h.items.has('org-workspace-business-expenses'),false);
-  assert.equal(h.items.get('revision'),'3');
+  assert.equal(h.items.get('revisionworkspace'),'3');
 });
 test('offline and pending workspace changes block expense submission',async()=>{
   for(const options of [{offline:true},{pending:true}]){
