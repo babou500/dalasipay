@@ -13,12 +13,12 @@ function harness({revision=3,conflict=false,offline=false,pending=false}={}){
   const items=new Map([['active','workspace'],['revisionworkspace',String(revision)]]);
   const storage={getItem:k=>items.get(k)||null,setItem:(k,v)=>items.set(k,String(v))};
   const calls=[];
-  const fn=new Function('configured','hydrating','navigator','status','store','ACTIVE_ORG_KEY','REV_PREFIX','window','CONFIG','workspacePrefix','setStatus','now',html.slice(start,end)+';return commitExpenseDraft;')(
+  const fn=new Function('configured','hydrating','navigator','status','store','ACTIVE_ORG_KEY','REV_PREFIX','window','CONFIG','workspacePrefix','setStatus','now','crypto','SESSION_KEY','parse',html.slice(start,end)+';return commitExpenseDraft;')(
     ()=>true,false,{onLine:!offline},()=>({pending}),()=>storage,'active','revision',
     {DalasiBackend:{repository:{
       appState:async()=>structuredClone(remote),
       saveAppState:async payload=>{calls.push(payload);return conflict?{conflict:true}:{revision:revision+1};}
-    }}},{appVersion:'test'},org=>'org-'+org+'-',()=>{},()=>new Date().toISOString()
+    }}},{appVersion:'test'},org=>'org-'+org+'-',()=>{},()=>new Date().toISOString(),require('node:crypto'),'session',JSON.parse
   );
   return {fn,data,remote,items,calls};
 }
@@ -28,6 +28,7 @@ test('acknowledged expense commit preserves unrelated data and saves exactly onc
   assert.equal(h.calls[0].expectedRevision,3);
   assert.deepEqual(h.calls[0].state.data.subscriptions,[{id:'preview'}]);
   assert.equal(h.calls[0].state.data.billing,false);
+  assert.equal(h.calls[0].state.data.audit[0].action,'expense.created');
   assert.equal(JSON.parse(h.items.get('org-workspace-business-expenses')).length,2);
   assert.equal(h.items.get('revisionworkspace'), '4');
 });
