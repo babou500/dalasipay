@@ -10,7 +10,7 @@ assert.match(expense,/state\.businessExpenses=\[record,\.\.\.existing\]/);
 function harness({revision=3,conflict=false,offline=false,pending=false}={}){
   const data={'business-expenses':[{id:'old',amount:10}],subscriptions:[{id:'preview'}],billing:false};
   const remote={revision,state:{schemaVersion:'test',data}};
-  const items=new Map([['active','workspace'],['revision',String(revision)]]);
+  const items=new Map([['active','workspace'],['revisionworkspace',String(revision)]]);
   const storage={getItem:k=>items.get(k)||null,setItem:(k,v)=>items.set(k,String(v))};
   const calls=[];
   const fn=new Function('configured','hydrating','navigator','status','store','ACTIVE_ORG_KEY','REV_PREFIX','window','CONFIG','workspacePrefix','setStatus','now',html.slice(start,end)+';return commitExpenseDraft;')(
@@ -29,7 +29,7 @@ test('acknowledged expense commit preserves unrelated data and saves exactly onc
   assert.deepEqual(h.calls[0].state.data.subscriptions,[{id:'preview'}]);
   assert.equal(h.calls[0].state.data.billing,false);
   assert.equal(JSON.parse(h.items.get('org-workspace-business-expenses')).length,2);
-  assert.equal(h.items.get('revision'), '4');
+  assert.equal(h.items.get('revisionworkspace'), '4');
 });
 test('revision conflict never changes locally saved expense data',async()=>{
   const h=harness({conflict:true});
