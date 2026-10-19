@@ -955,12 +955,17 @@ window.DALASIPAY_CONFIG = {
     if(list.some(x=>x.id===record.id))throw Error('This expense already exists. Refresh before retrying.');
     const storedRevision=Number(store()?.getItem(`${REV_PREFIX}${orgId}`)||0);
     if(storedRevision!==Number(remote.revision))throw Error('This workspace changed elsewhere. Refresh it before trying again. Your expense form is preserved.');
-    const snapshot={...remote.state,data:{...remote.state.data,'business-expenses':[record,...list]}};
+    const previousAudit=remote.state.data.audit||[];
+    if(!Array.isArray(previousAudit))throw Error('Workspace audit history is invalid. No expense was recorded.');
+    const session=parse(store()?.getItem(SESSION_KEY),{})||{};
+    const event={id:crypto.randomUUID(),actorUserId:session.userId||null,actorName:session.name||'User',action:'expense.created',metadata:{expenseId:record.id,expenseNo:record.expenseNo,merchant:record.merchant,amount:record.amount,category:record.category},createdAt:now()};
+    const snapshot={...remote.state,data:{...remote.state.data,'business-expenses':[record,...list],audit:[event,...previousAudit].slice(0,200)}};
     const result=await window.DalasiBackend.repository.saveAppState({organizationId:orgId,schemaVersion:snapshot.schemaVersion||CONFIG.appVersion||'0.17.0',state:snapshot,expectedRevision:Number(remote.revision)});
     if(result?.conflict||!Number.isSafeInteger(Number(result?.revision))||Number(result.revision)<=Number(remote.revision))throw Error('Supabase did not confirm the expense save. Nothing has been recorded.');
     if(store()?.getItem(ACTIVE_ORG_KEY)!==orgId)throw Error('The expense was saved, but your active workspace changed. Reopen the original workspace to view it.');
     store()?.setItem(`${REV_PREFIX}${orgId}`,String(result.revision));
     store()?.setItem(workspacePrefix(orgId)+'business-expenses',JSON.stringify(snapshot.data['business-expenses']));
+    store()?.setItem(workspacePrefix(orgId)+'audit',JSON.stringify(snapshot.data.audit));
     setStatus({state:'synced',pending:false,conflict:false,lastSyncAt:now(),message:'Expense saved to Supabase'});
     return record;
   }
