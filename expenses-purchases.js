@@ -248,7 +248,10 @@
         ctx.toast('Expense saved to Supabase as draft');
         ctx.render();
       }catch(error){
-        ctx.toast(error?.message||'Expense was not saved to Supabase. Please retry.');
+        // A global toast can re-render the page and discard this unfinished form.
+        let feedback=form.querySelector('[data-expense-save-feedback]');
+        if(!feedback){feedback=document.createElement('div');feedback.dataset.expenseSaveFeedback='';feedback.setAttribute('role','alert');feedback.className='payment-modal-note';form.append(feedback);}
+        feedback.textContent=error?.message||'Expense was not saved to Supabase. Please retry.';
       }finally{delete form.dataset.expenseSaving;if(button)button.disabled=false;}
       return;
     }
