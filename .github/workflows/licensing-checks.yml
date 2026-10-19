@@ -50,6 +50,7 @@ on:
       - 'read-only-viewer-backdrops.test.js'
       - 'ui-handler-integrity.test.js'
       - 'customer-receipt-confirmation.test.js'
+      - 'expense-save-acknowledged.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -123,6 +124,7 @@ on:
       - 'read-only-viewer-backdrops.test.js'
       - 'ui-handler-integrity.test.js'
       - 'customer-receipt-confirmation.test.js'
+      - 'expense-save-acknowledged.test.js'
       - 'expenses-purchases.js'
       - 'opening-balance-migration*'
       - 'opening-link-audit*'
@@ -183,6 +185,7 @@ jobs:
           node --check accounting-calendar.test.js
           node --check accounting-journals.js
           node --check expenses-purchases.js
+          node --check expense-save-acknowledged.test.js
           node --check business-payments.js
           node --check account-supplier-quick-create.test.js
           node --check fiscal-reporting-preview.js
@@ -293,6 +296,7 @@ jobs:
             customer-receipt-confirmation.test.js \
             accounting-calendar.test.js \
             account-supplier-quick-create.test.js \
+            expense-save-acknowledged.test.js \
             fiscal-reporting-preview.test.js \
             year-close-fiscal-safety.test.js \
             year-close-scope-audit.test.js \
