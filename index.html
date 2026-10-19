@@ -939,6 +939,36 @@ window.DALASIPAY_CONFIG = {
       s?.setItem(`${REV_PREFIX}${orgId}`,String(result.revision||expected+1));setStatus({state:'synced',pending:false,conflict:false,lastSyncAt:now(),message:'All production changes saved'});return {ok:true,revision:result.revision};
     }catch(e){setStatus({state:'error',pending:true,message:e?.message||'Sync failed'});return {ok:false,reason:e?.message||'sync-failed'};}
   }
+  // Save a single draft expense by compare-and-swap without posting financial entries.
+  // Do not announce success or modify local records until Supabase acknowledges.
+  async function commitExpenseDraft(orgId,record){
+    if(!configured()||hydrating||!orgId)throw Error('Cloud saving is unavailable. Sign in and try again.');
+    if(typeof navigator!=='undefined'&&!navigator.onLine)throw Error('You are offline. Your expense has not been saved.');
+    if(status().pending||status().state==='syncing')throw Error('Another workspace save is pending. Wait for it to finish before saving this expense.');
+    const activeOrg=store()?.getItem(ACTIVE_ORG_KEY);
+    if(activeOrg!==orgId)throw Error('Workspace changed. Return to the correct workspace and retry.');
+    const remote=await window.DalasiBackend.repository.appState(orgId);
+    if(!remote?.state?.data||!Number.isSafeInteger(Number(remote.revision)))throw Error('Could not verify the latest workspace revision. The expense was not saved.');
+    const records=remote.state.data['business-expenses'];
+    if(records!==undefined&&!Array.isArray(records))throw Error('Unexpected expense data. Nothing has been changed.');
+    const list=records||[];
+    if(list.some(x=>x.id===record.id))throw Error('This expense already exists. Refresh before retrying.');
+    const storedRevision=Number(store()?.getItem(`${REV_PREFIX}${orgId}`)||0);
+    if(storedRevision!==Number(remote.revision))throw Error('This workspace changed elsewhere. Refresh it before trying again. Your expense form is preserved.');
+    const previousAudit=remote.state.data.audit||[];
+    if(!Array.isArray(previousAudit))throw Error('Workspace audit history is invalid. No expense was recorded.');
+    const session=parse(store()?.getItem(SESSION_KEY),{})||{};
+    const event={id:crypto.randomUUID(),actorUserId:session.userId||null,actorName:session.name||'User',action:'expense.created',metadata:{expenseId:record.id,expenseNo:record.expenseNo,merchant:record.merchant,amount:record.amount,category:record.category},createdAt:now()};
+    const snapshot={...remote.state,data:{...remote.state.data,'business-expenses':[record,...list],audit:[event,...previousAudit].slice(0,200)}};
+    const result=await window.DalasiBackend.repository.saveAppState({organizationId:orgId,schemaVersion:snapshot.schemaVersion||CONFIG.appVersion||'0.17.0',state:snapshot,expectedRevision:Number(remote.revision)});
+    if(result?.conflict||!Number.isSafeInteger(Number(result?.revision))||Number(result.revision)<=Number(remote.revision))throw Error('Supabase did not confirm the expense save. Nothing has been recorded.');
+    if(store()?.getItem(ACTIVE_ORG_KEY)!==orgId)throw Error('The expense was saved, but your active workspace changed. Reopen the original workspace to view it.');
+    store()?.setItem(`${REV_PREFIX}${orgId}`,String(result.revision));
+    store()?.setItem(workspacePrefix(orgId)+'business-expenses',JSON.stringify(snapshot.data['business-expenses']));
+    store()?.setItem(workspacePrefix(orgId)+'audit',JSON.stringify(snapshot.data.audit));
+    setStatus({state:'synced',pending:false,conflict:false,lastSyncAt:now(),message:'Expense saved to Supabase'});
+    return record;
+  }
   function queueSync(orgId){
     if(!configured()||hydrating||!orgId)return;setStatus({state:'queued',pending:true,message:'Changes waiting to sync'});clearTimeout(timer);timer=setTimeout(()=>syncNow(orgId),900);
   }
@@ -954,7 +984,7 @@ window.DALASIPAY_CONFIG = {
   async function inviteMember(payload){if(!configured())throw new Error('Production backend is not configured.');const body={...payload};if(body.role==='employee'&&body.employeeId){let employees=localEmployees(body.organizationId),emp=employees.find(e=>e.id===body.employeeId||e._dbId===body.employeeId);if(!emp?._dbId){await projectEmployees(body.organizationId);employees=localEmployees(body.organizationId);emp=employees.find(e=>e.id===body.employeeId||e._dbId===body.employeeId)}if(!emp?._dbId)throw new Error('Sync this employee before sending an employee self-service invitation.');body.employeeId=emp._dbId}return window.DalasiBackend.functions.inviteMember(body);}
   async function signOut(){try{if(configured())await window.DalasiBackend.auth.signOut();}finally{clearProductionCache();setStatus({state:'signed-out',pending:false,conflict:false,message:'Signed out'});}}
   if(typeof window.addEventListener==='function')window.addEventListener('online',()=>{const orgId=store()?.getItem(ACTIVE_ORG_KEY);if(status().pending&&orgId)syncNow(orgId)});
-  window.DalasiProduction={configured,status,setStatus,collectWorkspace,applyWorkspace,bootstrap,hydrateOrganization,syncNow,queueSync,pull,projectEmployees,projectPayrollRuns,createOrganization,updateOrganization,inviteMember,signOut};
+  window.DalasiProduction={configured,status,setStatus,collectWorkspace,applyWorkspace,bootstrap,hydrateOrganization,syncNow,commitExpenseDraft,queueSync,pull,projectEmployees,projectPayrollRuns,createOrganization,updateOrganization,inviteMember,signOut};
 })();
 
 </script><!-- auth.js -->

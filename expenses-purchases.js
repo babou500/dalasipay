@@ -234,9 +234,28 @@
     if(expenseReferenceKey&&(state.businessExpenses||[]).some(x=>normRef(x.reference)===expenseReferenceKey&&sameMoney(x.amount,amount)&&((supplierId&&x.supplierId===supplierId)||normParty(x.merchant)===normParty(merchant)))){ctx.toast('A matching expense with this reference is already recorded.');return;}
     if(window.DalasiMonthClose?.isClosed(state,expenseDate)){ctx.toast('That accounting period is closed. Reopen it before recording this expense.');return;}
     let receipt={name:'',data:''};try{receipt=await readAttachment(fd.get('receipt'));}catch(err){ctx.toast(err?.message||'Unable to attach receipt');return;}
-    state.businessExpenses=state.businessExpenses||[];
-    const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',state.businessExpenses,'expenseNo'),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
-    state.businessExpenses.unshift({id,expenseNo,supplierId:supplierId||null,merchant,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:expenseReference,description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()});
+    const existing=state.businessExpenses||[];
+    const id='EXP-'+Date.now().toString(36).toUpperCase(),expenseNo=nextNumber('EXP',existing,'expenseNo'),taxPricingMode=String(fd.get('taxPricingMode')||'inclusive'),tax=window.DalasiTax?.snapshot?.(state,amount,String(fd.get('taxCode')||window.DalasiTax?.defaultPurchaseCode?.(state)||'OUT'),'purchase',taxPricingMode)||{taxCode:'OUT',vatRate:0,taxGross:amount,taxNet:amount,vatAmount:0,vatRecoverable:false,taxableTurnover:false};
+    const record={id,expenseNo,supplierId:supplierId||null,merchant,amount:Number(tax.taxGross)||amount,...tax,...(window.DalasiDimensions?.tag?.(fd)||{}),expenseDate,category:String(fd.get('category')||'Other expense'),method:String(fd.get('method')||'Other'),accountId:String(fd.get('accountId')||'')||null,reference:expenseReference,description:String(fd.get('description')||'').trim(),receiptName:receipt.name,receiptData:receipt.data,status:'Draft',createdAt:new Date().toISOString(),createdBy:state.session?.name||'User',updatedAt:new Date().toISOString()};
+    if(window.DalasiProduction?.configured?.()){
+      const form=ev.target,button=form.querySelector('[type="submit"]');
+      if(form.dataset.expenseSaving==='1')return;
+      form.dataset.expenseSaving='1';if(button)button.disabled=true;
+      try{
+        await window.DalasiProduction.commitExpenseDraft(state.org?.id,record);
+        state.businessExpenses=[record,...existing];
+        state.expenseOpen=false;
+        ctx.toast('Expense saved to Supabase as draft');
+        ctx.render();
+      }catch(error){
+        // A global toast can re-render the page and discard this unfinished form.
+        let feedback=form.querySelector('[data-expense-save-feedback]');
+        if(!feedback){feedback=document.createElement('div');feedback.dataset.expenseSaveFeedback='';feedback.setAttribute('role','alert');feedback.className='payment-modal-note';form.append(feedback);}
+        feedback.textContent=error?.message||'Expense was not saved to Supabase. Please retry.';
+      }finally{delete form.dataset.expenseSaving;if(button)button.disabled=false;}
+      return;
+    }
+    state.businessExpenses=[record,...existing];
     state.expenseOpen=false;ctx.audit('expense.created',{expenseId:id,expenseNo,merchant,amount,category:String(fd.get('category')||'Other expense')});ctx.save();ctx.toast('Expense saved as draft');ctx.render();
   }
   function updateExpense(id,status,state,ctx){
