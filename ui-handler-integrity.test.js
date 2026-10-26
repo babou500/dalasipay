@@ -24,7 +24,7 @@ test('nested record actions display usable forms above the parent drawer',()=>{
     assert.ok(code.includes('data-action="'+closeAction+'"'),closeAction+' close missing');
     assert.ok(code.includes('id="'+formId+'"'),formId+' form missing');
     assert.ok(html.includes('getElementById(\''+formId+'\')'),formId+' submit hookup missing');
-    assert.match(html,new RegExp('src="\\./'+moduleName.replace('.','\\.')+'\\?v='+(moduleName==='business-payments.js'?'20261015-receipt-confirm':'20261015-dialog-stack')+'"'));
+    assert.match(html,new RegExp('src="\\./'+moduleName.replace('.','\\.')+'\\?v='+(moduleName==='business-payments.js'?'20261015-receipt-confirm':moduleName==='expenses-purchases.js'?'20261026-expense-ack':'20261015-dialog-stack')+'"'));
   }
   assert.match(html,/ui-refinement\.css\?v=20261015-receipt-confirm/);
   for(const action of ['payment-approve:','payment-return:','payment-reject:','purchase-to-bill:']){

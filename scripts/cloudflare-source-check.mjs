@@ -11,7 +11,7 @@ export async function verifyPublicSources({
   if(!Number.isInteger(maxAttempts)||maxAttempts<1||maxAttempts>12||retryDelayMs<0)
     throw Error('Invalid source-verification retry configuration');
   const hash=value=>createHash('sha256').update(value.replace(/\r\n/g,'\n')).digest('hex');
-  for(const path of ['index.html','registration-feedback.js','subscription-customer.js']){
+  for(const path of ['index.html','registration-feedback.js','subscription-customer.js','expenses-purchases.js']){
     const url=new URL(path==='index.html'?'./':path,baseUrl);
     url.searchParams.set('release',revision||'source-check');
     const approvedHash=hash(readSource(path));
